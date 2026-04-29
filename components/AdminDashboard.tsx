@@ -205,7 +205,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Auswertung je Umfrage</h2>
-        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch bestätigte Wählungen des Songs. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
+        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
         <div className="round-summary-list">
           {rounds.map((round) => {
             const summary = summaryByRoundId.get(round.id);
