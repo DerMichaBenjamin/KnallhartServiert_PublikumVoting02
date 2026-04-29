@@ -8,6 +8,16 @@ import {
   verificationWindow,
 } from '@/lib/emailVerification';
 
+type RankingEntryInput = {
+  songId?: unknown;
+  points?: unknown;
+};
+
+type NormalizedRankingEntry = {
+  songId: string;
+  points: number;
+};
+
 function dbMessage(error: unknown) {
   if (!error) return 'Unbekannter Serverfehler.';
   if (error instanceof Error) return error.message;
@@ -37,7 +47,7 @@ export async function POST(req: Request) {
     const jurorEmail = clean(body.jurorEmail).toLowerCase();
     const jurorInstagram = clean(body.jurorInstagram) || null;
     const zonkSongId = clean(body.zonkSongId) || null;
-    const ranking = Array.isArray(body.ranking) ? body.ranking : [];
+    const ranking: RankingEntryInput[] = Array.isArray(body.ranking) ? (body.ranking as RankingEntryInput[]) : [];
 
     if (!roundId) throw new Error('Umfrage-ID fehlt. Bitte Seite neu laden.');
     if (!jurorName) throw new Error('Bitte gib deinen Namen ein.');
@@ -64,12 +74,12 @@ export async function POST(req: Request) {
       throw new Error(`Bitte belege genau ${round.places_count || 12} Plätze.`);
     }
 
-    const normalizedRanking = ranking.map((entry: any) => ({
-      songId: clean(entry?.songId),
-      points: Number(entry?.points),
+    const normalizedRanking: NormalizedRankingEntry[] = ranking.map((entry) => ({
+      songId: clean(entry.songId),
+      points: Number(entry.points),
     }));
 
-    if (normalizedRanking.some((entry) => !entry.songId || !Number.isFinite(entry.points))) {
+    if (normalizedRanking.some((entry: NormalizedRankingEntry) => !entry.songId || !Number.isFinite(entry.points))) {
       throw new Error('Die Song-Auswahl ist unvollständig. Bitte lade die Seite neu und stimme erneut ab.');
     }
 
@@ -97,7 +107,7 @@ export async function POST(req: Request) {
     createdVoteId = vote.id;
 
     const { error: itemsError } = await sb.from('release_voting_vote_items').insert(
-      normalizedRanking.map((entry) => ({
+      normalizedRanking.map((entry: NormalizedRankingEntry) => ({
         vote_id: vote.id,
         song_id: entry.songId,
         points: entry.points,
