@@ -178,9 +178,11 @@ export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]
     row.count += 1;
   }
 
+  const validVotesCount = validVoteIds.size;
+
   const rows = [...rowsBySongId.values()].map((row) => ({
     ...row,
-    avg: row.count ? row.total / row.count : 0,
+    avg: validVotesCount ? row.total / validVotesCount : 0,
   }));
 
   rows.sort((a, b) => b.total - a.total || b.avg - a.avg || b.count - a.count || a.song.title.localeCompare(b.song.title));
