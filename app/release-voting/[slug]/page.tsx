@@ -76,11 +76,11 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
               </tbody>
             </table>
             <div className="zonk-results">
-              <h3>Z-O-N-K – Song der Woche</h3>
+              <h3>ZONK – Song der Woche</h3>
               {zonk.length ? (
                 <ol>{zonk.map((entry) => <li key={entry.song.id}>{entry.song.title} — {entry.song.artist}: {entry.count}</li>)}</ol>
               ) : (
-                <p>Noch keine Z-O-N-K-Stimmen vorhanden.</p>
+                <p>Noch keine ZONK-Stimmen vorhanden.</p>
               )}
             </div>
             <Link className="btn" href="/release-voting">Zur aktuellen Abstimmung</Link>

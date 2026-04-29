@@ -25,4 +25,4 @@ Wichtig: In `public/` muss dein Logo als `khs-logo.png` liegen.
 - Impressum im Backend editierbar
 - Spotify Playlist-ID pro Umfrage editierbar
 - Songs nachträglich ergänzen
-- Z-O-N-K getrennt ausgewertet
+- ZONK getrennt ausgewertet

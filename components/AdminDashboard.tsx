@@ -198,9 +198,9 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
           </div>
         </div>
         <div className="admin-card">
-          <h2>Z-O-N-K-Auswertung</h2>
+          <h2>ZONK-Auswertung</h2>
           <ol className="zonk-admin-list">{zonk.filter((entry) => entry.count > 0).map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol>
-          {!zonk.some((entry) => entry.count > 0) && <p>Noch keine Z-O-N-K-Stimmen vorhanden.</p>}
+          {!zonk.some((entry) => entry.count > 0) && <p>Noch keine ZONK-Stimmen vorhanden.</p>}
         </div>
       </section>
     </main>
