@@ -20,6 +20,22 @@ function todayLocalDateTime(offsetDays = 0) {
   return date.toISOString().slice(0, 16);
 }
 
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+}
+
+function dateTimeLocalToIso(value: FormDataEntryValue | string | null) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 export default function AdminDashboard({ rounds, currentRound, songs, votes, items, impressum }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,8 +101,8 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
               slug: form.get('slug'),
               description: form.get('description'),
               status: form.get('status'),
-              startsAt: form.get('startsAt'),
-              endsAt: form.get('endsAt'),
+              startsAt: dateTimeLocalToIso(form.get('startsAt')),
+              endsAt: dateTimeLocalToIso(form.get('endsAt')),
               placesCount: Number(form.get('placesCount') || 12),
               songsText: form.get('songsText'),
               spotifyPlaylistId: form.get('spotifyPlaylistId'),
@@ -128,14 +144,30 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Alle Umfragen</h2>
+        <p className="admin-help-text">Start, Ende, Status, Playlist und Ergebnisfreigabe können nachträglich geändert werden. Nach Änderung speichert das Feld automatisch.</p>
         <div className="admin-table-wrap">
           <table>
-            <thead><tr><th>Titel</th><th>Status</th><th>Playlist</th><th>Öffentlich</th><th>Aktionen</th></tr></thead>
+            <thead><tr><th>Titel</th><th>Status</th><th>Zeitraum</th><th>Playlist</th><th>Öffentlich</th><th>Aktionen</th></tr></thead>
             <tbody>
               {rounds.map((round) => (
                 <tr key={round.id}>
                   <td><b>{round.title}</b><br /><small>{round.slug}</small></td>
-                  <td><span className="status-badge">{round.status}{round.is_current ? ' · aktuell' : ''}</span></td>
+                  <td>
+                    <select
+                      className="compact-select"
+                      defaultValue={round.status}
+                      onChange={(event) => post('/api/admin/round', { id: round.id, status: event.target.value, onlyUpdate: true })}
+                    >
+                      <option value="draft">Entwurf</option>
+                      <option value="live">Live</option>
+                      <option value="ended">Beendet</option>
+                    </select>
+                    {round.is_current && <small className="current-hint">aktuell</small>}
+                  </td>
+                  <td className="round-time-cell">
+                    <label><small>Start</small><input type="datetime-local" defaultValue={toDateTimeLocal(round.starts_at)} onBlur={(event) => post('/api/admin/round', { id: round.id, startsAt: dateTimeLocalToIso(event.target.value), onlyUpdate: true })} /></label>
+                    <label><small>Ende</small><input type="datetime-local" defaultValue={toDateTimeLocal(round.ends_at)} onBlur={(event) => post('/api/admin/round', { id: round.id, endsAt: dateTimeLocalToIso(event.target.value), onlyUpdate: true })} /></label>
+                  </td>
                   <td><input defaultValue={round.spotify_playlist_id || ''} onBlur={(event) => post('/api/admin/round', { id: round.id, spotifyPlaylistId: event.target.value, onlyUpdate: true })} /></td>
                   <td><input type="checkbox" defaultChecked={round.is_public_results} onChange={(event) => post('/api/admin/round', { id: round.id, isPublicResults: event.target.checked, onlyUpdate: true })} /></td>
                   <td className="action-cell"><button type="button" onClick={() => post('/api/admin/round', { id: round.id, setCurrent: true })}>Aktuell setzen</button><a href={`/release-voting/${round.slug}`} target="_blank">Öffnen</a></td>

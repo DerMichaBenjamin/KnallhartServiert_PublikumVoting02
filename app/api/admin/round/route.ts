@@ -11,10 +11,14 @@ function iso(value: unknown) {
   return date.toISOString();
 }
 
+function plusDays(days: number) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 function slugWithDate(title: string, startsAt: unknown) {
   const base = normalizeSlug(title || 'neue-songs-der-woche') || 'voting';
   const rawDate = String(startsAt || '').slice(0, 10);
-  const datePart = rawDate ? rawDate.replaceAll('-', '-') : new Date().toISOString().slice(0, 10);
+  const datePart = rawDate || new Date().toISOString().slice(0, 10);
   const timePart = new Date().toISOString().slice(11, 19).replaceAll(':', '');
   return normalizeSlug(`${base}-${datePart}-${timePart}`);
 }
@@ -22,7 +26,10 @@ function slugWithDate(title: string, startsAt: unknown) {
 function dbMessage(error: unknown) {
   if (!error) return 'Unbekannter Fehler.';
   if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error && 'message' in error) return String((error as any).message);
+  if (typeof error === 'object' && error) {
+    const e = error as Record<string, unknown>;
+    return [e.message, e.details, e.hint, e.code].filter(Boolean).map(String).join(' | ');
+  }
   return String(error);
 }
 
@@ -38,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (body.setCurrent) {
       if (!body.id) throw new Error('Umfrage-ID fehlt.');
       await sb.from('release_voting_rounds').update({ is_current: false }).neq('id', body.id);
-      const { error } = await sb.from('release_voting_rounds').update({ is_current: true, status: 'live' }).eq('id', body.id);
+      const { error } = await sb.from('release_voting_rounds').update({ is_current: true, status: 'live', updated_at: new Date().toISOString() }).eq('id', body.id);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }
@@ -46,9 +53,15 @@ export async function POST(req: NextRequest) {
     if (body.onlyUpdate) {
       if (!body.id) throw new Error('Umfrage-ID fehlt.');
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
       if ('spotifyPlaylistId' in body) patch.spotify_playlist_id = spotifyIdFromInput(body.spotifyPlaylistId);
       if ('isPublicResults' in body) patch.is_public_results = Boolean(body.isPublicResults);
-      if ('status' in body) patch.status = body.status;
+      if ('status' in body) patch.status = String(body.status || 'draft');
+      if ('startsAt' in body) patch.starts_at = iso(body.startsAt);
+      if ('endsAt' in body) patch.ends_at = iso(body.endsAt);
+      if ('placesCount' in body) patch.places_count = Number(body.placesCount || 12);
+      if ('title' in body) patch.title = String(body.title || '').trim() || 'Neue Songs der Woche';
+      if ('description' in body) patch.description = String(body.description || '').trim();
 
       const { error } = await sb.from('release_voting_rounds').update(patch).eq('id', body.id);
       if (error) throw error;
@@ -57,7 +70,9 @@ export async function POST(req: NextRequest) {
 
     const title = String(body.title || '').trim() || 'Neue Songs der Woche';
     const requestedSlug = String(body.slug || '').trim();
-    const slug = requestedSlug ? normalizeSlug(requestedSlug) : slugWithDate(title, body.startsAt);
+    const startsAt = iso(body.startsAt) || new Date().toISOString();
+    const endsAt = iso(body.endsAt) || plusDays(7);
+    const slug = requestedSlug ? normalizeSlug(requestedSlug) : slugWithDate(title, startsAt);
     const status = String(body.status || 'draft');
 
     const { data: existing } = await sb.from('release_voting_rounds').select('id').eq('slug', slug).maybeSingle();
@@ -70,8 +85,8 @@ export async function POST(req: NextRequest) {
         slug: finalSlug,
         description: String(body.description || '').trim(),
         status,
-        starts_at: iso(body.startsAt),
-        ends_at: iso(body.endsAt),
+        starts_at: startsAt,
+        ends_at: endsAt,
         places_count: Number(body.placesCount || 12),
         is_current: false,
         is_public_results: Boolean(body.isPublicResults),
@@ -81,10 +96,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+    if (!round?.id) throw new Error('Umfrage wurde nicht korrekt angelegt. Keine Round-ID erhalten.');
 
     if (status === 'live') {
       await sb.from('release_voting_rounds').update({ is_current: false }).neq('id', round.id);
-      const { error: currentError } = await sb.from('release_voting_rounds').update({ is_current: true }).eq('id', round.id);
+      const { error: currentError } = await sb.from('release_voting_rounds').update({ is_current: true, updated_at: new Date().toISOString() }).eq('id', round.id);
       if (currentError) throw currentError;
     }
 

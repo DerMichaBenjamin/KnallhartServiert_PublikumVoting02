@@ -29,7 +29,13 @@ export function spotifyIdFromInput(input?: string | null) {
 
 export async function getCurrentRound() {
   const sb = getSupabaseAdminClient(); if (!sb) return null;
-  const { data } = await sb.from('release_voting_rounds').select('*').eq('is_current', true).maybeSingle();
+  const { data } = await sb
+    .from('release_voting_rounds')
+    .select('*')
+    .eq('is_current', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
   return data as Round | null;
 }
 export async function getRoundBySlug(slug: string) {
