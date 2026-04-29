@@ -83,6 +83,21 @@ export async function POST(req: Request) {
       throw new Error('Die Song-Auswahl ist unvollständig. Bitte lade die Seite neu und stimme erneut ab.');
     }
 
+    const expectedPlaces = Number(round.places_count || 12);
+    const songIds = normalizedRanking.map((entry: NormalizedRankingEntry) => entry.songId);
+    const points = normalizedRanking.map((entry: NormalizedRankingEntry) => entry.points);
+    const uniqueSongIds = new Set(songIds);
+    const uniquePoints = new Set(points);
+    const expectedPointSet = new Set(Array.from({ length: expectedPlaces }, (_, index) => expectedPlaces - index));
+
+    if (uniqueSongIds.size !== normalizedRanking.length) {
+      throw new Error('Ein Song wurde mehrfach ausgewählt. Bitte lade die Seite neu und stimme erneut ab.');
+    }
+
+    if (uniquePoints.size !== normalizedRanking.length || points.some((point: number) => !expectedPointSet.has(point))) {
+      throw new Error('Die Punktevergabe ist ungültig. Bitte lade die Seite neu und stimme erneut ab.');
+    }
+
     const token = createVerificationToken();
     const win = verificationWindow();
 
