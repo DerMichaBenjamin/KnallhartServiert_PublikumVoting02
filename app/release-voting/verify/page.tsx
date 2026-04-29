@@ -1,0 +1,3 @@
+import Link from 'next/link';import Header from '@/components/Header';import { verifyVoteToken } from '@/lib/emailVerification';
+export const dynamic='force-dynamic';
+export default async function Verify({searchParams}:{searchParams:Promise<{token?:string}>}){const p=await searchParams;const token=p.token||'';const res=token?await verifyVoteToken(token):{ok:false,message:'Der Bestätigungslink ist unvollständig.'};return <main className="public-shell"><Header/><section className="card verify"><img src="/khs-logo.png"/><div><p className="pill">Knallhart serviert Publikums-Voting</p><h1>{res.ok?'Voting bestätigt':'Bestätigung fehlgeschlagen'}</h1><p>{res.message}</p><Link className="btn primary" href="/release-voting">Zur Voting-Seite</Link></div></section></main>}

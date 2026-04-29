@@ -1,0 +1,2 @@
+import Header from '@/components/Header';
+export default function Kontakt(){return <main className="public-shell"><Header/><section className="card"><h1>Kontakt</h1><p>Schreib uns eine Nachricht. Sie wird an info@michabenjamin.de gesendet.</p><form className="contact-form" action="/api/contact" method="post"><label>Name<input name="name" required/></label><label>E-Mail<input name="email" type="email" required/></label><label>Nachricht<textarea name="message" required rows={7}/></label><button className="submit">Nachricht senden</button></form></section></main>}
