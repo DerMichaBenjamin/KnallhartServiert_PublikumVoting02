@@ -1,30 +1,21 @@
 import Link from 'next/link';
-import BrandLogo from '@/components/BrandLogo';
-import { formatDateTime, getImprintSettings } from '@/lib/releaseVoting';
+import { getImpressum } from '@/lib/impressum';
 
-export const dynamic = 'force-dynamic';
-
-export default async function ImprintPage() {
-  const { data: imprint } = await getImprintSettings();
-
+export default async function ImpressumPage() {
+  const impressum = await getImpressum();
   return (
-    <main className="public-shell imprint-shell">
-      <section className="table-card elevated-card imprint-card">
-        <div className="imprint-head">
-          <BrandLogo compact />
-          <div>
-            <div className="pill">Rechtliches</div>
-            <h1 className="hero-title imprint-title">Impressum</h1>
-            {imprint.updated_at && (
-              <p className="section-subtitle">Zuletzt aktualisiert: {formatDateTime(imprint.updated_at)}</p>
-            )}
-          </div>
+    <main className="min-h-screen px-4 py-8">
+      <section className="mx-auto max-w-3xl admin-card p-5 md:p-8 space-y-6">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Link href="/" className="btn btn-secondary">← Zurück</Link>
+          <Link href="/admin/impressum" className="text-sm font-bold text-[#06285f] underline underline-offset-4">Impressum bearbeiten</Link>
         </div>
-
-        <div className="imprint-content">{imprint.content}</div>
-
-        <div className="imprint-actions">
-          <Link href="/release-voting" className="button secondary small">Zur Abstimmung</Link>
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black text-[#06285f]">{impressum.title || 'Impressum'}</h1>
+          {impressum.updated_at && <p className="mt-2 text-sm opacity-60">Zuletzt aktualisiert: {new Date(impressum.updated_at).toLocaleString('de-DE')}</p>}
+        </div>
+        <div className="prose-content whitespace-pre-wrap leading-relaxed text-[15px] md:text-base">
+          {impressum.content}
         </div>
       </section>
     </main>
