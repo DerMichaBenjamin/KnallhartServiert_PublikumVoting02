@@ -4,8 +4,6 @@ import { useMemo, useState } from 'react';
 import type { AdminRoundSummary, Round, Song, Vote, VoteItem } from '@/lib/releaseVoting';
 import { buildLeaderboard, buildZonk, combineSongLine } from '@/lib/releaseVoting';
 
-const TOP_RESULT_LIMIT = 12;
-
 type Props = {
   rounds: Round[];
   currentRound: Round | null;
@@ -205,11 +203,11 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Auswertung je Umfrage</h2>
-        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
+        <p className="admin-help-text">Hier werden alle Songs der jeweiligen Umfrage angezeigt — auch Songs mit 0 Punkten. Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
         <div className="round-summary-list">
           {rounds.map((round) => {
             const summary = summaryByRoundId.get(round.id);
-            const topRows = (summary?.leaderboard || []).filter((row) => row.total > 0).slice(0, TOP_RESULT_LIMIT);
+            const resultRows = summary?.leaderboard || [];
             const zonkRows = (summary?.zonk || []).filter((entry) => entry.count > 0);
 
             return (
@@ -228,7 +226,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                   <table>
                     <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
                     <tbody>
-                      {topRows.map((row, index) => (
+                      {resultRows.map((row, index) => (
                         <tr key={row.song.id}>
                           <td>{index + 1}</td>
                           <td>{combineSongLine(row.song)}</td>
@@ -237,7 +235,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                           <td>{row.count}</td>
                         </tr>
                       ))}
-                      {!topRows.length && <tr><td colSpan={5}>Noch keine bestätigten Stimmen vorhanden.</td></tr>}
+                      {!resultRows.length && <tr><td colSpan={5}>Keine Songs in dieser Umfrage vorhanden.</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -263,7 +261,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
       <section className="admin-grid two bottom">
         <div className="admin-card">
           <h2>Ergebnisse der aktuellen Runde</h2>
-          <p className="admin-help-text">Aktuelle Runde: {verifiedVotes.length} gültige Stimmen, {pendingVotes} noch unbestätigt.</p>
+          <p className="admin-help-text">Aktuelle Runde: {verifiedVotes.length} gültige Stimmen, {pendingVotes} noch unbestätigt. Angezeigt werden alle Songs, auch mit 0 Punkten.</p>
           <div className="admin-table-wrap compact">
             <table>
               <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
