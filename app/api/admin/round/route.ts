@@ -78,6 +78,17 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await sb.from('release_voting_rounds').select('id').eq('slug', slug).maybeSingle();
     const finalSlug = existing ? `${slug}-${Date.now().toString().slice(-5)}` : slug;
 
+    const shouldBeCurrent = status === 'live';
+
+    if (shouldBeCurrent) {
+      const { error: clearCurrentError } = await sb
+        .from('release_voting_rounds')
+        .update({ is_current: false, updated_at: new Date().toISOString() })
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (clearCurrentError) throw clearCurrentError;
+    }
+
     const { data: round, error } = await sb
       .from('release_voting_rounds')
       .insert({
@@ -88,7 +99,7 @@ export async function POST(req: NextRequest) {
         starts_at: startsAt,
         ends_at: endsAt,
         places_count: Number(body.placesCount || 12),
-        is_current: false,
+        is_current: shouldBeCurrent,
         is_public_results: Boolean(body.isPublicResults),
         spotify_playlist_id: spotifyIdFromInput(body.spotifyPlaylistId),
       })
@@ -97,12 +108,6 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
     if (!round?.id) throw new Error('Umfrage wurde nicht korrekt angelegt. Keine Round-ID erhalten.');
-
-    if (status === 'live') {
-      await sb.from('release_voting_rounds').update({ is_current: false }).neq('id', round.id);
-      const { error: currentError } = await sb.from('release_voting_rounds').update({ is_current: true, updated_at: new Date().toISOString() }).eq('id', round.id);
-      if (currentError) throw currentError;
-    }
 
     const songs = parseSongList(String(body.songsText || ''));
     if (songs.length) {
