@@ -33,6 +33,15 @@ function dbMessage(error: unknown) {
   return String(error);
 }
 
+async function clearCurrentRound(sb: NonNullable<ReturnType<typeof getSupabaseAdminClient>>) {
+  const { error } = await sb
+    .from('release_voting_rounds')
+    .update({ is_current: false, updated_at: new Date().toISOString() })
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+
+  if (error) throw error;
+}
+
 export async function POST(req: NextRequest) {
   const auth = ensureAdminRequest(req);
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: 401 });
@@ -44,8 +53,17 @@ export async function POST(req: NextRequest) {
 
     if (body.setCurrent) {
       if (!body.id) throw new Error('Umfrage-ID fehlt.');
-      await sb.from('release_voting_rounds').update({ is_current: false }).neq('id', body.id);
-      const { error } = await sb.from('release_voting_rounds').update({ is_current: true, status: 'live', updated_at: new Date().toISOString() }).eq('id', body.id);
+
+      // Nur diese Umfrage als öffentliche Haupt-Abstimmung markieren.
+      // Status/Zeitraum bleiben unverändert, damit parallele private/DJ-Abstimmungen
+      // nicht versehentlich die öffentliche Hauptseite übernehmen.
+      await clearCurrentRound(sb);
+
+      const { error } = await sb
+        .from('release_voting_rounds')
+        .update({ is_current: true, updated_at: new Date().toISOString() })
+        .eq('id', body.id);
+
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }
@@ -74,19 +92,13 @@ export async function POST(req: NextRequest) {
     const endsAt = iso(body.endsAt) || plusDays(7);
     const slug = requestedSlug ? normalizeSlug(requestedSlug) : slugWithDate(title, startsAt);
     const status = String(body.status || 'draft');
+    const makeCurrent = Boolean(body.makeCurrent);
 
     const { data: existing } = await sb.from('release_voting_rounds').select('id').eq('slug', slug).maybeSingle();
     const finalSlug = existing ? `${slug}-${Date.now().toString().slice(-5)}` : slug;
 
-    const shouldBeCurrent = status === 'live';
-
-    if (shouldBeCurrent) {
-      const { error: clearCurrentError } = await sb
-        .from('release_voting_rounds')
-        .update({ is_current: false, updated_at: new Date().toISOString() })
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      if (clearCurrentError) throw clearCurrentError;
+    if (makeCurrent) {
+      await clearCurrentRound(sb);
     }
 
     const { data: round, error } = await sb
@@ -99,7 +111,7 @@ export async function POST(req: NextRequest) {
         starts_at: startsAt,
         ends_at: endsAt,
         places_count: Number(body.placesCount || 12),
-        is_current: shouldBeCurrent,
+        is_current: makeCurrent,
         is_public_results: Boolean(body.isPublicResults),
         spotify_playlist_id: spotifyIdFromInput(body.spotifyPlaylistId),
       })
