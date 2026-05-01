@@ -70,6 +70,30 @@ export async function POST(req: NextRequest) {
 
     if (body.onlyUpdate) {
       if (!body.id) throw new Error('Umfrage-ID fehlt.');
+
+      if ('isCurrent' in body) {
+        const nextIsCurrent = Boolean(body.isCurrent);
+
+        if (nextIsCurrent) {
+          await clearCurrentRound(sb);
+          const { error } = await sb
+            .from('release_voting_rounds')
+            .update({ is_current: true, updated_at: new Date().toISOString() })
+            .eq('id', body.id);
+
+          if (error) throw error;
+          return NextResponse.json({ ok: true });
+        }
+
+        const { error } = await sb
+          .from('release_voting_rounds')
+          .update({ is_current: false, updated_at: new Date().toISOString() })
+          .eq('id', body.id);
+
+        if (error) throw error;
+        return NextResponse.json({ ok: true });
+      }
+
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
       if ('spotifyPlaylistId' in body) patch.spotify_playlist_id = spotifyIdFromInput(body.spotifyPlaylistId);
