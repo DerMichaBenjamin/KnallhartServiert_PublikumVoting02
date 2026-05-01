@@ -104,14 +104,49 @@ export function spotifyIdFromInput(input?: string | null) {
 export async function getCurrentRound() {
   const sb = getSupabaseAdminClient();
   if (!sb) return null;
-  const { data } = await sb
+
+  const nowIso = new Date().toISOString();
+
+  // 1) Best case: die explizit als aktuell markierte Runde ist live und im Zeitraum.
+  const { data: markedCurrent } = await sb
+    .from('release_voting_rounds')
+    .select('*')
+    .eq('is_current', true)
+    .eq('status', 'live')
+    .lte('starts_at', nowIso)
+    .gte('ends_at', nowIso)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (markedCurrent) return markedCurrent as Round;
+
+  // 2) Falls die Markierung falsch ist: nimm automatisch die neueste aktive Live-Runde.
+  // Das verhindert, dass /release-voting weiter auf eine alte beendete Runde springt.
+  const { data: activeLiveRound } = await sb
+    .from('release_voting_rounds')
+    .select('*')
+    .eq('status', 'live')
+    .lte('starts_at', nowIso)
+    .gte('ends_at', nowIso)
+    .order('starts_at', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (activeLiveRound) return activeLiveRound as Round;
+
+  // 3) Fallback: Wenn gerade nichts aktiv ist, zeige die markierte Runde.
+  const { data: fallbackCurrent } = await sb
     .from('release_voting_rounds')
     .select('*')
     .eq('is_current', true)
     .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  return data as Round | null;
+
+  return fallbackCurrent as Round | null;
 }
 
 export async function getRoundBySlug(slug: string) {
