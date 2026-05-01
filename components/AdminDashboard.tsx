@@ -158,10 +158,10 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Alle Umfragen</h2>
-        <p className="admin-help-text">Start, Ende, Status, Playlist und Ergebnisfreigabe können nachträglich geändert werden. Mit „Hauptseite setzen“ bestimmst du, welche Umfrage unter /release-voting angezeigt wird. Andere Live-Umfragen bleiben über ihren direkten Link erreichbar.</p>
+        <p className="admin-help-text">Start, Ende, Status, Playlist, Ergebnisfreigabe und Hauptseiten-Anzeige können nachträglich geändert werden. In der Spalte „Hauptseite“ bestimmst du, welche Umfrage unter /release-voting angezeigt wird. Andere Live-Umfragen bleiben über ihren direkten Link erreichbar.</p>
         <div className="admin-table-wrap">
           <table>
-            <thead><tr><th>Titel</th><th>Status</th><th>Zeitraum</th><th>Teilnehmer</th><th>Top Song</th><th>Playlist</th><th>Öffentlich</th><th>Aktionen</th></tr></thead>
+            <thead><tr><th>Titel</th><th>Status</th><th>Hauptseite</th><th>Zeitraum</th><th>Teilnehmer</th><th>Top Song</th><th>Playlist</th><th>Ergebnisse</th><th>Aktionen</th></tr></thead>
             <tbody>
               {rounds.map((round) => {
                 const summary = summaryByRoundId.get(round.id);
@@ -180,7 +180,16 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                         <option value="live">Live</option>
                         <option value="ended">Beendet</option>
                       </select>
-                      {round.is_current && <small className="current-hint">aktuell</small>}
+                    </td>
+                    <td>
+                      <label className="check-row compact-check">
+                        <input
+                          type="checkbox"
+                          checked={round.is_current}
+                          onChange={(event) => post('/api/admin/round', { id: round.id, isCurrent: event.target.checked, onlyUpdate: true })}
+                        />
+                        {round.is_current ? 'Ja' : 'Nein'}
+                      </label>
                     </td>
                     <td className="round-time-cell">
                       <label><small>Start</small><input type="datetime-local" defaultValue={toDateTimeLocal(round.starts_at)} onBlur={(event) => post('/api/admin/round', { id: round.id, startsAt: dateTimeLocalToIso(event.target.value), onlyUpdate: true })} /></label>
@@ -196,9 +205,6 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                     <td><input defaultValue={round.spotify_playlist_id || ''} onBlur={(event) => post('/api/admin/round', { id: round.id, spotifyPlaylistId: event.target.value, onlyUpdate: true })} /></td>
                     <td><input type="checkbox" defaultChecked={round.is_public_results} onChange={(event) => post('/api/admin/round', { id: round.id, isPublicResults: event.target.checked, onlyUpdate: true })} /></td>
                     <td className="action-cell">
-                      <button type="button" onClick={() => post('/api/admin/round', { id: round.id, setCurrent: true })}>
-                        {round.is_current ? 'Ist Hauptseite' : 'Hauptseite setzen'}
-                      </button>
                       <a href={'/release-voting/' + round.slug} target="_blank">Direktlink öffnen</a>
                       <button
                         type="button"
