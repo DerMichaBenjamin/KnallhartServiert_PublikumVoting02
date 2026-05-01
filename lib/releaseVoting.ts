@@ -105,24 +105,24 @@ export async function getCurrentRound() {
   const sb = getSupabaseAdminClient();
   if (!sb) return null;
 
-  const nowIso = new Date().toISOString();
-
-  // 1) Best case: die explizit als aktuell markierte Runde ist live und im Zeitraum.
-  const { data: markedCurrent } = await sb
+  // Wichtig: /release-voting soll die Umfrage anzeigen, die im Backend explizit
+  // als aktuelle öffentliche Haupt-Abstimmung markiert wurde.
+  // Private/DJ-Abstimmungen können parallel live sein, werden aber nur über ihren
+  // direkten Slug-Link geöffnet und nicht automatisch auf /release-voting angezeigt.
+  const { data: selectedCurrent } = await sb
     .from('release_voting_rounds')
     .select('*')
     .eq('is_current', true)
-    .eq('status', 'live')
-    .lte('starts_at', nowIso)
-    .gte('ends_at', nowIso)
     .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (markedCurrent) return markedCurrent as Round;
+  if (selectedCurrent) return selectedCurrent as Round;
 
-  // 2) Falls die Markierung falsch ist: nimm automatisch die neueste aktive Live-Runde.
-  // Das verhindert, dass /release-voting weiter auf eine alte beendete Runde springt.
+  // Fallback, falls noch gar keine Umfrage explizit als aktuell gesetzt wurde:
+  // nimm die neueste Live-Umfrage im aktiven Zeitraum.
+  const nowIso = new Date().toISOString();
   const { data: activeLiveRound } = await sb
     .from('release_voting_rounds')
     .select('*')
@@ -134,19 +134,7 @@ export async function getCurrentRound() {
     .limit(1)
     .maybeSingle();
 
-  if (activeLiveRound) return activeLiveRound as Round;
-
-  // 3) Fallback: Wenn gerade nichts aktiv ist, zeige die markierte Runde.
-  const { data: fallbackCurrent } = await sb
-    .from('release_voting_rounds')
-    .select('*')
-    .eq('is_current', true)
-    .order('updated_at', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return fallbackCurrent as Round | null;
+  return activeLiveRound as Round | null;
 }
 
 export async function getRoundBySlug(slug: string) {
