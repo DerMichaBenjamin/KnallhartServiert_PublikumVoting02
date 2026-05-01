@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         from: `Knallhart serviert Kontakt <${from}>`,
-        to: ['info@michabenjamin.de'],
+        to: ['info@knallhart-serviert.de'],
         reply_to: email,
         subject: 'Kontaktformular Knallhart serviert Voting',
         text: `Name: ${name}\nE-Mail: ${email}\n\n${message}`,
