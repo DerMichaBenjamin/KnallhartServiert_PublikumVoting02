@@ -105,11 +105,12 @@ export async function getCurrentRound() {
   const sb = getSupabaseAdminClient();
   if (!sb) return null;
 
-  // Wichtig: /release-voting soll die Umfrage anzeigen, die im Backend explizit
-  // als aktuelle öffentliche Haupt-Abstimmung markiert wurde.
-  // Private/DJ-Abstimmungen können parallel live sein, werden aber nur über ihren
-  // direkten Slug-Link geöffnet und nicht automatisch auf /release-voting angezeigt.
-  const { data: selectedCurrent } = await sb
+  // Strikte Hauptseiten-Logik:
+  // /release-voting darf NUR auf die Umfrage weiterleiten, die im Backend
+  // explizit als Hauptseite markiert ist (is_current = true).
+  // Keine automatische Fallback-Auswahl auf die neueste Live-Umfrage,
+  // damit private DJ-Abstimmungen niemals versehentlich öffentlich werden.
+  const { data } = await sb
     .from('release_voting_rounds')
     .select('*')
     .eq('is_current', true)
@@ -118,23 +119,7 @@ export async function getCurrentRound() {
     .limit(1)
     .maybeSingle();
 
-  if (selectedCurrent) return selectedCurrent as Round;
-
-  // Fallback, falls noch gar keine Umfrage explizit als aktuell gesetzt wurde:
-  // nimm die neueste Live-Umfrage im aktiven Zeitraum.
-  const nowIso = new Date().toISOString();
-  const { data: activeLiveRound } = await sb
-    .from('release_voting_rounds')
-    .select('*')
-    .eq('status', 'live')
-    .lte('starts_at', nowIso)
-    .gte('ends_at', nowIso)
-    .order('starts_at', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return activeLiveRound as Round | null;
+  return data as Round | null;
 }
 
 export async function getRoundBySlug(slug: string) {
