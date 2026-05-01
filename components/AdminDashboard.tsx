@@ -95,7 +95,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
       {busy && <div className="notice">Speichert…</div>}
 
       <section className="admin-stats-grid">
-        <div className="stat-card"><small>Aktive Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
+        <div className="stat-card"><small>Öffentliche Haupt-Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
         <div className="stat-card"><small>Umfragen</small><b>{rounds.length}</b></div>
         <div className="stat-card"><small>Gültige Stimmen aktuell</small><b>{verifiedVotes.length}</b></div>
         <div className="stat-card"><small>Offen / unbestätigt aktuell</small><b>{pendingVotes}</b></div>
@@ -118,6 +118,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
               songsText: form.get('songsText'),
               spotifyPlaylistId: form.get('spotifyPlaylistId'),
               isPublicResults: form.get('isPublicResults') === 'on',
+              makeCurrent: form.get('makeCurrent') === 'on',
             });
           }}
         >
@@ -134,7 +135,9 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
             <label>Ende<input name="endsAt" type="datetime-local" defaultValue={todayLocalDateTime(7)} /></label>
           </div>
           <label>Spotify-Playlist-ID oder URL<input name="spotifyPlaylistId" defaultValue="5F2g4rTr0KpYgy9YGiE4aI" /></label>
+          <label className="check-row"><input type="checkbox" name="makeCurrent" defaultChecked /> Als öffentliche Haupt-Abstimmung unter /release-voting anzeigen</label>
           <label className="check-row"><input type="checkbox" name="isPublicResults" /> Ergebnis öffentlich anzeigen</label>
+          <p className="admin-help-text">Für eine private DJ-Abstimmung: Status „Live“ lassen, aber „Als öffentliche Haupt-Abstimmung“ deaktivieren. Dann ist sie nur über den direkten Link in der Umfragen-Tabelle erreichbar.</p>
           <label>Songliste<textarea name="songsText" placeholder="Songtitel - Interpret" rows={9} /></label>
           <button className="submit" type="submit">Umfrage anlegen</button>
         </form>
@@ -155,7 +158,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Alle Umfragen</h2>
-        <p className="admin-help-text">Start, Ende, Status, Playlist und Ergebnisfreigabe können nachträglich geändert werden. Die Auswertung zählt ausschließlich per E-Mail bestätigte Stimmen.</p>
+        <p className="admin-help-text">Start, Ende, Status, Playlist und Ergebnisfreigabe können nachträglich geändert werden. Mit „Hauptseite setzen“ bestimmst du, welche Umfrage unter /release-voting angezeigt wird. Andere Live-Umfragen bleiben über ihren direkten Link erreichbar.</p>
         <div className="admin-table-wrap">
           <table>
             <thead><tr><th>Titel</th><th>Status</th><th>Zeitraum</th><th>Teilnehmer</th><th>Top Song</th><th>Playlist</th><th>Öffentlich</th><th>Aktionen</th></tr></thead>
@@ -192,7 +195,22 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                     </td>
                     <td><input defaultValue={round.spotify_playlist_id || ''} onBlur={(event) => post('/api/admin/round', { id: round.id, spotifyPlaylistId: event.target.value, onlyUpdate: true })} /></td>
                     <td><input type="checkbox" defaultChecked={round.is_public_results} onChange={(event) => post('/api/admin/round', { id: round.id, isPublicResults: event.target.checked, onlyUpdate: true })} /></td>
-                    <td className="action-cell"><button type="button" onClick={() => post('/api/admin/round', { id: round.id, setCurrent: true })}>Aktuell setzen</button><a href={`/release-voting/${round.slug}`} target="_blank">Öffnen</a></td>
+                    <td className="action-cell">
+                      <button type="button" onClick={() => post('/api/admin/round', { id: round.id, setCurrent: true })}>
+                        {round.is_current ? 'Ist Hauptseite' : 'Hauptseite setzen'}
+                      </button>
+                      <a href={'/release-voting/' + round.slug} target="_blank">Direktlink öffnen</a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = window.location.origin + '/release-voting/' + round.slug;
+                          void navigator.clipboard?.writeText(url);
+                          setMessage({ type: 'ok', text: 'Direktlink kopiert.' });
+                        }}
+                      >
+                        Link kopieren
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
