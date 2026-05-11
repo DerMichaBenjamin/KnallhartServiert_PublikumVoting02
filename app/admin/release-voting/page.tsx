@@ -5,6 +5,7 @@ import { DEFAULT_IMPRESSUM, getSetting } from '@/lib/settings';
 import {
   buildLeaderboard,
   buildZonk,
+  combineSongLine,
   getAllVotes,
   getCurrentRound,
   getSongs,
@@ -55,12 +56,27 @@ export default async function Admin() {
 
     roundSummaries = rounds.map((round) => {
       const roundSongs = allSongs.filter((song) => song.round_id === round.id);
+      const songById = new Map(roundSongs.map((song) => [song.id, song]));
       const roundVotes = allVotes.filter((vote) => vote.round_id === round.id);
       const verifiedVotes = roundVotes.filter((vote) => vote.is_verified);
       const verifiedVoteIds = new Set(verifiedVotes.map((vote) => vote.id));
       const roundItems = allItems.filter((item) => verifiedVoteIds.has(item.vote_id));
       const leaderboard = buildLeaderboard(roundSongs, verifiedVotes, roundItems);
       const zonk = buildZonk(roundSongs, verifiedVotes);
+      const participants = roundVotes.map((vote) => {
+        const zonkSong = vote.zonk_song_id ? songById.get(vote.zonk_song_id) : null;
+
+        return {
+          voteId: vote.id,
+          name: vote.juror_name || '',
+          email: vote.juror_email || '',
+          instagram: vote.juror_instagram || null,
+          isVerified: Boolean(vote.is_verified),
+          votedAt: vote.created_at,
+          verifiedAt: vote.verified_at,
+          zonkSong: zonkSong ? combineSongLine(zonkSong) : null,
+        };
+      });
 
       return {
         roundId: round.id,
@@ -70,6 +86,7 @@ export default async function Admin() {
         songsCount: roundSongs.length,
         leaderboard,
         zonk,
+        participants,
       };
     });
   }
