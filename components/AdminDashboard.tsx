@@ -281,7 +281,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Auswertung je Umfrage</h2>
-        <p className="admin-help-text">Hier werden alle Songs und Teilnehmer der jeweiligen Umfrage angezeigt. Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt. Namen und E-Mail-Adressen bleiben nur im Backend sichtbar. Öffentlich sichtbar auf /ergebnisse sind nur Umfragen, bei denen oben „Ergebnisse anzeigen“ aktiviert ist.</p>
+        <p className="admin-help-text"><b>Aktive Funktionen:</b> alle Songs, Teilnehmerliste, E-Mail-Kopieren, Doppler-Check und Song-Merge. Hier werden alle Songs und Teilnehmer der jeweiligen Umfrage angezeigt. Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt. Namen und E-Mail-Adressen bleiben nur im Backend sichtbar. Öffentlich sichtbar auf /ergebnisse sind nur Umfragen, bei denen oben „Ergebnisse anzeigen“ aktiviert ist.</p>
         <div className="round-summary-list">
           {rounds.map((round) => {
             const summary = summaryByRoundId.get(round.id);
@@ -302,36 +302,6 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                   <div><small>Unbestätigt</small><b>{summary?.pendingVotes || 0}</b></div>
                   <div><small>Gesamt eingegangen</small><b>{summary?.totalVotes || 0}</b></div>
                   <div><small>Songs</small><b>{summary?.songsCount || 0}</b></div>
-                </div>
-
-                <div className="zonk-summary">
-                  <h3>Teilnehmer dieser Abstimmung</h3>
-                  <p className="admin-help-text">Diese Liste ist nur im Adminbereich sichtbar. „Bestätigt“ zählt als gültige Stimme. „Offen“ wurde abgesendet, aber noch nicht per E-Mail bestätigt.</p>
-                  <div className="action-cell">
-                    <button type="button" disabled={!participants.length} onClick={() => copyParticipantEmails(participants)}>Alle E-Mails kopieren</button>
-                    <button type="button" disabled={!participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails(participants, true)}>Nur bestätigte E-Mails kopieren</button>
-                  </div>
-                  <div className="admin-table-wrap compact">
-                    <table>
-                      <thead>
-                        <tr><th>Status</th><th>Name</th><th>E-Mail</th><th>Instagram</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th></tr>
-                      </thead>
-                      <tbody>
-                        {participants.map((participant) => (
-                          <tr key={participant.voteId}>
-                            <td>{participant.isVerified ? 'Bestätigt' : 'Offen'}</td>
-                            <td>{participant.name || '—'}</td>
-                            <td>{participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}</td>
-                            <td>{participant.instagram || '—'}</td>
-                            <td>{formatAdminDateTime(participant.votedAt)}</td>
-                            <td>{formatAdminDateTime(participant.verifiedAt)}</td>
-                            <td>{participant.zonkSong || '—'}</td>
-                          </tr>
-                        ))}
-                        {!participants.length && <tr><td colSpan={7}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
 
                 <div className="zonk-summary">
@@ -441,6 +411,39 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                   <h3>ZONK-Auswertung</h3>
                   {zonkRows.length ? <ol>{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine bestätigten ZONK-Stimmen vorhanden.</p>}
                 </div>
+
+                <details className="zonk-summary">
+                  <summary>
+                    <span><b>Teilnehmer dieser Abstimmung</b><small>{participants.length} Einträge · nur im Backend sichtbar</small></span>
+                    <em>aufklappen</em>
+                  </summary>
+                  <p className="admin-help-text">„Bestätigt“ zählt als gültige Stimme. „Offen“ wurde abgesendet, aber noch nicht per E-Mail bestätigt.</p>
+                  <div className="action-cell">
+                    <button type="button" disabled={!participants.length} onClick={() => copyParticipantEmails(participants)}>Alle E-Mails kopieren</button>
+                    <button type="button" disabled={!participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails(participants, true)}>Nur bestätigte E-Mails kopieren</button>
+                  </div>
+                  <div className="admin-table-wrap compact" style={{ maxHeight: '420px', overflow: 'auto' }}>
+                    <table>
+                      <thead>
+                        <tr><th>Status</th><th>Name</th><th>E-Mail</th><th>Instagram</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th></tr>
+                      </thead>
+                      <tbody>
+                        {participants.map((participant) => (
+                          <tr key={participant.voteId}>
+                            <td>{participant.isVerified ? 'Bestätigt' : 'Offen'}</td>
+                            <td>{participant.name || '—'}</td>
+                            <td>{participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}</td>
+                            <td>{participant.instagram || '—'}</td>
+                            <td>{formatAdminDateTime(participant.votedAt)}</td>
+                            <td>{formatAdminDateTime(participant.verifiedAt)}</td>
+                            <td>{participant.zonkSong || '—'}</td>
+                          </tr>
+                        ))}
+                        {!participants.length && <tr><td colSpan={7}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
               </details>
             );
           })}
