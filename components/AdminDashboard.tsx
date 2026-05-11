@@ -1,17 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { AdminRoundSummary, Round, Song, Vote, VoteItem } from '@/lib/releaseVoting';
-import { buildLeaderboard, buildZonk, combineSongLine } from '@/lib/releaseVoting';
-
-const TOP_RESULT_LIMIT = 12;
+import type { AdminRoundSummary, Round } from '@/lib/releaseVoting';
 
 type Props = {
   rounds: Round[];
   currentRound: Round | null;
-  songs: Song[];
-  votes: Vote[];
-  items: VoteItem[];
   roundSummaries: AdminRoundSummary[];
   impressum: string;
 };
@@ -19,14 +13,6 @@ type Props = {
 function todayLocalDateTime(offsetDays = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
-}
-
-function toDateTimeLocal(value?: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   return date.toISOString().slice(0, 16);
 }
@@ -39,27 +25,64 @@ function dateTimeLocalToIso(value: FormDataEntryValue | string | null) {
   return date.toISOString();
 }
 
-function resultHelpText(summary?: AdminRoundSummary) {
-  if (!summary) return 'Keine Auswertung vorhanden.';
-  return `${summary.verifiedVotes} gültig bestätigte Stimmen · ${summary.pendingVotes} noch unbestätigt · ${summary.songsCount} Songs`;
+function formatAdminDateTime(value?: string | null) {
+  if (!value) return '—';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('de-DE', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Europe/Berlin',
+  }).format(date);
 }
 
-export default function AdminDashboard({ rounds, currentRound, songs, votes, items, roundSummaries, impressum }: Props) {
+function formatTitleDate(value?: string | null) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(new Date());
+  return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(date);
+}
+
+function defaultRoundTitle() {
+  return `Neue Songs der Woche ${formatTitleDate()}`;
+}
+
+function statusLabel(status: string) {
+  if (status === 'live') return 'Live';
+  if (status === 'ended') return 'Beendet';
+  return 'Entwurf';
+}
+
+export default function AdminDashboard({ rounds, currentRound, roundSummaries, impressum }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const verifiedVotes = useMemo(() => votes.filter((vote) => vote.is_verified), [votes]);
-  const pendingVotes = votes.length - verifiedVotes.length;
-  const leaderboard = currentRound ? buildLeaderboard(songs, verifiedVotes, items) : [];
-  const zonk = currentRound ? buildZonk(songs, verifiedVotes) : [];
   const summaryByRoundId = useMemo(
     () => new Map(roundSummaries.map((summary) => [summary.roundId, summary])),
     [roundSummaries]
   );
 
+  const totalVerified = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.verifiedVotes, 0),
+    [roundSummaries]
+  );
+
+  const totalPending = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.pendingVotes, 0),
+    [roundSummaries]
+  );
+
+  function copyBackendUrl(roundId: string) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    void navigator.clipboard?.writeText(`${origin}/admin/release-voting/${roundId}`);
+    setMessage({ type: 'ok', text: 'Backend-Direktlink kopiert.' });
+  }
+
   async function post(url: string, body: unknown, reload = true) {
     setMessage(null);
     setBusy(true);
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -67,10 +90,12 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
         body: JSON.stringify(body),
       });
       const data = await response.json().catch(() => null);
+
       if (!response.ok || !data?.ok) {
         setMessage({ type: 'error', text: data?.error || 'Ungültige Server-Antwort.' });
         return false;
       }
+
       setMessage({ type: 'ok', text: 'Gespeichert.' });
       if (reload) window.location.reload();
       return true;
@@ -89,7 +114,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
         <div>
           <p>Interner Verwaltungsbereich</p>
           <h1>Release Voting verwalten</h1>
-          <span>Umfragen anlegen, Playlist speichern, Songs ergänzen und Ergebnisse prüfen.</span>
+          <span>Startseite mit kompakter Umfragen-Übersicht. Details und Ergebnisse liegen jetzt auf eigenen Umfrage-Seiten.</span>
         </div>
       </section>
 
@@ -97,10 +122,10 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
       {busy && <div className="notice">Speichert…</div>}
 
       <section className="admin-stats-grid">
-        <div className="stat-card"><small>Aktive Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
+        <div className="stat-card"><small>Öffentliche Haupt-Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
         <div className="stat-card"><small>Umfragen</small><b>{rounds.length}</b></div>
-        <div className="stat-card"><small>Gültige Stimmen aktuell</small><b>{verifiedVotes.length}</b></div>
-        <div className="stat-card"><small>Offen / unbestätigt aktuell</small><b>{pendingVotes}</b></div>
+        <div className="stat-card"><small>Gültige Stimmen gesamt</small><b>{totalVerified}</b></div>
+        <div className="stat-card"><small>Offen / unbestätigt gesamt</small><b>{totalPending}</b></div>
       </section>
 
       <section className="admin-grid two">
@@ -120,11 +145,13 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
               songsText: form.get('songsText'),
               spotifyPlaylistId: form.get('spotifyPlaylistId'),
               isPublicResults: form.get('isPublicResults') === 'on',
+              makeCurrent: form.get('makeCurrent') === 'on',
             });
           }}
         >
           <h2>Neue Umfrage anlegen</h2>
-          <label>Titel<input name="title" defaultValue="Neue Songs der Woche" /></label>
+          <label>Titel<input name="title" defaultValue={defaultRoundTitle()} /></label>
+          <p className="admin-help-text">Der Titel sollte das Datum enthalten, z. B. „Neue Songs der Woche {formatTitleDate()}“. Falls du kein Datum einträgst, ergänzt die API beim Anlegen automatisch das Startdatum.</p>
           <label>Slug / URL-Kürzel <input name="slug" placeholder="leer lassen = automatisch mit Datum" /></label>
           <label>Beschreibung<textarea name="description" defaultValue="Bewerte die stärksten neuen Releases der Woche." /></label>
           <div className="admin-form-row">
@@ -136,8 +163,10 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
             <label>Ende<input name="endsAt" type="datetime-local" defaultValue={todayLocalDateTime(7)} /></label>
           </div>
           <label>Spotify-Playlist-ID oder URL<input name="spotifyPlaylistId" defaultValue="5F2g4rTr0KpYgy9YGiE4aI" /></label>
+          <label className="check-row"><input type="checkbox" name="makeCurrent" defaultChecked /> Als öffentliche Haupt-Abstimmung unter /release-voting anzeigen</label>
           <label className="check-row"><input type="checkbox" name="isPublicResults" /> Ergebnis öffentlich anzeigen</label>
-          <label>Songliste<textarea name="songsText" placeholder="Songtitel - Interpret" rows={9} /></label>
+          <p className="admin-help-text">Für eine private DJ-Abstimmung: Status „Live“ lassen, aber „Als öffentliche Haupt-Abstimmung“ deaktivieren.</p>
+          <label>Songliste<textarea name="songsText" placeholder="Songtitel - Interpret" rows={8} /></label>
           <button className="submit" type="submit">Umfrage anlegen</button>
         </form>
 
@@ -157,124 +186,47 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Alle Umfragen</h2>
-        <p className="admin-help-text">Start, Ende, Status, Playlist und Ergebnisfreigabe können nachträglich geändert werden. Die Auswertung zählt ausschließlich per E-Mail bestätigte Stimmen.</p>
-        <div className="admin-table-wrap">
+        <p className="admin-help-text">Kompakte Übersicht. Einstellungen, Direktlinks, Songs, Doppler-Merge, Teilnehmer und Ergebnisse bearbeitest du über „Details öffnen“.</p>
+        <div className="admin-table-wrap compact">
           <table>
-            <thead><tr><th>Titel</th><th>Status</th><th>Zeitraum</th><th>Teilnehmer</th><th>Top Song</th><th>Playlist</th><th>Öffentlich</th><th>Aktionen</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Titel</th>
+                <th>Status</th>
+                <th>Erstellt</th>
+                <th>Teilnehmer</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
             <tbody>
               {rounds.map((round) => {
                 const summary = summaryByRoundId.get(round.id);
-                const topSong = summary?.leaderboard.find((row) => row.total > 0);
 
                 return (
                   <tr key={round.id}>
-                    <td><b>{round.title}</b><br /><small>{round.slug}</small></td>
                     <td>
-                      <select
-                        className="compact-select"
-                        defaultValue={round.status}
-                        onChange={(event) => post('/api/admin/round', { id: round.id, status: event.target.value, onlyUpdate: true })}
-                      >
-                        <option value="draft">Entwurf</option>
-                        <option value="live">Live</option>
-                        <option value="ended">Beendet</option>
-                      </select>
-                      {round.is_current && <small className="current-hint">aktuell</small>}
+                      <b>{round.title}</b><br />
+                      <small>{round.slug}</small>
                     </td>
-                    <td className="round-time-cell">
-                      <label><small>Start</small><input type="datetime-local" defaultValue={toDateTimeLocal(round.starts_at)} onBlur={(event) => post('/api/admin/round', { id: round.id, startsAt: dateTimeLocalToIso(event.target.value), onlyUpdate: true })} /></label>
-                      <label><small>Ende</small><input type="datetime-local" defaultValue={toDateTimeLocal(round.ends_at)} onBlur={(event) => post('/api/admin/round', { id: round.id, endsAt: dateTimeLocalToIso(event.target.value), onlyUpdate: true })} /></label>
+                    <td>
+                      <b>{statusLabel(round.status)}</b><br />
+                      <small>{round.is_current ? 'Hauptseite' : 'nicht Hauptseite'} · {round.is_public_results ? 'Ergebnis öffentlich' : 'Ergebnis intern'}</small>
                     </td>
+                    <td>{formatAdminDateTime(round.created_at)}</td>
                     <td className="vote-count-cell">
                       <b>{summary?.verifiedVotes || 0}</b> gültig<br />
                       <small>{summary?.pendingVotes || 0} offen · {summary?.totalVotes || 0} gesamt</small>
                     </td>
-                    <td className="top-song-cell">
-                      {topSong ? <><b>{combineSongLine(topSong.song)}</b><br /><small>{topSong.total} Punkte · {topSong.count}× gewählt</small></> : <small>Noch keine bestätigte Stimme</small>}
+                    <td className="action-cell">
+                      <a href={`/admin/release-voting/${round.id}`}>Details öffnen</a>
+                      <button type="button" onClick={() => copyBackendUrl(round.id)}>Backend-Link kopieren</button>
                     </td>
-                    <td><input defaultValue={round.spotify_playlist_id || ''} onBlur={(event) => post('/api/admin/round', { id: round.id, spotifyPlaylistId: event.target.value, onlyUpdate: true })} /></td>
-                    <td><input type="checkbox" defaultChecked={round.is_public_results} onChange={(event) => post('/api/admin/round', { id: round.id, isPublicResults: event.target.checked, onlyUpdate: true })} /></td>
-                    <td className="action-cell"><button type="button" onClick={() => post('/api/admin/round', { id: round.id, setCurrent: true })}>Aktuell setzen</button><a href={`/release-voting/${round.slug}`} target="_blank">Öffnen</a></td>
                   </tr>
                 );
               })}
+              {!rounds.length && <tr><td colSpan={5}>Noch keine Umfragen angelegt.</td></tr>}
             </tbody>
           </table>
-        </div>
-      </section>
-
-      <section className="admin-card">
-        <h2>Auswertung je Umfrage</h2>
-        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch bestätigte Wählungen des Songs. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
-        <div className="round-summary-list">
-          {rounds.map((round) => {
-            const summary = summaryByRoundId.get(round.id);
-            const topRows = (summary?.leaderboard || []).filter((row) => row.total > 0).slice(0, TOP_RESULT_LIMIT);
-            const zonkRows = (summary?.zonk || []).filter((entry) => entry.count > 0);
-
-            return (
-              <details className="round-summary-card" key={round.id} open={round.is_current}>
-                <summary>
-                  <span><b>{round.title}</b><small>{round.slug}</small></span>
-                  <em>{resultHelpText(summary)}</em>
-                </summary>
-                <div className="mini-stat-grid">
-                  <div><small>Gültige Teilnehmer</small><b>{summary?.verifiedVotes || 0}</b></div>
-                  <div><small>Unbestätigt</small><b>{summary?.pendingVotes || 0}</b></div>
-                  <div><small>Gesamt eingegangen</small><b>{summary?.totalVotes || 0}</b></div>
-                  <div><small>Songs</small><b>{summary?.songsCount || 0}</b></div>
-                </div>
-                <div className="admin-table-wrap compact">
-                  <table>
-                    <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
-                    <tbody>
-                      {topRows.map((row, index) => (
-                        <tr key={row.song.id}>
-                          <td>{index + 1}</td>
-                          <td>{combineSongLine(row.song)}</td>
-                          <td>{row.total}</td>
-                          <td>{row.avg.toFixed(2)}</td>
-                          <td>{row.count}</td>
-                        </tr>
-                      ))}
-                      {!topRows.length && <tr><td colSpan={5}>Noch keine bestätigten Stimmen vorhanden.</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="zonk-summary">
-                  <h3>ZONK-Auswertung</h3>
-                  {zonkRows.length ? <ol>{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine bestätigten ZONK-Stimmen vorhanden.</p>}
-                </div>
-              </details>
-            );
-          })}
-        </div>
-      </section>
-
-      {currentRound && (
-        <section className="admin-card admin-form">
-          <h2>Songs zur aktuellen Umfrage ergänzen</h2>
-          <p><b>{currentRound.title}</b></p>
-          <textarea id="newSongs" rows={5} placeholder="Song - Interpret" />
-          <button className="submit" type="button" onClick={() => post('/api/admin/add-songs', { roundId: currentRound.id, songsText: (document.getElementById('newSongs') as HTMLTextAreaElement).value })}>Songs hinzufügen</button>
-        </section>
-      )}
-
-      <section className="admin-grid two bottom">
-        <div className="admin-card">
-          <h2>Ergebnisse der aktuellen Runde</h2>
-          <p className="admin-help-text">Aktuelle Runde: {verifiedVotes.length} gültige Stimmen, {pendingVotes} noch unbestätigt.</p>
-          <div className="admin-table-wrap compact">
-            <table>
-              <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
-              <tbody>{leaderboard.map((row, index) => <tr key={row.song.id}><td>{index + 1}</td><td>{combineSongLine(row.song)}</td><td>{row.total}</td><td>{row.avg.toFixed(2)}</td><td>{row.count}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </div>
-        <div className="admin-card">
-          <h2>ZONK-Auswertung</h2>
-          <ol className="zonk-admin-list">{zonk.filter((entry) => entry.count > 0).map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol>
-          {!zonk.some((entry) => entry.count > 0) && <p>Noch keine bestätigten ZONK-Stimmen vorhanden.</p>}
         </div>
       </section>
     </main>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import { normalizeSlug, parseSongList, spotifyIdFromInput } from '@/lib/releaseVoting';
+import { findSongDuplicateGroups, formatDuplicateSongMessage, normalizeSlug, parseSongList, spotifyIdFromInput, type Song } from '@/lib/releaseVoting';
 
 function iso(value: unknown) {
   const raw = String(value || '').trim();
@@ -23,6 +23,23 @@ function slugWithDate(title: string, startsAt: unknown) {
   return normalizeSlug(`${base}-${datePart}-${timePart}`);
 }
 
+
+function formatDateForTitle(value: string) {
+  const date = new Date(value);
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(safeDate);
+}
+
+function titleAlreadyHasDate(value: string) {
+  return /(\b\d{1,2}\.\d{1,2}\.(?:\d{2}|\d{4})\b)|(\b\d{4}-\d{2}-\d{2}\b)/.test(value);
+}
+
+function titleWithDate(value: string, startsAt: string) {
+  const cleanTitle = String(value || '').trim() || 'Neue Songs der Woche';
+  if (titleAlreadyHasDate(cleanTitle)) return cleanTitle;
+  return `${cleanTitle} ${formatDateForTitle(startsAt)}`;
+}
+
 function dbMessage(error: unknown) {
   if (!error) return 'Unbekannter Fehler.';
   if (error instanceof Error) return error.message;
@@ -31,6 +48,15 @@ function dbMessage(error: unknown) {
     return [e.message, e.details, e.hint, e.code].filter(Boolean).map(String).join(' | ');
   }
   return String(error);
+}
+
+async function clearCurrentRound(sb: NonNullable<ReturnType<typeof getSupabaseAdminClient>>) {
+  const { error } = await sb
+    .from('release_voting_rounds')
+    .update({ is_current: false, updated_at: new Date().toISOString() })
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+
+  if (error) throw error;
 }
 
 export async function POST(req: NextRequest) {
@@ -44,39 +70,99 @@ export async function POST(req: NextRequest) {
 
     if (body.setCurrent) {
       if (!body.id) throw new Error('Umfrage-ID fehlt.');
-      await sb.from('release_voting_rounds').update({ is_current: false }).neq('id', body.id);
-      const { error } = await sb.from('release_voting_rounds').update({ is_current: true, status: 'live', updated_at: new Date().toISOString() }).eq('id', body.id);
+
+      // Nur diese Umfrage als öffentliche Haupt-Abstimmung markieren.
+      // Status/Zeitraum bleiben unverändert, damit parallele private/DJ-Abstimmungen
+      // nicht versehentlich die öffentliche Hauptseite übernehmen.
+      await clearCurrentRound(sb);
+
+      const { error } = await sb
+        .from('release_voting_rounds')
+        .update({ is_current: true, updated_at: new Date().toISOString() })
+        .eq('id', body.id);
+
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }
 
     if (body.onlyUpdate) {
       if (!body.id) throw new Error('Umfrage-ID fehlt.');
+
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+      if ('isCurrent' in body) {
+        const nextIsCurrent = Boolean(body.isCurrent);
+        if (nextIsCurrent) await clearCurrentRound(sb);
+        patch.is_current = nextIsCurrent;
+      }
 
       if ('spotifyPlaylistId' in body) patch.spotify_playlist_id = spotifyIdFromInput(body.spotifyPlaylistId);
       if ('isPublicResults' in body) patch.is_public_results = Boolean(body.isPublicResults);
       if ('status' in body) patch.status = String(body.status || 'draft');
-      if ('startsAt' in body) patch.starts_at = iso(body.startsAt);
-      if ('endsAt' in body) patch.ends_at = iso(body.endsAt);
+      if ('startsAt' in body) {
+        const nextStartsAt = iso(body.startsAt);
+        if (nextStartsAt) patch.starts_at = nextStartsAt;
+      }
+      if ('endsAt' in body) {
+        const nextEndsAt = iso(body.endsAt);
+        if (nextEndsAt) patch.ends_at = nextEndsAt;
+      }
       if ('placesCount' in body) patch.places_count = Number(body.placesCount || 12);
       if ('title' in body) patch.title = String(body.title || '').trim() || 'Neue Songs der Woche';
       if ('description' in body) patch.description = String(body.description || '').trim();
+
+      if ('slug' in body) {
+        const nextSlug = normalizeSlug(String(body.slug || ''));
+        if (!nextSlug) throw new Error('Slug darf nicht leer sein.');
+
+        const { data: slugConflict, error: slugConflictError } = await sb
+          .from('release_voting_rounds')
+          .select('id')
+          .eq('slug', nextSlug)
+          .neq('id', body.id)
+          .maybeSingle();
+
+        if (slugConflictError) throw slugConflictError;
+        if (slugConflict?.id) throw new Error('Dieser Slug wird bereits von einer anderen Umfrage verwendet.');
+
+        patch.slug = nextSlug;
+      }
 
       const { error } = await sb.from('release_voting_rounds').update(patch).eq('id', body.id);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }
 
-    const title = String(body.title || '').trim() || 'Neue Songs der Woche';
+    const rawTitle = String(body.title || '').trim() || 'Neue Songs der Woche';
     const requestedSlug = String(body.slug || '').trim();
     const startsAt = iso(body.startsAt) || new Date().toISOString();
     const endsAt = iso(body.endsAt) || plusDays(7);
-    const slug = requestedSlug ? normalizeSlug(requestedSlug) : slugWithDate(title, startsAt);
+    const title = titleWithDate(rawTitle, startsAt);
+    const slug = requestedSlug ? normalizeSlug(requestedSlug) : slugWithDate(rawTitle, startsAt);
     const status = String(body.status || 'draft');
+    const makeCurrent = Boolean(body.makeCurrent);
 
     const { data: existing } = await sb.from('release_voting_rounds').select('id').eq('slug', slug).maybeSingle();
     const finalSlug = existing ? `${slug}-${Date.now().toString().slice(-5)}` : slug;
+
+    if (makeCurrent) {
+      await clearCurrentRound(sb);
+    }
+
+    const songs = parseSongList(String(body.songsText || ''));
+    const duplicateGroups = findSongDuplicateGroups(
+      songs.map((song, index) => ({
+        id: `new-${index}`,
+        round_id: 'new-round',
+        title: song.title,
+        artist: song.artist,
+        sort_order: index,
+      })) as Song[]
+    ).filter((group) => group.kind === 'exact');
+
+    if (duplicateGroups.length) {
+      throw new Error(formatDuplicateSongMessage(duplicateGroups));
+    }
 
     const { data: round, error } = await sb
       .from('release_voting_rounds')
@@ -88,7 +174,7 @@ export async function POST(req: NextRequest) {
         starts_at: startsAt,
         ends_at: endsAt,
         places_count: Number(body.placesCount || 12),
-        is_current: false,
+        is_current: makeCurrent,
         is_public_results: Boolean(body.isPublicResults),
         spotify_playlist_id: spotifyIdFromInput(body.spotifyPlaylistId),
       })
@@ -98,13 +184,6 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
     if (!round?.id) throw new Error('Umfrage wurde nicht korrekt angelegt. Keine Round-ID erhalten.');
 
-    if (status === 'live') {
-      await sb.from('release_voting_rounds').update({ is_current: false }).neq('id', round.id);
-      const { error: currentError } = await sb.from('release_voting_rounds').update({ is_current: true, updated_at: new Date().toISOString() }).eq('id', round.id);
-      if (currentError) throw currentError;
-    }
-
-    const songs = parseSongList(String(body.songsText || ''));
     if (songs.length) {
       const { error: songError } = await sb.from('release_voting_songs').insert(
         songs.map((song, index) => ({

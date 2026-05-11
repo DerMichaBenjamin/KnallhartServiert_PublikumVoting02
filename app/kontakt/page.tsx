@@ -28,7 +28,7 @@ export default async function Kontakt({
       <Header />
       <section className="card simple-page-card">
         <h1>Kontakt</h1>
-        <p>Schreib uns eine Nachricht. Sie wird an info@michabenjamin.de gesendet.</p>
+        <p>Schreib uns eine Nachricht. Sie wird an info@knallhart-serviert.de gesendet.</p>
 
         {sent && <div className="notice success">Nachricht wurde gesendet.</div>}
         {errorText && <div className="notice error">{errorText}</div>}

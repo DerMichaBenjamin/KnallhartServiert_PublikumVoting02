@@ -53,6 +53,125 @@ export type ZonkRow = {
   count: number;
 };
 
+
+export type SongDuplicateGroup = {
+  key: string;
+  kind: 'exact' | 'possible';
+  songs: Song[];
+};
+
+function stripDiacritics(value: string) {
+  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizeSongPartStrict(value?: string | null) {
+  return stripDiacritics(String(value || ''))
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/&/g, 'und')
+    .replace(/['’`´]/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
+function normalizeSongPartLoose(value?: string | null) {
+  return normalizeSongPartStrict(
+    String(value || '')
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/\[[^\]]*\]/g, ' ')
+      .replace(/\b(radio|single|extended|club|party|festival|malle|mallorca|apres|après|ski|mix|edit|version|remix|remaster|remastered|live|karaoke|instrumental)\b/gi, ' ')
+      .replace(/\bfeat\.?\b|\bft\.?\b|\bfeaturing\b/gi, ' ')
+  );
+}
+
+export function normalizedSongKey(song: { title: string; artist?: string | null }) {
+  return `${normalizeSongPartStrict(song.title)}::${normalizeSongPartStrict(song.artist || '')}`;
+}
+
+function looseSongKey(song: { title: string; artist?: string | null }) {
+  return `${normalizeSongPartLoose(song.title)}::${normalizeSongPartLoose(song.artist || '')}`;
+}
+
+function groupSongsByKey(songs: Song[], keyFn: (song: Song) => string) {
+  const grouped = new Map<string, Song[]>();
+
+  for (const song of songs) {
+    const key = keyFn(song);
+    if (!key || key === '::') continue;
+    const current = grouped.get(key) || [];
+    current.push(song);
+    grouped.set(key, current);
+  }
+
+  return grouped;
+}
+
+export function findSongDuplicateGroups(songs: Song[]): SongDuplicateGroup[] {
+  const exactGroups: SongDuplicateGroup[] = [];
+  const exactKeysInGroups = new Set<string>();
+  const exactByKey = groupSongsByKey(songs, normalizedSongKey);
+
+  for (const [key, group] of exactByKey.entries()) {
+    if (group.length > 1) {
+      exactKeysInGroups.add(key);
+      exactGroups.push({
+        key,
+        kind: 'exact',
+        songs: [...group].sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title)),
+      });
+    }
+  }
+
+  const possibleGroups: SongDuplicateGroup[] = [];
+  const looseByKey = groupSongsByKey(songs, looseSongKey);
+
+  for (const [key, group] of looseByKey.entries()) {
+    if (group.length < 2) continue;
+
+    const uniqueExactKeys = new Set(group.map(normalizedSongKey));
+    if (uniqueExactKeys.size < 2) continue;
+
+    const isOnlyExactDuplicateGroup = [...uniqueExactKeys].every((exactKey) => exactKeysInGroups.has(exactKey));
+    if (isOnlyExactDuplicateGroup) continue;
+
+    possibleGroups.push({
+      key,
+      kind: 'possible',
+      songs: [...group].sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title)),
+    });
+  }
+
+  return [...exactGroups, ...possibleGroups].sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'exact' ? -1 : 1;
+    return a.songs[0]?.title.localeCompare(b.songs[0]?.title || '') || 0;
+  });
+}
+
+export function formatDuplicateSongMessage(groups: SongDuplicateGroup[]) {
+  const exact = groups.filter((group) => group.kind === 'exact');
+  if (!exact.length) return '';
+
+  return [
+    'Doppelte Songs gefunden. Bitte bereinige die Songliste vor dem Speichern:',
+    ...exact.slice(0, 8).map((group) => `- ${group.songs.map(combineSongLine).join(' / ')}`),
+    exact.length > 8 ? `- plus ${exact.length - 8} weitere Doppler` : '',
+  ].filter(Boolean).join('\n');
+}
+
+export type AdminParticipantRow = {
+  voteId: string;
+  name: string;
+  email: string;
+  instagram: string | null;
+  isVerified: boolean;
+  votedAt: string;
+  verifiedAt: string | null;
+  zonkSong: string | null;
+};
+
 export type AdminRoundSummary = {
   roundId: string;
   totalVotes: number;
@@ -61,6 +180,7 @@ export type AdminRoundSummary = {
   songsCount: number;
   leaderboard: LeaderboardRow[];
   zonk: ZonkRow[];
+  participants: AdminParticipantRow[];
 };
 
 export function normalizeSlug(value: string) {
@@ -104,13 +224,21 @@ export function spotifyIdFromInput(input?: string | null) {
 export async function getCurrentRound() {
   const sb = getSupabaseAdminClient();
   if (!sb) return null;
+
+  // Strikte Hauptseiten-Logik:
+  // /release-voting darf NUR auf die Umfrage weiterleiten, die im Backend
+  // explizit als Hauptseite markiert ist (is_current = true).
+  // Keine automatische Fallback-Auswahl auf die neueste Live-Umfrage,
+  // damit private DJ-Abstimmungen niemals versehentlich öffentlich werden.
   const { data } = await sb
     .from('release_voting_rounds')
     .select('*')
     .eq('is_current', true)
     .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+
   return data as Round | null;
 }
 
@@ -178,9 +306,11 @@ export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]
     row.count += 1;
   }
 
+  const validVotesCount = validVoteIds.size;
+
   const rows = [...rowsBySongId.values()].map((row) => ({
     ...row,
-    avg: row.count ? row.total / row.count : 0,
+    avg: validVotesCount ? row.total / validVotesCount : 0,
   }));
 
   rows.sort((a, b) => b.total - a.total || b.avg - a.avg || b.count - a.count || a.song.title.localeCompare(b.song.title));
