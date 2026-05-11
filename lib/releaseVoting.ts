@@ -161,6 +161,17 @@ export function formatDuplicateSongMessage(groups: SongDuplicateGroup[]) {
   ].filter(Boolean).join('\n');
 }
 
+export type AdminParticipantRow = {
+  voteId: string;
+  name: string;
+  email: string;
+  instagram: string | null;
+  isVerified: boolean;
+  votedAt: string;
+  verifiedAt: string | null;
+  zonkSong: string | null;
+};
+
 export type AdminRoundSummary = {
   roundId: string;
   totalVotes: number;
@@ -169,6 +180,7 @@ export type AdminRoundSummary = {
   songsCount: number;
   leaderboard: LeaderboardRow[];
   zonk: ZonkRow[];
+  participants: AdminParticipantRow[];
 };
 
 export function normalizeSlug(value: string) {
