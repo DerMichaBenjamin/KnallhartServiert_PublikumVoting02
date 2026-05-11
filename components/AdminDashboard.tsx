@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { AdminRoundSummary, Round, Song, Vote, VoteItem } from '@/lib/releaseVoting';
-import { buildLeaderboard, buildZonk, combineSongLine } from '@/lib/releaseVoting';
+import { buildLeaderboard, buildZonk, combineSongLine, findSongDuplicateGroups } from '@/lib/releaseVoting';
 
 type Props = {
   rounds: Round[];
@@ -54,6 +54,13 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
     () => new Map(roundSummaries.map((summary) => [summary.roundId, summary])),
     [roundSummaries]
   );
+
+  function copyPublicUrl(path: string, text = 'Link kopiert.') {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = `${origin}${path}`;
+    void navigator.clipboard?.writeText(url);
+    setMessage({ type: 'ok', text });
+  }
 
   async function post(url: string, body: unknown, reload = true) {
     setMessage(null);
@@ -158,10 +165,10 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Alle Umfragen</h2>
-        <p className="admin-help-text">Start, Ende, Status, Playlist, Ergebnisfreigabe und Hauptseiten-Anzeige können nachträglich geändert werden. In der Spalte „Hauptseite“ bestimmst du, welche Umfrage unter /release-voting angezeigt wird. Andere Live-Umfragen bleiben über ihren direkten Link erreichbar.</p>
+        <p className="admin-help-text">Start, Ende, Status, Playlist, Ergebnisfreigabe und Hauptseiten-Anzeige können nachträglich geändert werden. In der Spalte „Hauptseite“ bestimmst du, welche Umfrage unter /release-voting angezeigt wird. In der Spalte „Ergebnisse anzeigen“ bestimmst du, welche Abstimmungen auf /ergebnisse öffentlich erscheinen. Jede Umfrage hat außerdem eigene Direktlinks für Voting und Ergebnis.</p>
         <div className="admin-table-wrap">
           <table>
-            <thead><tr><th>Titel</th><th>Status</th><th>Hauptseite</th><th>Zeitraum</th><th>Teilnehmer</th><th>Top Song</th><th>Playlist</th><th>Ergebnisse</th><th>Aktionen</th></tr></thead>
+            <thead><tr><th>Titel</th><th>Status</th><th>Hauptseite</th><th>Zeitraum</th><th>Teilnehmer</th><th>Top Song</th><th>Playlist</th><th>Ergebnisse anzeigen</th><th>Direktlinks</th></tr></thead>
             <tbody>
               {rounds.map((round) => {
                 const summary = summaryByRoundId.get(round.id);
@@ -203,19 +210,32 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                       {topSong ? <><b>{combineSongLine(topSong.song)}</b><br /><small>{topSong.total} Punkte · {topSong.count}× gewählt</small></> : <small>Noch keine bestätigte Stimme</small>}
                     </td>
                     <td><input defaultValue={round.spotify_playlist_id || ''} onBlur={(event) => post('/api/admin/round', { id: round.id, spotifyPlaylistId: event.target.value, onlyUpdate: true })} /></td>
-                    <td><input type="checkbox" defaultChecked={round.is_public_results} onChange={(event) => post('/api/admin/round', { id: round.id, isPublicResults: event.target.checked, onlyUpdate: true })} /></td>
+                    <td>
+                      <label className="check-row compact-check">
+                        <input
+                          type="checkbox"
+                          defaultChecked={round.is_public_results}
+                          onChange={(event) => post('/api/admin/round', { id: round.id, isPublicResults: event.target.checked, onlyUpdate: true })}
+                        />
+                        {round.is_public_results ? 'Ja' : 'Nein'}
+                      </label>
+                    </td>
                     <td className="action-cell">
-                      <a href={'/release-voting/' + round.slug} target="_blank">Direktlink öffnen</a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = window.location.origin + '/release-voting/' + round.slug;
-                          void navigator.clipboard?.writeText(url);
-                          setMessage({ type: 'ok', text: 'Direktlink kopiert.' });
-                        }}
-                      >
-                        Link kopieren
+                      <a href={'/release-voting/' + round.slug} target="_blank" rel="noreferrer">Voting öffnen</a>
+                      <button type="button" onClick={() => copyPublicUrl('/release-voting/' + round.slug, 'Voting-Link kopiert.')}>
+                        Voting-Link kopieren
                       </button>
+
+                      {round.is_public_results ? (
+                        <>
+                          <a href={'/ergebnisse#' + round.slug} target="_blank" rel="noreferrer">Ergebnis öffnen</a>
+                          <button type="button" onClick={() => copyPublicUrl('/ergebnisse#' + round.slug, 'Ergebnis-Link kopiert.')}>
+                            Ergebnis-Link kopieren
+                          </button>
+                        </>
+                      ) : (
+                        <small>Ergebnis nicht öffentlich</small>
+                      )}
                     </td>
                   </tr>
                 );
@@ -227,11 +247,13 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Auswertung je Umfrage</h2>
-        <p className="admin-help-text">Hier werden alle Songs der jeweiligen Umfrage angezeigt — auch Songs mit 0 Punkten. Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
+        <p className="admin-help-text">Hier werden alle Songs der jeweiligen Umfrage angezeigt — auch Songs mit 0 Punkten. Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt. Öffentlich sichtbar auf /ergebnisse sind nur Umfragen, bei denen in der Tabelle oben „Ergebnisse anzeigen“ aktiviert ist.</p>
         <div className="round-summary-list">
           {rounds.map((round) => {
             const summary = summaryByRoundId.get(round.id);
             const resultRows = summary?.leaderboard || [];
+            const roundSongs = resultRows.map((row) => row.song);
+            const duplicateGroups = findSongDuplicateGroups(roundSongs);
             const zonkRows = (summary?.zonk || []).filter((entry) => entry.count > 0);
 
             return (
@@ -246,6 +268,93 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                   <div><small>Gesamt eingegangen</small><b>{summary?.totalVotes || 0}</b></div>
                   <div><small>Songs</small><b>{summary?.songsCount || 0}</b></div>
                 </div>
+
+                <div className="zonk-summary">
+                  <h3>Doppler prüfen & Songs zusammenführen</h3>
+                  <p className="admin-help-text">Exakte Doppler werden beim neuen Speichern blockiert. Hier kannst du bestehende Doppler bewusst zusammenführen. Stimmen und ZONK-Stimmen des Dopplers werden auf den Ziel-Song übertragen. Wenn ein Teilnehmer beide Varianten gewählt hat, bleibt nur die höhere Punktzahl erhalten.</p>
+
+                  {duplicateGroups.length ? (
+                    <div className="round-summary-list">
+                      {duplicateGroups.map((group) => {
+                        const defaultTarget = group.songs[0];
+                        const sourceCandidates = group.songs.slice(1);
+
+                        return (
+                          <div className="round-summary-card" key={group.key}>
+                            <p><b>{group.kind === 'exact' ? 'Exakter Doppler' : 'Möglicher Doppler'}</b></p>
+                            <ul>
+                              {group.songs.map((song) => (
+                                <li key={song.id}>{combineSongLine(song)}</li>
+                              ))}
+                            </ul>
+
+                            {sourceCandidates.map((sourceSong) => (
+                              <button
+                                key={sourceSong.id}
+                                type="button"
+                                onClick={() => {
+                                  const ok = window.confirm(`"${combineSongLine(sourceSong)}" wirklich in "${combineSongLine(defaultTarget)}" zusammenführen?`);
+                                  if (!ok) return;
+                                  post('/api/admin/merge-songs', {
+                                    roundId: round.id,
+                                    targetSongId: defaultTarget.id,
+                                    sourceSongId: sourceSong.id,
+                                  });
+                                }}
+                              >
+                                {combineSongLine(sourceSong)} → {combineSongLine(defaultTarget)} zusammenführen
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p>Keine exakten oder möglichen Doppler erkannt.</p>
+                  )}
+
+                  {roundSongs.length > 1 && (
+                    <form
+                      className="admin-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const form = new FormData(event.currentTarget);
+                        const targetSongId = String(form.get('targetSongId') || '');
+                        const sourceSongId = String(form.get('sourceSongId') || '');
+                        if (!targetSongId || !sourceSongId || targetSongId === sourceSongId) {
+                          setMessage({ type: 'error', text: 'Bitte zwei unterschiedliche Songs auswählen.' });
+                          return;
+                        }
+                        const targetSong = roundSongs.find((song) => song.id === targetSongId);
+                        const sourceSong = roundSongs.find((song) => song.id === sourceSongId);
+                        const ok = window.confirm(`"${sourceSong ? combineSongLine(sourceSong) : 'Doppler'}" wirklich in "${targetSong ? combineSongLine(targetSong) : 'Ziel-Song'}" zusammenführen?`);
+                        if (!ok) return;
+                        post('/api/admin/merge-songs', { roundId: round.id, targetSongId, sourceSongId });
+                      }}
+                    >
+                      <div className="admin-form-row">
+                        <label>
+                          Ziel behalten
+                          <select name="targetSongId" defaultValue={roundSongs[0]?.id || ''}>
+                            {roundSongs.map((song) => (
+                              <option key={song.id} value={song.id}>{combineSongLine(song)}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Doppler zusammenführen/löschen
+                          <select name="sourceSongId" defaultValue={roundSongs[1]?.id || ''}>
+                            {roundSongs.map((song) => (
+                              <option key={song.id} value={song.id}>{combineSongLine(song)}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <button type="submit">Ausgewählte Songs zusammenführen</button>
+                    </form>
+                  )}
+                </div>
+
                 <div className="admin-table-wrap compact">
                   <table>
                     <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
