@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import { normalizeSlug, parseSongList, spotifyIdFromInput } from '@/lib/releaseVoting';
+import { findSongDuplicateGroups, formatDuplicateSongMessage, normalizeSlug, parseSongList, spotifyIdFromInput, type Song } from '@/lib/releaseVoting';
 
 function iso(value: unknown) {
   const raw = String(value || '').trim();
@@ -125,6 +125,21 @@ export async function POST(req: NextRequest) {
       await clearCurrentRound(sb);
     }
 
+    const songs = parseSongList(String(body.songsText || ''));
+    const duplicateGroups = findSongDuplicateGroups(
+      songs.map((song, index) => ({
+        id: `new-${index}`,
+        round_id: 'new-round',
+        title: song.title,
+        artist: song.artist,
+        sort_order: index,
+      })) as Song[]
+    ).filter((group) => group.kind === 'exact');
+
+    if (duplicateGroups.length) {
+      throw new Error(formatDuplicateSongMessage(duplicateGroups));
+    }
+
     const { data: round, error } = await sb
       .from('release_voting_rounds')
       .insert({
@@ -145,7 +160,6 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
     if (!round?.id) throw new Error('Umfrage wurde nicht korrekt angelegt. Keine Round-ID erhalten.');
 
-    const songs = parseSongList(String(body.songsText || ''));
     if (songs.length) {
       const { error: songError } = await sb.from('release_voting_songs').insert(
         songs.map((song, index) => ({
