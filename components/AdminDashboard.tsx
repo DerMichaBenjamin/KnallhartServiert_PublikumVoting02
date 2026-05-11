@@ -42,6 +42,28 @@ function resultHelpText(summary?: AdminRoundSummary) {
   return `${summary.verifiedVotes} gültig bestätigte Stimmen · ${summary.pendingVotes} noch unbestätigt · ${summary.songsCount} Songs`;
 }
 
+function formatAdminDateTime(value?: string | null) {
+  if (!value) return '—';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('de-DE', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Europe/Berlin',
+  }).format(date);
+}
+
+function buildEmailList(participants: AdminRoundSummary['participants'], verifiedOnly = false) {
+  return participants
+    .filter((participant) => !verifiedOnly || participant.isVerified)
+    .map((participant) => participant.email.trim())
+    .filter(Boolean)
+    .filter((email, index, list) => list.indexOf(email) === index)
+    .join('\n');
+}
+
 export default function AdminDashboard({ rounds, currentRound, songs, votes, items, roundSummaries, impressum }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,6 +82,18 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
     const url = `${origin}${path}`;
     void navigator.clipboard?.writeText(url);
     setMessage({ type: 'ok', text });
+  }
+
+  function copyParticipantEmails(participants: AdminRoundSummary['participants'], verifiedOnly = false) {
+    const emails = buildEmailList(participants, verifiedOnly);
+
+    if (!emails) {
+      setMessage({ type: 'error', text: 'Keine passenden E-Mail-Adressen gefunden.' });
+      return;
+    }
+
+    void navigator.clipboard?.writeText(emails);
+    setMessage({ type: 'ok', text: verifiedOnly ? 'Bestätigte E-Mail-Adressen kopiert.' : 'Alle E-Mail-Adressen kopiert.' });
   }
 
   async function post(url: string, body: unknown, reload = true) {
@@ -247,7 +281,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
 
       <section className="admin-card">
         <h2>Auswertung je Umfrage</h2>
-        <p className="admin-help-text">Hier werden alle Songs der jeweiligen Umfrage angezeigt — auch Songs mit 0 Punkten. Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt. Öffentlich sichtbar auf /ergebnisse sind nur Umfragen, bei denen in der Tabelle oben „Ergebnisse anzeigen“ aktiviert ist.</p>
+        <p className="admin-help-text">Hier werden alle Songs und Teilnehmer der jeweiligen Umfrage angezeigt. Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen der Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt. Namen und E-Mail-Adressen bleiben nur im Backend sichtbar. Öffentlich sichtbar auf /ergebnisse sind nur Umfragen, bei denen oben „Ergebnisse anzeigen“ aktiviert ist.</p>
         <div className="round-summary-list">
           {rounds.map((round) => {
             const summary = summaryByRoundId.get(round.id);
@@ -255,6 +289,7 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
             const roundSongs = resultRows.map((row) => row.song);
             const duplicateGroups = findSongDuplicateGroups(roundSongs);
             const zonkRows = (summary?.zonk || []).filter((entry) => entry.count > 0);
+            const participants = summary?.participants || [];
 
             return (
               <details className="round-summary-card" key={round.id} open={round.is_current}>
@@ -267,6 +302,36 @@ export default function AdminDashboard({ rounds, currentRound, songs, votes, ite
                   <div><small>Unbestätigt</small><b>{summary?.pendingVotes || 0}</b></div>
                   <div><small>Gesamt eingegangen</small><b>{summary?.totalVotes || 0}</b></div>
                   <div><small>Songs</small><b>{summary?.songsCount || 0}</b></div>
+                </div>
+
+                <div className="zonk-summary">
+                  <h3>Teilnehmer dieser Abstimmung</h3>
+                  <p className="admin-help-text">Diese Liste ist nur im Adminbereich sichtbar. „Bestätigt“ zählt als gültige Stimme. „Offen“ wurde abgesendet, aber noch nicht per E-Mail bestätigt.</p>
+                  <div className="action-cell">
+                    <button type="button" disabled={!participants.length} onClick={() => copyParticipantEmails(participants)}>Alle E-Mails kopieren</button>
+                    <button type="button" disabled={!participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails(participants, true)}>Nur bestätigte E-Mails kopieren</button>
+                  </div>
+                  <div className="admin-table-wrap compact">
+                    <table>
+                      <thead>
+                        <tr><th>Status</th><th>Name</th><th>E-Mail</th><th>Instagram</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th></tr>
+                      </thead>
+                      <tbody>
+                        {participants.map((participant) => (
+                          <tr key={participant.voteId}>
+                            <td>{participant.isVerified ? 'Bestätigt' : 'Offen'}</td>
+                            <td>{participant.name || '—'}</td>
+                            <td>{participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}</td>
+                            <td>{participant.instagram || '—'}</td>
+                            <td>{formatAdminDateTime(participant.votedAt)}</td>
+                            <td>{formatAdminDateTime(participant.verifiedAt)}</td>
+                            <td>{participant.zonkSong || '—'}</td>
+                          </tr>
+                        ))}
+                        {!participants.length && <tr><td colSpan={7}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 <div className="zonk-summary">
