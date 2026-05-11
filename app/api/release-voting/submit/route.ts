@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import {
   buildVerificationUrl,
   createVerificationToken,
+  getRequestOrigin,
   hashVerificationToken,
   sendVerificationEmail,
   verificationWindow,
@@ -131,7 +132,7 @@ export async function POST(req: Request) {
 
     if (itemsError) throw itemsError;
 
-    const verificationUrl = buildVerificationUrl(token, new URL(req.url).origin);
+    const verificationUrl = buildVerificationUrl(token, getRequestOrigin(req));
     await sendVerificationEmail({
       to: jurorEmail,
       roundTitle: round.title || 'Knallhart serviert Publikums-Voting',
