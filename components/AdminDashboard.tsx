@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { AdminRoundSummary, Round } from '@/lib/releaseVoting';
+import type { AdminRoundSummary, Round } from '@/lib/releaseVotingShared';
 
 type Props = {
   rounds: Round[];

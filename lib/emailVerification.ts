@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getSupabaseAdminClient } from './supabaseAdmin';
 
@@ -17,18 +19,14 @@ function normalizeOrigin(value: string) {
   }
 }
 
-export function getRequestOrigin(req: Request) {
-  const forwardedHost = req.headers.get('x-forwarded-host') || '';
-  const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
-  const host = forwardedHost || req.headers.get('host') || '';
+export function getConfiguredAppOrigin() {
+  const origin = normalizeOrigin(env('NEXT_PUBLIC_APP_URL'));
 
-  if (host) return normalizeOrigin(`${forwardedProto}://${host}`);
-
-  try {
-    return new URL(req.url).origin.replace(/\/$/, '');
-  } catch {
-    return '';
+  if (!origin) {
+    throw new Error('NEXT_PUBLIC_APP_URL fehlt oder ist ungültig. Trage in Vercel die feste öffentliche App-URL ein, z. B. https://knallhart-serviert-publikum-voting.vercel.app');
   }
+
+  return origin;
 }
 
 export function createVerificationToken() {
@@ -65,12 +63,10 @@ export function verificationWindow(hours = 48) {
   };
 }
 
-export function buildVerificationUrl(token: string, requestOrigin = '') {
-  // Wichtig: Die echte Request-Domain hat Vorrang vor NEXT_PUBLIC_APP_URL.
-  // Wenn NEXT_PUBLIC_APP_URL versehentlich mit Pfad gesetzt wurde, wird nur die Origin genutzt.
-  const base = normalizeOrigin(requestOrigin) || normalizeOrigin(env('NEXT_PUBLIC_APP_URL'));
+export function buildVerificationUrl(token: string) {
+  const base = getConfiguredAppOrigin();
   const path = `/release-voting/verify?token=${encodeURIComponent(token)}`;
-  return base ? `${base}${path}` : path;
+  return `${base}${path}`;
 }
 
 function escapeHtml(value: string) {

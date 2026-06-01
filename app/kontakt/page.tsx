@@ -1,4 +1,5 @@
 import Header from '@/components/Header';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,7 @@ export default async function Kontakt({
           <button className="submit" type="submit">Nachricht senden</button>
         </form>
       </section>
+      <footer className="legal-footer"><Link href="/datenschutz">Datenschutz</Link><Link href="/impressum">Impressum</Link></footer>
     </main>
   );
 }

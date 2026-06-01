@@ -3,11 +3,11 @@ import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import {
   buildVerificationUrl,
   createVerificationToken,
-  getRequestOrigin,
   hashVerificationToken,
   sendVerificationEmail,
   verificationWindow,
 } from '@/lib/emailVerification';
+import { checkRateLimit, clientIpFromRequest, minutesUntil } from '@/lib/rateLimit';
 
 type RankingEntryInput = {
   songId?: unknown;
@@ -17,6 +17,10 @@ type RankingEntryInput = {
 type NormalizedRankingEntry = {
   songId: string;
   points: number;
+};
+
+type RoundSongRow = {
+  id: string;
 };
 
 function dbMessage(error: unknown) {
@@ -31,6 +35,10 @@ function dbMessage(error: unknown) {
 
 function clean(value: unknown) {
   return String(value || '').trim();
+}
+
+function sinceIso(hours: number) {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 }
 
 export async function POST(req: Request) {
@@ -48,12 +56,28 @@ export async function POST(req: Request) {
     const jurorEmail = clean(body.jurorEmail).toLowerCase();
     const jurorInstagram = clean(body.jurorInstagram) || null;
     const zonkSongId = clean(body.zonkSongId) || null;
+    const honeypot = clean(body.website);
     const ranking: RankingEntryInput[] = Array.isArray(body.ranking) ? (body.ranking as RankingEntryInput[]) : [];
+
+    if (honeypot) {
+      throw new Error('Dieses Voting wurde als automatisierter Spam erkannt.');
+    }
 
     if (!roundId) throw new Error('Umfrage-ID fehlt. Bitte Seite neu laden.');
     if (!jurorName) throw new Error('Bitte gib deinen Namen ein.');
     if (!jurorEmail || !jurorEmail.includes('@')) throw new Error('Bitte gib eine gültige E-Mail-Adresse ein.');
     if (!ranking.length) throw new Error('Bitte wähle deine Songs aus.');
+
+    const clientIp = clientIpFromRequest(req);
+    const ipLimit = checkRateLimit(`vote-submit:ip:${roundId}:${clientIp}`, 10, 60 * 60 * 1000);
+    if (!ipLimit.ok) {
+      throw new Error(`Zu viele Voting-Versuche von diesem Anschluss. Bitte in ca. ${minutesUntil(ipLimit.resetAt)} Minuten erneut probieren.`);
+    }
+
+    const emailLimit = checkRateLimit(`vote-submit:email:${roundId}:${jurorEmail}`, 3, 60 * 60 * 1000);
+    if (!emailLimit.ok) {
+      throw new Error(`Zu viele Voting-Versuche mit dieser E-Mail-Adresse. Bitte in ca. ${minutesUntil(emailLimit.resetAt)} Minuten erneut probieren.`);
+    }
 
     const { data: round, error: roundError } = await sb
       .from('release_voting_rounds')
@@ -73,6 +97,33 @@ export async function POST(req: Request) {
     if (!isLive) throw new Error('Diese Abstimmung ist aktuell nicht live. Bitte prüfe Startzeit, Endzeit und Status im Adminbereich.');
     if (ranking.length !== Number(round.places_count || 12)) {
       throw new Error(`Bitte belege genau ${round.places_count || 12} Plätze.`);
+    }
+
+    const oneHourAgo = sinceIso(1);
+    const { count: recentEmailAttempts, error: attemptsError } = await sb
+      .from('release_voting_votes')
+      .select('id', { count: 'exact', head: true })
+      .eq('round_id', roundId)
+      .eq('juror_email', jurorEmail)
+      .gte('created_at', oneHourAgo);
+
+    if (attemptsError) throw attemptsError;
+    if ((recentEmailAttempts || 0) >= 3) {
+      throw new Error('Mit dieser E-Mail-Adresse wurden in der letzten Stunde bereits zu viele Voting-Versuche gestartet. Bitte später erneut probieren.');
+    }
+
+    const { data: existingVerifiedVote, error: existingVerifiedError } = await sb
+      .from('release_voting_votes')
+      .select('id')
+      .eq('round_id', roundId)
+      .eq('juror_email', jurorEmail)
+      .eq('is_verified', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingVerifiedError) throw existingVerifiedError;
+    if (existingVerifiedVote?.id) {
+      throw new Error('Diese E-Mail-Adresse hat für diese Abstimmung bereits eine bestätigte Stimme abgegeben.');
     }
 
     const normalizedRanking: NormalizedRankingEntry[] = ranking.map((entry) => ({
@@ -97,6 +148,27 @@ export async function POST(req: Request) {
 
     if (uniquePoints.size !== normalizedRanking.length || points.some((point: number) => !expectedPointSet.has(point))) {
       throw new Error('Die Punktevergabe ist ungültig. Bitte lade die Seite neu und stimme erneut ab.');
+    }
+
+    const { data: roundSongs, error: songsError } = await sb
+      .from('release_voting_songs')
+      .select('id')
+      .eq('round_id', roundId);
+
+    if (songsError) throw songsError;
+
+    const validSongIds = new Set(((roundSongs || []) as RoundSongRow[]).map((song) => song.id));
+
+    if (validSongIds.size < expectedPlaces) {
+      throw new Error('Diese Abstimmung enthält weniger Songs als Plätze. Bitte Adminbereich prüfen.');
+    }
+
+    if (normalizedRanking.some((entry) => !validSongIds.has(entry.songId))) {
+      throw new Error('Ungültige Song-Auswahl: Mindestens ein Song gehört nicht zu dieser Abstimmung. Bitte Seite neu laden.');
+    }
+
+    if (zonkSongId && !validSongIds.has(zonkSongId)) {
+      throw new Error('Ungültige ZONK-Auswahl: Dieser Song gehört nicht zu dieser Abstimmung. Bitte Seite neu laden.');
     }
 
     const token = createVerificationToken();
@@ -132,7 +204,7 @@ export async function POST(req: Request) {
 
     if (itemsError) throw itemsError;
 
-    const verificationUrl = buildVerificationUrl(token, getRequestOrigin(req));
+    const verificationUrl = buildVerificationUrl(token);
     await sendVerificationEmail({
       to: jurorEmail,
       roundTitle: round.title || 'Knallhart serviert Publikums-Voting',

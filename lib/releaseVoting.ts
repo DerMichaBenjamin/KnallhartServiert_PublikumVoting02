@@ -171,9 +171,7 @@ export async function getAdminRoundDetailData(roundId: string): Promise<AdminRou
     items = (itemData || []) as VoteItem[];
   }
 
-  const verifiedVotes = votes.filter((vote) => vote.is_verified);
-  const verifiedVoteIds = new Set(verifiedVotes.map((vote) => vote.id));
-  const verifiedItems = items.filter((item) => verifiedVoteIds.has(item.vote_id));
+  const results = await getRoundResults(round.id);
   const songById = new Map(songs.map((song) => [song.id, song]));
 
   const participants: AdminParticipantRow[] = votes.map((vote) => {
@@ -194,11 +192,11 @@ export async function getAdminRoundDetailData(roundId: string): Promise<AdminRou
   const summary: AdminRoundSummary = {
     roundId: round.id,
     totalVotes: votes.length,
-    verifiedVotes: verifiedVotes.length,
-    pendingVotes: votes.length - verifiedVotes.length,
-    songsCount: songs.length,
-    leaderboard: buildLeaderboard(songs, verifiedVotes, verifiedItems),
-    zonk: buildZonk(songs, verifiedVotes),
+    verifiedVotes: results.validVotes,
+    pendingVotes: votes.length - results.validVotes,
+    songsCount: results.songsCount,
+    leaderboard: results.leaderboard,
+    zonk: results.zonk,
     participants,
   };
 

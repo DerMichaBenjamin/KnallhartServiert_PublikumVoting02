@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import { findSongDuplicateGroups, formatDuplicateSongMessage, normalizeSlug, parseSongList, spotifyIdFromInput, type Song } from '@/lib/releaseVoting';
+import { findSongDuplicateGroups, formatDuplicateSongMessage, normalizeSlug, parseSongList, spotifyIdFromInput, type Song } from '@/lib/releaseVotingShared';
 
 function iso(value: unknown) {
   const raw = String(value || '').trim();

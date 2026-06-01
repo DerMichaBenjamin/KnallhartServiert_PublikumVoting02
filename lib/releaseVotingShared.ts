@@ -220,23 +220,43 @@ export function spotifyIdFromInput(input?: string | null) {
 
 export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]): LeaderboardRow[] {
   const validVoteIds = new Set(votes.filter((vote) => vote.is_verified).map((vote) => vote.id));
+  const validVotesCount = validVoteIds.size;
+  const songIds = new Set(songs.map((song) => song.id));
   const rowsBySongId = new Map<string, LeaderboardRow>(
     songs.map((song) => [song.id, { song, total: 0, count: 0, avg: 0 }])
   );
 
+  // Important after manual merges: count every song only once per verified vote.
+  // If an older merge left duplicate vote_items for the same vote/song, keep the highest points.
+  // Also ignore all items from unverified votes and all items pointing to songs outside this round.
+  const bestItemByVoteAndSong = new Map<string, VoteItem>();
+
   for (const item of items) {
     if (!validVoteIds.has(item.vote_id)) continue;
-    const row = rowsBySongId.get(item.song_id);
-    if (!row) continue;
+    if (!songIds.has(item.song_id)) continue;
 
     const points = Number(item.points);
     if (!Number.isFinite(points)) continue;
 
-    row.total += points;
-    row.count += 1;
+    const key = `${item.vote_id}::${item.song_id}`;
+    const existing = bestItemByVoteAndSong.get(key);
+
+    if (!existing || Number(existing.points) < points) {
+      bestItemByVoteAndSong.set(key, {
+        vote_id: item.vote_id,
+        song_id: item.song_id,
+        points,
+      });
+    }
   }
 
-  const validVotesCount = validVoteIds.size;
+  for (const item of bestItemByVoteAndSong.values()) {
+    const row = rowsBySongId.get(item.song_id);
+    if (!row) continue;
+
+    row.total += Number(item.points);
+    row.count += 1;
+  }
 
   const rows = [...rowsBySongId.values()].map((row) => ({
     ...row,
@@ -249,11 +269,14 @@ export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]
 
 export function buildZonk(songs: Song[], votes: Vote[]): ZonkRow[] {
   const counts = new Map<string, number>();
+  const songIds = new Set(songs.map((song) => song.id));
 
   votes
     .filter((vote) => vote.is_verified)
     .forEach((vote) => {
-      if (vote.zonk_song_id) counts.set(vote.zonk_song_id, (counts.get(vote.zonk_song_id) || 0) + 1);
+      if (vote.zonk_song_id && songIds.has(vote.zonk_song_id)) {
+        counts.set(vote.zonk_song_id, (counts.get(vote.zonk_song_id) || 0) + 1);
+      }
     });
 
   return songs

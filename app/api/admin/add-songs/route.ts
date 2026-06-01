@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import { combineSongLine, findSongDuplicateGroups, formatDuplicateSongMessage, normalizedSongKey, parseSongList, type Song } from '@/lib/releaseVoting';
+import { combineSongLine, findSongDuplicateGroups, formatDuplicateSongMessage, normalizedSongKey, parseSongList, type Song } from '@/lib/releaseVotingShared';
 
 function dbMessage(error: unknown) {
   if (!error) return 'Unbekannter Fehler.';
