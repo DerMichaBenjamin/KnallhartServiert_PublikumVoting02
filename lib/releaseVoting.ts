@@ -1,235 +1,44 @@
+import 'server-only';
+
+import { unstable_noStore as noStore } from 'next/cache';
 import { getSupabaseAdminClient } from './supabaseAdmin';
+import {
+  buildLeaderboard,
+  buildZonk,
+  combineSongLine,
+  type AdminParticipantRow,
+  type AdminRoundSummary,
+  type LeaderboardRow,
+  type Round,
+  type Song,
+  type Vote,
+  type VoteItem,
+  type ZonkRow,
+} from './releaseVotingShared';
 
-export type Round = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  status: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  places_count: number;
-  is_current: boolean;
-  is_public_results: boolean;
-  spotify_playlist_id: string | null;
-  created_at: string;
-};
+export * from './releaseVotingShared';
 
-export type Song = {
-  id: string;
-  round_id: string;
-  title: string;
-  artist: string;
-  sort_order: number;
-};
-
-export type Vote = {
-  id: string;
-  round_id: string;
-  juror_name: string;
-  juror_email: string;
-  juror_instagram: string | null;
-  is_verified: boolean;
-  verified_at: string | null;
-  zonk_song_id: string | null;
-  created_at: string;
-};
-
-export type VoteItem = {
-  vote_id: string;
-  song_id: string;
-  points: number;
-};
-
-export type LeaderboardRow = {
-  song: Song;
-  total: number;
-  count: number;
-  avg: number;
-};
-
-export type ZonkRow = {
-  song: Song;
-  count: number;
-};
-
-
-export type SongDuplicateGroup = {
-  key: string;
-  kind: 'exact' | 'possible';
+export type RoundResults = {
   songs: Song[];
-};
-
-function stripDiacritics(value: string) {
-  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function normalizeSongPartStrict(value?: string | null) {
-  return stripDiacritics(String(value || ''))
-    .toLowerCase()
-    .replace(/ä/g, 'ae')
-    .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue')
-    .replace(/ß/g, 'ss')
-    .replace(/&/g, 'und')
-    .replace(/['’`´]/g, '')
-    .replace(/[^a-z0-9]+/g, '')
-    .trim();
-}
-
-function normalizeSongPartLoose(value?: string | null) {
-  return normalizeSongPartStrict(
-    String(value || '')
-      .replace(/\([^)]*\)/g, ' ')
-      .replace(/\[[^\]]*\]/g, ' ')
-      .replace(/\b(radio|single|extended|club|party|festival|malle|mallorca|apres|après|ski|mix|edit|version|remix|remaster|remastered|live|karaoke|instrumental)\b/gi, ' ')
-      .replace(/\bfeat\.?\b|\bft\.?\b|\bfeaturing\b/gi, ' ')
-  );
-}
-
-export function normalizedSongKey(song: { title: string; artist?: string | null }) {
-  return `${normalizeSongPartStrict(song.title)}::${normalizeSongPartStrict(song.artist || '')}`;
-}
-
-function looseSongKey(song: { title: string; artist?: string | null }) {
-  return `${normalizeSongPartLoose(song.title)}::${normalizeSongPartLoose(song.artist || '')}`;
-}
-
-function groupSongsByKey(songs: Song[], keyFn: (song: Song) => string) {
-  const grouped = new Map<string, Song[]>();
-
-  for (const song of songs) {
-    const key = keyFn(song);
-    if (!key || key === '::') continue;
-    const current = grouped.get(key) || [];
-    current.push(song);
-    grouped.set(key, current);
-  }
-
-  return grouped;
-}
-
-export function findSongDuplicateGroups(songs: Song[]): SongDuplicateGroup[] {
-  const exactGroups: SongDuplicateGroup[] = [];
-  const exactKeysInGroups = new Set<string>();
-  const exactByKey = groupSongsByKey(songs, normalizedSongKey);
-
-  for (const [key, group] of exactByKey.entries()) {
-    if (group.length > 1) {
-      exactKeysInGroups.add(key);
-      exactGroups.push({
-        key,
-        kind: 'exact',
-        songs: [...group].sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title)),
-      });
-    }
-  }
-
-  const possibleGroups: SongDuplicateGroup[] = [];
-  const looseByKey = groupSongsByKey(songs, looseSongKey);
-
-  for (const [key, group] of looseByKey.entries()) {
-    if (group.length < 2) continue;
-
-    const uniqueExactKeys = new Set(group.map(normalizedSongKey));
-    if (uniqueExactKeys.size < 2) continue;
-
-    const isOnlyExactDuplicateGroup = [...uniqueExactKeys].every((exactKey) => exactKeysInGroups.has(exactKey));
-    if (isOnlyExactDuplicateGroup) continue;
-
-    possibleGroups.push({
-      key,
-      kind: 'possible',
-      songs: [...group].sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title)),
-    });
-  }
-
-  return [...exactGroups, ...possibleGroups].sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === 'exact' ? -1 : 1;
-    return a.songs[0]?.title.localeCompare(b.songs[0]?.title || '') || 0;
-  });
-}
-
-export function formatDuplicateSongMessage(groups: SongDuplicateGroup[]) {
-  const exact = groups.filter((group) => group.kind === 'exact');
-  if (!exact.length) return '';
-
-  return [
-    'Doppelte Songs gefunden. Bitte bereinige die Songliste vor dem Speichern:',
-    ...exact.slice(0, 8).map((group) => `- ${group.songs.map(combineSongLine).join(' / ')}`),
-    exact.length > 8 ? `- plus ${exact.length - 8} weitere Doppler` : '',
-  ].filter(Boolean).join('\n');
-}
-
-export type AdminParticipantRow = {
-  voteId: string;
-  name: string;
-  email: string;
-  instagram: string | null;
-  isVerified: boolean;
-  votedAt: string;
-  verifiedAt: string | null;
-  zonkSong: string | null;
-};
-
-export type AdminRoundSummary = {
-  roundId: string;
-  totalVotes: number;
-  verifiedVotes: number;
-  pendingVotes: number;
-  songsCount: number;
+  votes: Vote[];
+  items: VoteItem[];
   leaderboard: LeaderboardRow[];
   zonk: ZonkRow[];
-  participants: AdminParticipantRow[];
+  validVotes: number;
+  songsCount: number;
 };
 
-export function normalizeSlug(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/ä/g, 'ae')
-    .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue')
-    .replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 100);
-}
-
-export function parseSongList(text: string) {
-  return text
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const parts = line.split(' - ');
-      if (parts.length >= 2) return { title: parts[0].trim(), artist: parts.slice(1).join(' - ').trim() };
-      return { title: line, artist: '' };
-    });
-}
-
-export function combineSongLine(song: { title: string; artist: string } | string) {
-  if (typeof song === 'string') return song;
-  return song.artist ? `${song.title} — ${song.artist}` : song.title;
-}
-
-export function spotifyIdFromInput(input?: string | null) {
-  const value = (input || '').trim();
-  if (!value) return '';
-  const m = value.match(/playlist\/([A-Za-z0-9]+)/);
-  if (m?.[1]) return m[1];
-  return value.split('?')[0].trim();
-}
+export type AdminRoundDetailData = {
+  round: Round;
+  songs: Song[];
+  summary: AdminRoundSummary;
+};
 
 export async function getCurrentRound() {
+  noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return null;
 
-  // Strikte Hauptseiten-Logik:
-  // /release-voting darf NUR auf die Umfrage weiterleiten, die im Backend
-  // explizit als Hauptseite markiert ist (is_current = true).
-  // Keine automatische Fallback-Auswahl auf die neueste Live-Umfrage,
-  // damit private DJ-Abstimmungen niemals versehentlich öffentlich werden.
   const { data } = await sb
     .from('release_voting_rounds')
     .select('*')
@@ -243,13 +52,23 @@ export async function getCurrentRound() {
 }
 
 export async function getRoundBySlug(slug: string) {
+  noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return null;
   const { data } = await sb.from('release_voting_rounds').select('*').eq('slug', slug).maybeSingle();
   return data as Round | null;
 }
 
+export async function getRoundById(roundId: string) {
+  noStore();
+  const sb = getSupabaseAdminClient();
+  if (!sb) return null;
+  const { data } = await sb.from('release_voting_rounds').select('*').eq('id', roundId).maybeSingle();
+  return data as Round | null;
+}
+
 export async function listRounds() {
+  noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return [] as Round[];
   const { data } = await sb.from('release_voting_rounds').select('*').order('created_at', { ascending: false });
@@ -257,76 +76,131 @@ export async function listRounds() {
 }
 
 export async function listPublicResultRounds() {
+  noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return [] as Round[];
-  const { data } = await sb.from('release_voting_rounds').select('*').eq('is_public_results', true).order('ends_at', { ascending: false });
+  const { data } = await sb
+    .from('release_voting_rounds')
+    .select('*')
+    .eq('is_public_results', true)
+    .order('ends_at', { ascending: false })
+    .order('created_at', { ascending: false });
   return (data || []) as Round[];
 }
 
 export async function getSongs(roundId: string) {
+  noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return [] as Song[];
-  const { data } = await sb.from('release_voting_songs').select('*').eq('round_id', roundId).order('sort_order');
+  const { data } = await sb
+    .from('release_voting_songs')
+    .select('*')
+    .eq('round_id', roundId)
+    .order('sort_order')
+    .order('created_at', { ascending: true });
   return (data || []) as Song[];
 }
 
 export async function getVerifiedVotes(roundId: string) {
+  noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return { votes: [] as Vote[], items: [] as VoteItem[] };
-  const { data: votes } = await sb.from('release_voting_votes').select('*').eq('round_id', roundId).eq('is_verified', true);
+
+  const { data: votes } = await sb
+    .from('release_voting_votes')
+    .select('*')
+    .eq('round_id', roundId)
+    .eq('is_verified', true)
+    .order('verified_at', { ascending: true });
+
   const ids = ((votes || []) as Vote[]).map((vote) => vote.id);
   const { data: items } = ids.length
     ? await sb.from('release_voting_vote_items').select('*').in('vote_id', ids)
     : { data: [] as VoteItem[] };
+
   return { votes: (votes || []) as Vote[], items: (items || []) as VoteItem[] };
 }
 
 export async function getAllVotes(roundId: string) {
+  noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return [] as Vote[];
-  const { data } = await sb.from('release_voting_votes').select('*').eq('round_id', roundId).order('created_at', { ascending: false });
+  const { data } = await sb
+    .from('release_voting_votes')
+    .select('*')
+    .eq('round_id', roundId)
+    .order('created_at', { ascending: false });
   return (data || []) as Vote[];
 }
 
-export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]): LeaderboardRow[] {
-  const validVoteIds = new Set(votes.filter((vote) => vote.is_verified).map((vote) => vote.id));
-  const rowsBySongId = new Map<string, LeaderboardRow>(
-    songs.map((song) => [song.id, { song, total: 0, count: 0, avg: 0 }])
-  );
+export async function getRoundResults(roundId: string): Promise<RoundResults> {
+  noStore();
 
-  for (const item of items) {
-    if (!validVoteIds.has(item.vote_id)) continue;
-    const row = rowsBySongId.get(item.song_id);
-    if (!row) continue;
+  const songs = await getSongs(roundId);
+  const { votes, items } = await getVerifiedVotes(roundId);
+  const leaderboard = buildLeaderboard(songs, votes, items);
+  const zonk = buildZonk(songs, votes);
 
-    const points = Number(item.points);
-    if (!Number.isFinite(points)) continue;
-
-    row.total += points;
-    row.count += 1;
-  }
-
-  const validVotesCount = validVoteIds.size;
-
-  const rows = [...rowsBySongId.values()].map((row) => ({
-    ...row,
-    avg: validVotesCount ? row.total / validVotesCount : 0,
-  }));
-
-  rows.sort((a, b) => b.total - a.total || b.avg - a.avg || b.count - a.count || a.song.title.localeCompare(b.song.title));
-  return rows;
+  return {
+    songs,
+    votes,
+    items,
+    leaderboard,
+    zonk,
+    validVotes: votes.length,
+    songsCount: songs.length,
+  };
 }
 
-export function buildZonk(songs: Song[], votes: Vote[]): ZonkRow[] {
-  const counts = new Map<string, number>();
+export async function getAdminRoundDetailData(roundId: string): Promise<AdminRoundDetailData | null> {
+  noStore();
 
-  votes
-    .filter((vote) => vote.is_verified)
-    .forEach((vote) => {
-      if (vote.zonk_song_id) counts.set(vote.zonk_song_id, (counts.get(vote.zonk_song_id) || 0) + 1);
-    });
+  const sb = getSupabaseAdminClient();
+  if (!sb) return null;
 
-  return songs
-    .map((song) => ({ song, count: counts.get(song.id) || 0 }))
-    .sort((a, b) => b.count - a.count || a.song.title.localeCompare(b.song.title));
+  const round = await getRoundById(roundId);
+  if (!round) return null;
+
+  const songs = await getSongs(round.id);
+  const votes = await getAllVotes(round.id);
+  const voteIds = votes.map((vote) => vote.id);
+
+  let items: VoteItem[] = [];
+  if (voteIds.length) {
+    const { data: itemData } = await sb.from('release_voting_vote_items').select('*').in('vote_id', voteIds);
+    items = (itemData || []) as VoteItem[];
+  }
+
+  const verifiedVotes = votes.filter((vote) => vote.is_verified);
+  const verifiedVoteIds = new Set(verifiedVotes.map((vote) => vote.id));
+  const verifiedItems = items.filter((item) => verifiedVoteIds.has(item.vote_id));
+  const songById = new Map(songs.map((song) => [song.id, song]));
+
+  const participants: AdminParticipantRow[] = votes.map((vote) => {
+    const zonkSong = vote.zonk_song_id ? songById.get(vote.zonk_song_id) : null;
+
+    return {
+      voteId: vote.id,
+      name: vote.juror_name || '',
+      email: vote.juror_email || '',
+      instagram: vote.juror_instagram || null,
+      isVerified: Boolean(vote.is_verified),
+      votedAt: vote.created_at,
+      verifiedAt: vote.verified_at,
+      zonkSong: zonkSong ? combineSongLine(zonkSong) : null,
+    };
+  });
+
+  const summary: AdminRoundSummary = {
+    roundId: round.id,
+    totalVotes: votes.length,
+    verifiedVotes: verifiedVotes.length,
+    pendingVotes: votes.length - verifiedVotes.length,
+    songsCount: songs.length,
+    leaderboard: buildLeaderboard(songs, verifiedVotes, verifiedItems),
+    zonk: buildZonk(songs, verifiedVotes),
+    participants,
+  };
+
+  return { round, songs, summary };
 }

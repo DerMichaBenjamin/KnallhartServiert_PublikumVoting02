@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import type { Song } from '@/lib/releaseVoting';
+import type { Song, Vote } from '@/lib/releaseVotingShared';
 
 type VoteItemRow = {
   id: string;
@@ -54,14 +54,27 @@ export async function POST(req: NextRequest) {
       throw new Error('Einer der Songs wurde in dieser Umfrage nicht gefunden.');
     }
 
-    const { data: itemsData, error: itemsError } = await sb
-      .from('release_voting_vote_items')
-      .select('id, vote_id, song_id, points')
-      .in('song_id', [targetSongId, sourceSongId]);
+    const { data: votesData, error: votesError } = await sb
+      .from('release_voting_votes')
+      .select('id')
+      .eq('round_id', roundId);
 
-    if (itemsError) throw itemsError;
+    if (votesError) throw votesError;
 
-    const items = (itemsData || []) as VoteItemRow[];
+    const voteIds = ((votesData || []) as Pick<Vote, 'id'>[]).map((vote) => vote.id);
+
+    let items: VoteItemRow[] = [];
+    if (voteIds.length) {
+      const { data: itemsData, error: itemsError } = await sb
+        .from('release_voting_vote_items')
+        .select('id, vote_id, song_id, points')
+        .in('vote_id', voteIds)
+        .in('song_id', [targetSongId, sourceSongId]);
+
+      if (itemsError) throw itemsError;
+      items = (itemsData || []) as VoteItemRow[];
+    }
+
     const targetItemByVoteId = new Map(
       items.filter((item) => item.song_id === targetSongId).map((item) => [item.vote_id, item])
     );
@@ -74,7 +87,8 @@ export async function POST(req: NextRequest) {
         const { error } = await sb
           .from('release_voting_vote_items')
           .update({ song_id: targetSongId })
-          .eq('id', sourceItem.id);
+          .eq('id', sourceItem.id)
+          .eq('vote_id', sourceItem.vote_id);
 
         if (error) throw error;
         continue;
@@ -86,7 +100,8 @@ export async function POST(req: NextRequest) {
       const { error: deleteSourceItemError } = await sb
         .from('release_voting_vote_items')
         .delete()
-        .eq('id', sourceItem.id);
+        .eq('id', sourceItem.id)
+        .eq('vote_id', sourceItem.vote_id);
 
       if (deleteSourceItemError) throw deleteSourceItemError;
 
@@ -94,7 +109,8 @@ export async function POST(req: NextRequest) {
         const { error: updateTargetPointsError } = await sb
           .from('release_voting_vote_items')
           .update({ points: sourcePoints })
-          .eq('id', targetItem.id);
+          .eq('id', targetItem.id)
+          .eq('vote_id', targetItem.vote_id);
 
         if (updateTargetPointsError) throw updateTargetPointsError;
       }
@@ -115,6 +131,11 @@ export async function POST(req: NextRequest) {
       .eq('round_id', roundId);
 
     if (deleteSongError) throw deleteSongError;
+
+    await sb
+      .from('release_voting_rounds')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', roundId);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

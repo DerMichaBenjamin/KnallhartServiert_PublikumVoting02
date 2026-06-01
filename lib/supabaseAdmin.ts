@@ -1,10 +1,24 @@
+import 'server-only';
+
 import { createClient } from '@supabase/supabase-js';
+
+function noStoreFetch(input: RequestInfo | URL, init?: RequestInit) {
+  return fetch(input, {
+    ...init,
+    cache: 'no-store',
+    next: { revalidate: 0 },
+  } as RequestInit & { next?: { revalidate: number } });
+}
 
 export function getSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
+
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    global: { fetch: noStoreFetch },
+  });
 }
 
 export function configState() {

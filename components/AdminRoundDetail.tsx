@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { AdminRoundSummary, Round, Song } from '@/lib/releaseVoting';
-import { combineSongLine, findSongDuplicateGroups } from '@/lib/releaseVoting';
+import type { AdminRoundSummary, Round, Song } from '@/lib/releaseVotingShared';
+import { combineSongLine, findSongDuplicateGroups } from '@/lib/releaseVotingShared';
 
 type Props = {
   round: Round;
@@ -139,8 +139,8 @@ export default function AdminRoundDetail({ round, songs, summary }: Props) {
           <a href="/admin/release-voting">← Zur Übersicht</a>
           <a href={`/release-voting/${round.slug}`} target="_blank" rel="noreferrer">Voting öffnen</a>
           <button type="button" onClick={() => copyPublicUrl(`/release-voting/${round.slug}`, 'Voting-Link kopiert.')}>Voting-Link kopieren</button>
-          {round.is_public_results && <a href={`/ergebnisse#${round.slug}`} target="_blank" rel="noreferrer">Ergebnis öffnen</a>}
-          {round.is_public_results && <button type="button" onClick={() => copyPublicUrl(`/ergebnisse#${round.slug}`, 'Ergebnis-Link kopiert.')}>Ergebnis-Link kopieren</button>}
+          {round.is_public_results && <a href={`/ergebnisse/${round.slug}`} target="_blank" rel="noreferrer">Ergebnis öffnen</a>}
+          {round.is_public_results && <button type="button" onClick={() => copyPublicUrl(`/ergebnisse/${round.slug}`, 'Ergebnis-Link kopiert.')}>Ergebnis-Link kopieren</button>}
           <button type="button" onClick={copyBackendUrl}>Backend-Link kopieren</button>
         </div>
       </section>
