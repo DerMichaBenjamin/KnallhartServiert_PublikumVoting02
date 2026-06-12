@@ -2,6 +2,7 @@ import 'server-only';
 
 import { unstable_noStore as noStore } from 'next/cache';
 import { getSupabaseAdminClient } from './supabaseAdmin';
+import { getSetting, setSetting } from './settings';
 import {
   buildLeaderboard,
   buildZonk,
@@ -34,6 +35,19 @@ export type AdminRoundDetailData = {
   summary: AdminRoundSummary;
 };
 
+const CURRENT_DJ_ROUND_SETTING = 'current_dj_round_id';
+
+export async function getCurrentDjRoundId() {
+  noStore();
+  const value = await getSetting(CURRENT_DJ_ROUND_SETTING, '');
+  const roundId = String(value || '').trim();
+  return roundId || null;
+}
+
+export async function setCurrentDjRoundId(roundId: string | null) {
+  await setSetting(CURRENT_DJ_ROUND_SETTING, roundId || '');
+}
+
 export async function getCurrentRound() {
   noStore();
   const sb = getSupabaseAdminClient();
@@ -49,6 +63,13 @@ export async function getCurrentRound() {
     .maybeSingle();
 
   return data as Round | null;
+}
+
+export async function getCurrentDjRound() {
+  noStore();
+  const roundId = await getCurrentDjRoundId();
+  if (!roundId) return null;
+  return getRoundById(roundId);
 }
 
 export async function getRoundBySlug(slug: string) {

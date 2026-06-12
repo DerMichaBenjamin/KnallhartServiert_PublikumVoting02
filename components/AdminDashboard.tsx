@@ -6,6 +6,7 @@ import type { AdminRoundSummary, Round } from '@/lib/releaseVotingShared';
 type Props = {
   rounds: Round[];
   currentRound: Round | null;
+  currentDjRound: Round | null;
   roundSummaries: AdminRoundSummary[];
   impressum: string;
 };
@@ -54,7 +55,7 @@ function statusLabel(status: string) {
   return 'Entwurf';
 }
 
-export default function AdminDashboard({ rounds, currentRound, roundSummaries, impressum }: Props) {
+export default function AdminDashboard({ rounds, currentRound, currentDjRound, roundSummaries, impressum }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -123,7 +124,7 @@ export default function AdminDashboard({ rounds, currentRound, roundSummaries, i
 
       <section className="admin-stats-grid">
         <div className="stat-card"><small>Öffentliche Haupt-Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
-        <div className="stat-card"><small>Umfragen</small><b>{rounds.length}</b></div>
+        <div className="stat-card"><small>Aktuelles DJ-Voting</small><b>{currentDjRound?.title || 'Keine'}</b></div>
         <div className="stat-card"><small>Gültige Stimmen gesamt</small><b>{totalVerified}</b></div>
         <div className="stat-card"><small>Offen / unbestätigt gesamt</small><b>{totalPending}</b></div>
       </section>
@@ -146,6 +147,7 @@ export default function AdminDashboard({ rounds, currentRound, roundSummaries, i
               spotifyPlaylistId: form.get('spotifyPlaylistId'),
               isPublicResults: form.get('isPublicResults') === 'on',
               makeCurrent: form.get('makeCurrent') === 'on',
+              makeCurrentDj: form.get('makeCurrentDj') === 'on',
             });
           }}
         >
@@ -164,8 +166,9 @@ export default function AdminDashboard({ rounds, currentRound, roundSummaries, i
           </div>
           <label>Spotify-Playlist-ID oder URL<input name="spotifyPlaylistId" defaultValue="5F2g4rTr0KpYgy9YGiE4aI" /></label>
           <label className="check-row"><input type="checkbox" name="makeCurrent" defaultChecked /> Als öffentliche Haupt-Abstimmung unter /release-voting anzeigen</label>
+          <label className="check-row"><input type="checkbox" name="makeCurrentDj" /> Als aktuelles DJ-Voting unter /dj-voting anzeigen</label>
           <label className="check-row"><input type="checkbox" name="isPublicResults" /> Ergebnis öffentlich anzeigen</label>
-          <p className="admin-help-text">Für eine private DJ-Abstimmung: Status „Live“ lassen, aber „Als öffentliche Haupt-Abstimmung“ deaktivieren.</p>
+          <p className="admin-help-text">Für eine DJ-Abstimmung: Status „Live“ lassen, „öffentliche Haupt-Abstimmung“ deaktivieren und „aktuelles DJ-Voting“ aktivieren. DJs können dann dauerhaft denselben Link /dj-voting verwenden.</p>
           <label>Songliste<textarea name="songsText" placeholder="Songtitel - Interpret" rows={8} /></label>
           <button className="submit" type="submit">Umfrage anlegen</button>
         </form>
@@ -210,7 +213,7 @@ export default function AdminDashboard({ rounds, currentRound, roundSummaries, i
                     </td>
                     <td>
                       <b>{statusLabel(round.status)}</b><br />
-                      <small>{round.is_current ? 'Hauptseite' : 'nicht Hauptseite'} · {round.is_public_results ? 'Ergebnis öffentlich' : 'Ergebnis intern'}</small>
+                      <small>{round.is_current ? 'Hauptseite' : 'nicht Hauptseite'} · {currentDjRound?.id === round.id ? 'DJ-Voting' : 'nicht DJ'} · {round.is_public_results ? 'Ergebnis öffentlich' : 'Ergebnis intern'}</small>
                     </td>
                     <td>{formatAdminDateTime(round.created_at)}</td>
                     <td className="vote-count-cell">

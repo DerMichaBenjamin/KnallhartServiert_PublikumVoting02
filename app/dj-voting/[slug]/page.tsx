@@ -14,10 +14,10 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     return (
       <main className="public-shell">
         <Header />
-        <h1>Abstimmung nicht gefunden</h1>
+        <h1>DJ-Voting nicht gefunden</h1>
       </main>
     );
   }
 
-  return <VotingRoundView round={round} variant="public" />;
+  return <VotingRoundView round={round} variant="dj" />;
 }

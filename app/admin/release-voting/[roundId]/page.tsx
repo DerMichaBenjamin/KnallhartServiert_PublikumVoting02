@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { isAdminLoggedIn } from '@/lib/adminAuth';
 import AdminRoundDetail from '@/components/AdminRoundDetail';
-import { getAdminRoundDetailData } from '@/lib/releaseVoting';
+import { getAdminRoundDetailData, getCurrentDjRoundId } from '@/lib/releaseVoting';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,8 +16,16 @@ export default async function AdminRoundPage({ params }: PageProps) {
 
   const { roundId } = await params;
   const data = await getAdminRoundDetailData(roundId);
+  const currentDjRoundId = await getCurrentDjRoundId();
 
   if (!data) notFound();
 
-  return <AdminRoundDetail round={data.round} songs={data.songs} summary={data.summary} />;
+  return (
+    <AdminRoundDetail
+      round={data.round}
+      songs={data.songs}
+      summary={data.summary}
+      isCurrentDj={currentDjRoundId === data.round.id}
+    />
+  );
 }

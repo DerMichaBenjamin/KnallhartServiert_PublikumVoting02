@@ -8,6 +8,7 @@ type Props = {
   round: Round;
   songs: Song[];
   summary: AdminRoundSummary;
+  isCurrentDj: boolean;
 };
 
 function toDateTimeLocal(value?: string | null) {
@@ -54,7 +55,7 @@ function statusLabel(status: string) {
   return 'Entwurf';
 }
 
-export default function AdminRoundDetail({ round, songs, summary }: Props) {
+export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -137,8 +138,12 @@ export default function AdminRoundDetail({ round, songs, summary }: Props) {
       <section className="admin-card">
         <div className="action-cell">
           <a href="/admin/release-voting">← Zur Übersicht</a>
-          <a href={`/release-voting/${round.slug}`} target="_blank" rel="noreferrer">Voting öffnen</a>
-          <button type="button" onClick={() => copyPublicUrl(`/release-voting/${round.slug}`, 'Voting-Link kopiert.')}>Voting-Link kopieren</button>
+          <a href={`/release-voting/${round.slug}`} target="_blank" rel="noreferrer">Publikums-Link öffnen</a>
+          <button type="button" onClick={() => copyPublicUrl(`/release-voting/${round.slug}`, 'Publikums-Link kopiert.')}>Publikums-Link kopieren</button>
+          <a href={`/dj-voting/${round.slug}`} target="_blank" rel="noreferrer">DJ-Direktlink öffnen</a>
+          <button type="button" onClick={() => copyPublicUrl(`/dj-voting/${round.slug}`, 'DJ-Direktlink kopiert.')}>DJ-Direktlink kopieren</button>
+          {isCurrentDj && <a href="/dj-voting" target="_blank" rel="noreferrer">Aktuelles DJ-Voting öffnen</a>}
+          {isCurrentDj && <button type="button" onClick={() => copyPublicUrl('/dj-voting', 'Aktueller DJ-Link kopiert.')}>Aktuellen DJ-Link kopieren</button>}
           {round.is_public_results && <a href={`/ergebnisse/${round.slug}`} target="_blank" rel="noreferrer">Ergebnis öffnen</a>}
           {round.is_public_results && <button type="button" onClick={() => copyPublicUrl(`/ergebnisse/${round.slug}`, 'Ergebnis-Link kopiert.')}>Ergebnis-Link kopieren</button>}
           <button type="button" onClick={copyBackendUrl}>Backend-Link kopieren</button>
@@ -163,6 +168,7 @@ export default function AdminRoundDetail({ round, songs, summary }: Props) {
               placesCount: Number(form.get('placesCount') || 12),
               spotifyPlaylistId: form.get('spotifyPlaylistId'),
               isCurrent: form.get('isCurrent') === 'on',
+              isCurrentDj: form.get('isCurrentDj') === 'on',
               isPublicResults: form.get('isPublicResults') === 'on',
             });
           }}
@@ -182,7 +188,9 @@ export default function AdminRoundDetail({ round, songs, summary }: Props) {
           </div>
           <label>Spotify-Playlist-ID oder URL<input name="spotifyPlaylistId" defaultValue={round.spotify_playlist_id || ''} /></label>
           <label className="check-row"><input type="checkbox" name="isCurrent" defaultChecked={round.is_current} /> Als öffentliche Haupt-Abstimmung unter /release-voting anzeigen</label>
+          <label className="check-row"><input type="checkbox" name="isCurrentDj" defaultChecked={isCurrentDj} /> Als aktuelles DJ-Voting unter /dj-voting anzeigen</label>
           <label className="check-row"><input type="checkbox" name="isPublicResults" defaultChecked={round.is_public_results} /> Ergebnis öffentlich unter /ergebnisse anzeigen</label>
+          <p className="admin-help-text">Wenn diese Umfrage als aktuelles DJ-Voting markiert ist, können DJs jede Woche denselben Link /dj-voting verwenden. Der normale Publikums-Link /release-voting bleibt davon getrennt.</p>
           <button className="submit" type="submit">Einstellungen speichern</button>
         </form>
 

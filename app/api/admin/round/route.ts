@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
+import { getSetting, setSetting } from '@/lib/settings';
 import { findSongDuplicateGroups, formatDuplicateSongMessage, normalizeSlug, parseSongList, spotifyIdFromInput, type Song } from '@/lib/releaseVotingShared';
 
 function iso(value: unknown) {
@@ -50,6 +51,19 @@ function dbMessage(error: unknown) {
   return String(error);
 }
 
+const CURRENT_DJ_ROUND_SETTING = 'current_dj_round_id';
+
+async function setCurrentDjRound(roundId: string | null) {
+  await setSetting(CURRENT_DJ_ROUND_SETTING, roundId || '');
+}
+
+async function clearCurrentDjRoundIfSame(roundId: string) {
+  const currentDjRoundId = String(await getSetting(CURRENT_DJ_ROUND_SETTING, '') || '').trim();
+  if (currentDjRoundId === roundId) {
+    await setCurrentDjRound(null);
+  }
+}
+
 async function clearCurrentRound(sb: NonNullable<ReturnType<typeof getSupabaseAdminClient>>) {
   const { error } = await sb
     .from('release_voting_rounds')
@@ -94,6 +108,15 @@ export async function POST(req: NextRequest) {
         const nextIsCurrent = Boolean(body.isCurrent);
         if (nextIsCurrent) await clearCurrentRound(sb);
         patch.is_current = nextIsCurrent;
+      }
+
+      if ('isCurrentDj' in body) {
+        const nextIsCurrentDj = Boolean(body.isCurrentDj);
+        if (nextIsCurrentDj) {
+          await setCurrentDjRound(String(body.id));
+        } else {
+          await clearCurrentDjRoundIfSame(String(body.id));
+        }
       }
 
       if ('spotifyPlaylistId' in body) patch.spotify_playlist_id = spotifyIdFromInput(body.spotifyPlaylistId);
@@ -141,6 +164,7 @@ export async function POST(req: NextRequest) {
     const slug = requestedSlug ? normalizeSlug(requestedSlug) : slugWithDate(rawTitle, startsAt);
     const status = String(body.status || 'draft');
     const makeCurrent = Boolean(body.makeCurrent);
+    const makeCurrentDj = Boolean(body.makeCurrentDj);
 
     const { data: existing } = await sb.from('release_voting_rounds').select('id').eq('slug', slug).maybeSingle();
     const finalSlug = existing ? `${slug}-${Date.now().toString().slice(-5)}` : slug;
@@ -183,6 +207,10 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
     if (!round?.id) throw new Error('Umfrage wurde nicht korrekt angelegt. Keine Round-ID erhalten.');
+
+    if (makeCurrentDj) {
+      await setCurrentDjRound(round.id);
+    }
 
     if (songs.length) {
       const { error: songError } = await sb.from('release_voting_songs').insert(

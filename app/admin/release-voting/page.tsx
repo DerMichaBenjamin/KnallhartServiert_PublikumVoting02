@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { isAdminLoggedIn } from '@/lib/adminAuth';
 import AdminDashboard from '@/components/AdminDashboard';
 import { DEFAULT_IMPRESSUM, getSetting } from '@/lib/settings';
-import { getCurrentRound, listRounds, type AdminRoundSummary, type Vote } from '@/lib/releaseVoting';
+import { getCurrentDjRound, getCurrentRound, listRounds, type AdminRoundSummary, type Vote } from '@/lib/releaseVoting';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,7 @@ export default async function Admin() {
 
   const rounds = await listRounds();
   const current = await getCurrentRound();
+  const currentDjRound = await getCurrentDjRound();
   const sb = getSupabaseAdminClient();
   let roundSummaries: AdminRoundSummary[] = [];
 
@@ -46,5 +47,5 @@ export default async function Admin() {
 
   const impressum = await getSetting('impressum_text', DEFAULT_IMPRESSUM);
 
-  return <AdminDashboard rounds={rounds} currentRound={current} roundSummaries={roundSummaries} impressum={impressum} />;
+  return <AdminDashboard rounds={rounds} currentRound={current} currentDjRound={currentDjRound} roundSummaries={roundSummaries} impressum={impressum} />;
 }
