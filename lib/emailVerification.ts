@@ -70,7 +70,7 @@ export function buildVerificationUrl(token: string) {
 }
 
 function escapeHtml(value: string) {
-  return value
+  return String(value || '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -78,7 +78,73 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#39;');
 }
 
-export async function sendVerificationEmail(input: { to: string; roundTitle: string; verificationUrl: string }) {
+type VerificationEmailSelection = {
+  title: string;
+  artist: string;
+  points: number;
+};
+
+type SendVerificationEmailInput = {
+  to: string;
+  roundTitle: string;
+  verificationUrl: string;
+  selections?: VerificationEmailSelection[];
+  zonkSelection?: { title: string; artist: string } | null;
+};
+
+function formatSongLine(song: { title: string; artist?: string | null }) {
+  return song.artist ? `${song.title} — ${song.artist}` : song.title;
+}
+
+function buildVoteSummaryHtml(selections: VerificationEmailSelection[] = [], zonkSelection?: { title: string; artist: string } | null) {
+  if (!selections.length && !zonkSelection) return '';
+
+  const rows = [...selections]
+    .sort((a, b) => b.points - a.points || formatSongLine(a).localeCompare(formatSongLine(b)))
+    .map((selection) => `
+      <tr>
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#64748b;text-align:right;width:70px">${selection.points}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb"><strong>${escapeHtml(selection.title)}</strong>${selection.artist ? `<br><span style="color:#64748b;font-size:13px">${escapeHtml(selection.artist)}</span>` : ''}</td>
+      </tr>
+    `).join('');
+
+  const rankingBlock = selections.length
+    ? `<h3 style="margin:24px 0 8px;font-size:18px">Deine Punktevergabe</h3>
+      <p style="margin:0 0 10px;color:#475569">Nach deiner Bestätigung werden diese Punkte in die Auswertung übernommen.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+        <thead>
+          <tr>
+            <th align="right" style="padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.04em;width:70px">Punkte</th>
+            <th align="left" style="padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.04em">Song</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`
+    : '';
+
+  const zonkBlock = zonkSelection
+    ? `<p style="margin:18px 0 0"><strong>ZONK – Song der Woche:</strong><br>${escapeHtml(formatSongLine(zonkSelection))}</p>`
+    : `<p style="margin:18px 0 0;color:#64748b"><strong>ZONK – Song der Woche:</strong><br>Kein ZONK gewählt.</p>`;
+
+  return `${rankingBlock}${zonkBlock}`;
+}
+
+function buildVoteSummaryText(selections: VerificationEmailSelection[] = [], zonkSelection?: { title: string; artist: string } | null) {
+  const lines: string[] = [];
+
+  if (selections.length) {
+    lines.push('', 'Deine Punktevergabe:');
+    for (const selection of [...selections].sort((a, b) => b.points - a.points || formatSongLine(a).localeCompare(formatSongLine(b)))) {
+      lines.push(`${selection.points} Punkte: ${formatSongLine(selection)}`);
+    }
+  }
+
+  lines.push('', `ZONK – Song der Woche: ${zonkSelection ? formatSongLine(zonkSelection) : 'Kein ZONK gewählt.'}`);
+
+  return lines.join('\n');
+}
+
+export async function sendVerificationEmail(input: SendVerificationEmailInput) {
   const apiKey = env('RESEND_API_KEY');
   const fromEmail = env('RESEND_FROM_EMAIL');
 
@@ -87,6 +153,8 @@ export async function sendVerificationEmail(input: { to: string; roundTitle: str
   }
 
   const escapedUrl = escapeHtml(input.verificationUrl);
+  const summaryHtml = buildVoteSummaryHtml(input.selections, input.zonkSelection);
+  const summaryText = buildVoteSummaryText(input.selections, input.zonkSelection);
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -98,8 +166,8 @@ export async function sendVerificationEmail(input: { to: string; roundTitle: str
       from: `Knallhart serviert Publikums-Voting <${fromEmail}>`,
       to: [input.to],
       subject: 'Bitte bestätige dein Voting',
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2937"><h2>Knallhart serviert Publikums-Voting</h2><p>Danke für dein Voting für <strong>${escapeHtml(input.roundTitle)}</strong>.</p><p>Bitte bestätige deine Stimme mit einem Klick:</p><p><a href="${escapedUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#ff6b3d;color:#fff;text-decoration:none;font-weight:700">Voting bestätigen</a></p><p style="margin-top:18px;font-size:13px;color:#64748b">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:</p><p style="font-size:13px;word-break:break-all"><a href="${escapedUrl}">${escapedUrl}</a></p><p>Die Mail kann einige Minuten dauern. Prüfe bitte auch den Spam-Ordner.</p><p style="font-size:13px;color:#64748b">Nur bestätigte Stimmen fließen in die Auswertung ein.</p></div>`,
-      text: `Danke für dein Voting für "${input.roundTitle}". Bestätige hier: ${input.verificationUrl}`,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2937;max-width:680px"><h2>Knallhart serviert Publikums-Voting</h2><p>Danke für dein Voting für <strong>${escapeHtml(input.roundTitle)}</strong>.</p><p>Bitte bestätige deine Stimme mit einem Klick:</p><p><a href="${escapedUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#ff6b3d;color:#fff;text-decoration:none;font-weight:700">Voting bestätigen</a></p>${summaryHtml}<p style="margin-top:22px;font-size:13px;color:#64748b">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:</p><p style="font-size:13px;word-break:break-all"><a href="${escapedUrl}">${escapedUrl}</a></p><p>Die Mail kann einige Minuten dauern. Prüfe bitte auch den Spam-Ordner.</p><p style="font-size:13px;color:#64748b">Nur bestätigte Stimmen fließen in die Auswertung ein.</p></div>`,
+      text: `Danke für dein Voting für "${input.roundTitle}".\n\nBestätige hier: ${input.verificationUrl}${summaryText}\n\nNur bestätigte Stimmen fließen in die Auswertung ein.`,
     }),
   });
 
