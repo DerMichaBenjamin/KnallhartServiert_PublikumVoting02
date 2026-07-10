@@ -21,6 +21,8 @@ type NormalizedRankingEntry = {
 
 type RoundSongRow = {
   id: string;
+  title: string;
+  artist: string;
 };
 
 function dbMessage(error: unknown) {
@@ -152,12 +154,14 @@ export async function POST(req: Request) {
 
     const { data: roundSongs, error: songsError } = await sb
       .from('release_voting_songs')
-      .select('id')
+      .select('id,title,artist')
       .eq('round_id', roundId);
 
     if (songsError) throw songsError;
 
-    const validSongIds = new Set(((roundSongs || []) as RoundSongRow[]).map((song) => song.id));
+    const roundSongRows = ((roundSongs || []) as RoundSongRow[]);
+    const validSongIds = new Set(roundSongRows.map((song) => song.id));
+    const songsById = new Map(roundSongRows.map((song) => [song.id, song]));
 
     if (validSongIds.size < expectedPlaces) {
       throw new Error('Diese Abstimmung enthält weniger Songs als Plätze. Bitte Adminbereich prüfen.');
@@ -205,10 +209,24 @@ export async function POST(req: Request) {
     if (itemsError) throw itemsError;
 
     const verificationUrl = buildVerificationUrl(token);
+    const selectionsForEmail = [...normalizedRanking]
+      .sort((a, b) => b.points - a.points)
+      .map((entry) => {
+        const song = songsById.get(entry.songId);
+        return {
+          title: song?.title || 'Unbekannter Song',
+          artist: song?.artist || '',
+          points: entry.points,
+        };
+      });
+    const zonkSongForEmail = zonkSongId ? songsById.get(zonkSongId) || null : null;
+
     await sendVerificationEmail({
       to: jurorEmail,
       roundTitle: round.title || 'Knallhart serviert Publikums-Voting',
       verificationUrl,
+      selections: selectionsForEmail,
+      zonkSelection: zonkSongForEmail ? { title: zonkSongForEmail.title, artist: zonkSongForEmail.artist || '' } : null,
     });
 
     return NextResponse.json({ ok: true });
