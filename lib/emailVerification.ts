@@ -176,6 +176,75 @@ export async function sendVerificationEmail(input: SendVerificationEmailInput) {
   }
 }
 
+function dbErrorMessage(error: unknown) {
+  if (!error) return '';
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    return [value.message, value.details, value.hint, value.code]
+      .filter(Boolean)
+      .map(String)
+      .join(' | ');
+  }
+  return String(error);
+}
+
+function isMissingConfirmVoteRpc(error: unknown) {
+  const message = dbErrorMessage(error).toLowerCase();
+  return (
+    message.includes('confirm_release_vote') &&
+    (
+      message.includes('schema cache') ||
+      message.includes('could not find') ||
+      message.includes('function') ||
+      message.includes('does not exist')
+    )
+  );
+}
+
+async function confirmVoteFallback(
+  sb: NonNullable<ReturnType<typeof getSupabaseAdminClient>>,
+  vote: Record<string, any>
+) {
+  const email = String(vote.juror_email || '').trim().toLowerCase();
+
+  const { data: existing, error: existingError } = await sb
+    .from('release_voting_votes')
+    .select('id')
+    .eq('round_id', vote.round_id)
+    .ilike('juror_email', email)
+    .eq('is_verified', true)
+    .neq('id', vote.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    return { ok: false as const, message: existingError.message };
+  }
+
+  if (existing?.id) {
+    return {
+      ok: false as const,
+      message: 'Mit dieser E-Mail-Adresse wurde für diese Abstimmung bereits eine andere Stimme bestätigt.',
+    };
+  }
+
+  const upd = await sb
+    .from('release_voting_votes')
+    .update({
+      is_verified: true,
+      verified_at: new Date().toISOString(),
+      verify_expires_at: null,
+    })
+    .eq('id', vote.id);
+
+  if (upd.error) {
+    return { ok: false as const, message: upd.error.message };
+  }
+
+  return { ok: true as const, message: 'Dein Voting wurde bestätigt.' };
+}
+
 export async function verifyVoteToken(tokenInput: string) {
   const sb = getSupabaseAdminClient();
   if (!sb) return { ok: false as const, message: 'Supabase-Client konnte nicht erstellt werden.' };
@@ -197,11 +266,44 @@ export async function verifyVoteToken(tokenInput: string) {
     return { ok: false as const, message: 'Der Link ist abgelaufen. Bitte stimme erneut ab.' };
   }
 
-  const upd = await sb
-    .from('release_voting_votes')
-    .update({ is_verified: true, verified_at: new Date().toISOString(), verify_expires_at: null })
-    .eq('id', data.id);
+  /*
+   * Atomare Bestätigung in Supabase:
+   * Für eine Kombination aus Runde + normalisierter E-Mail-Adresse kann immer
+   * nur die zuerst bestätigte Stimme erfolgreich werden. Mehrere noch
+   * unbestätigte Versuche bleiben ausdrücklich erlaubt.
+   */
+  const rpcResult = await sb.rpc('confirm_release_vote', {
+    p_vote_id: data.id,
+  });
 
-  if (upd.error) return { ok: false as const, message: upd.error.message };
-  return { ok: true as const, message: 'Dein Voting wurde bestätigt.' };
+  if (!rpcResult.error) {
+    const row = Array.isArray(rpcResult.data)
+      ? rpcResult.data[0]
+      : rpcResult.data;
+
+    if (!row) {
+      return { ok: false as const, message: 'Die Stimme konnte nicht bestätigt werden.' };
+    }
+
+    const rpcOk = Boolean((row as Record<string, unknown>).ok);
+    const rpcMessage = String(
+      (row as Record<string, unknown>).message ||
+      (rpcOk ? 'Dein Voting wurde bestätigt.' : 'Die Stimme konnte nicht bestätigt werden.')
+    );
+
+    return rpcOk
+      ? { ok: true as const, message: rpcMessage }
+      : { ok: false as const, message: rpcMessage };
+  }
+
+  /*
+   * Rückwärtskompatibler Fallback, falls der Code vor der SQL-Funktion
+   * deployed wurde. Nach Einspielen der Migration übernimmt die atomare RPC
+   * und schützt zusätzlich vor zwei praktisch gleichzeitigen Bestätigungen.
+   */
+  if (isMissingConfirmVoteRpc(rpcResult.error)) {
+    return confirmVoteFallback(sb, data as Record<string, any>);
+  }
+
+  return { ok: false as const, message: dbErrorMessage(rpcResult.error) || 'Die Stimme konnte nicht bestätigt werden.' };
 }

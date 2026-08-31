@@ -63,6 +63,7 @@ function statusLabel(status: string) {
 }
 
 function participantStatus(participant: AdminRoundSummary['participants'][number]) {
+  if (!participant.isVerified && participant.isExcluded) return 'Unbestätigt · Ausgeschlossen';
   if (!participant.isVerified) return 'Unbestätigt';
   if (participant.isExcluded) return 'Bestätigt · Ausgeschlossen';
   return 'Bestätigt · Gewertet';
@@ -138,11 +139,14 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
   const selectedParticipants = summary.participants.filter((participant) =>
     selectedVoteIds.includes(participant.voteId)
   );
-  const selectedCountedParticipants = selectedParticipants.filter(
-    (participant) => participant.isVerified && !participant.isExcluded
+  const selectedOpenParticipants = selectedParticipants.filter(
+    (participant) => !participant.isExcluded
   );
   const selectedExcludedParticipants = selectedParticipants.filter(
-    (participant) => participant.isVerified && participant.isExcluded
+    (participant) => participant.isExcluded
+  );
+  const selectedUnverifiedParticipants = selectedParticipants.filter(
+    (participant) => !participant.isVerified
   );
 
   function isSelected(voteId: string) {
@@ -179,14 +183,14 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
 
   async function updateSelected(excluded: boolean) {
     const participants = excluded
-      ? selectedCountedParticipants
+      ? selectedOpenParticipants
       : selectedExcludedParticipants;
 
     if (!participants.length) {
       setMessage({
         type: 'error',
         text: excluded
-          ? 'In deiner Auswahl ist keine derzeit gewertete Stimme.'
+          ? 'In deiner Auswahl ist keine noch nicht ausgeschlossene Stimme.'
           : 'In deiner Auswahl ist keine ausgeschlossene Stimme.',
       });
       return;
@@ -203,8 +207,8 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
 
     const ok = window.confirm(
       excluded
-        ? `${participants.length} ausgewählte Stimmen aus der offiziellen Wertung ausschließen? Die Stimmen bleiben vollständig gespeichert.`
-        : `${participants.length} ausgewählte Stimmen wieder für die offizielle Wertung zulassen?`
+        ? `${participants.length} ausgewählte Stimmen ausschließen? Unbestätigte Stimmen bleiben auch ausgeschlossen, falls sie später per E-Mail bestätigt werden.`
+        : `${participants.length} ausgewählte Stimmen wieder zulassen?`
     );
     if (!ok) return;
 
@@ -244,7 +248,9 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
       if (!reason.trim()) return;
 
       const ok = window.confirm(
-        'Diese Stimme aus der offiziellen Wertung ausschließen? Sie bleibt vollständig gespeichert und kann später wieder zugelassen werden.'
+        participant.isVerified
+          ? 'Diese Stimme aus der offiziellen Wertung ausschließen? Sie bleibt vollständig gespeichert und kann später wieder zugelassen werden.'
+          : 'Diese unbestätigte Stimme schon jetzt ausschließen? Falls sie später per E-Mail bestätigt wird, bleibt sie ausgeschlossen und wird nicht gewertet.'
       );
       if (!ok) return;
     } else {
@@ -470,7 +476,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
 
         <div className="admin-card">
           <h2>Teilnehmer dieser Abstimmung</h2>
-          <p className="admin-help-text">Namen und E-Mail-Adressen bleiben nur im Backend sichtbar. Ausgeschlossene Stimmen bleiben vollständig gespeichert und können jederzeit wieder zugelassen werden.</p>
+          <p className="admin-help-text">Namen und E-Mail-Adressen bleiben nur im Backend sichtbar. Auch unbestätigte Stimmen können vorab ausgeschlossen werden. Falls sie später per Mail bestätigt werden, bleiben sie ausgeschlossen und werden nicht gewertet.</p>
           <div className="action-cell">
             <button type="button" disabled={!summary.participants.length} onClick={() => copyParticipantEmails('all')}>Alle E-Mails</button>
             <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails('confirmed')}>Bestätigte E-Mails</button>
@@ -488,8 +494,15 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
             </button>
             <button
               type="button"
-              disabled={busy || !summary.participants.some((participant) => participant.isVerified && participant.isExcluded)}
-              onClick={() => addSelected(summary.participants.filter((participant) => participant.isVerified && participant.isExcluded).map((participant) => participant.voteId))}
+              disabled={busy || !summary.participants.some((participant) => !participant.isVerified && !participant.isExcluded)}
+              onClick={() => addSelected(summary.participants.filter((participant) => !participant.isVerified && !participant.isExcluded).map((participant) => participant.voteId))}
+            >
+              Alle unbestätigten markieren
+            </button>
+            <button
+              type="button"
+              disabled={busy || !summary.participants.some((participant) => participant.isExcluded)}
+              onClick={() => addSelected(summary.participants.filter((participant) => participant.isExcluded).map((participant) => participant.voteId))}
             >
               Alle ausgeschlossenen markieren
             </button>
@@ -499,14 +512,14 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
           {selectedVoteIds.length > 0 && (
             <div className="notice" style={{ marginBottom: 0 }}>
               <b>{selectedVoteIds.length} Stimmen ausgewählt.</b>{' '}
-              {selectedCountedParticipants.length} davon gewertet · {selectedExcludedParticipants.length} davon ausgeschlossen.
+              {selectedOpenParticipants.length} noch nicht ausgeschlossen · {selectedExcludedParticipants.length} ausgeschlossen · {selectedUnverifiedParticipants.length} unbestätigt.
               <div className="action-cell" style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  disabled={busy || !selectedCountedParticipants.length}
+                  disabled={busy || !selectedOpenParticipants.length}
                   onClick={() => updateSelected(true)}
                 >
-                  Ausgewählte ausschließen ({selectedCountedParticipants.length})
+                  Ausgewählte ausschließen ({selectedOpenParticipants.length})
                 </button>
                 <button
                   type="button"
@@ -542,14 +555,12 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
               {summary.participants.map((participant) => (
                 <tr key={participant.voteId}>
                   <td>
-                    {participant.isVerified ? (
-                      <input
-                        type="checkbox"
-                        checked={isSelected(participant.voteId)}
-                        onChange={() => toggleSelected(participant.voteId)}
-                        aria-label={`Stimme von ${participant.email || participant.name || participant.voteId} auswählen`}
-                      />
-                    ) : '—'}
+                    <input
+                      type="checkbox"
+                      checked={isSelected(participant.voteId)}
+                      onChange={() => toggleSelected(participant.voteId)}
+                      aria-label={`Stimme von ${participant.email || participant.name || participant.voteId} auswählen`}
+                    />
                   </td>
                   <td>{participantStatus(participant)}</td>
                   <td>{participant.name || '—'}</td>
@@ -570,17 +581,17 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
                   </td>
                   <td>{participant.zonkSong || '—'}</td>
                   <td>
-                    {participant.isVerified ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => toggleExcluded(participant)}
-                      >
-                        {participant.isExcluded ? 'Wieder zulassen' : 'Ausschließen'}
-                      </button>
-                    ) : (
-                      <span>Erst nach Bestätigung</span>
-                    )}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => toggleExcluded(participant)}
+                    >
+                      {participant.isExcluded
+                        ? 'Wieder zulassen'
+                        : participant.isVerified
+                          ? 'Ausschließen'
+                          : 'Vorab ausschließen'}
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -1,12 +1,33 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Round } from '@/lib/releaseVotingShared';
 import type { VotingSecurityAlert, VotingSecurityReport } from '@/lib/votingSecurityShared';
 
 type Props = {
   round: Round;
   report: VotingSecurityReport;
+};
+
+type PendingVote = {
+  voteId: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  verifiedAt: string | null;
+  isExcluded: boolean;
+  domain: string;
+  ipGroup: string | null;
+};
+
+type UiParticipant = {
+  voteId: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  verifiedAt: string | null;
+  isExcluded: boolean;
+  isVerified: boolean;
 };
 
 function formatAdminDateTime(value?: string | null) {
@@ -31,35 +52,161 @@ function metric(value?: number | null, suffix = '') {
   return `${value}${suffix}`;
 }
 
+function participantStatus(participant: UiParticipant) {
+  if (!participant.isVerified && participant.isExcluded) {
+    return 'Unbestätigt · ausgeschlossen';
+  }
+  if (!participant.isVerified) return 'Unbestätigt';
+  if (participant.isExcluded) return 'Bestätigt · ausgeschlossen';
+  return 'Bestätigt · gewertet';
+}
+
+function pendingMatchesAlert(vote: PendingVote, alert: VotingSecurityAlert) {
+  if (alert.kind === 'domain_cluster') {
+    return Boolean(alert.domain) && vote.domain === alert.domain;
+  }
+
+  if (alert.kind === 'ip_cluster') {
+    return Boolean(alert.ipGroup) && vote.ipGroup === alert.ipGroup;
+  }
+
+  if (alert.kind === 'time_cluster') {
+    const created = Date.parse(vote.createdAt);
+    const start = Date.parse(alert.windowStart || '');
+    const end = Date.parse(alert.windowEnd || '');
+    if (!Number.isFinite(created) || !Number.isFinite(start) || !Number.isFinite(end)) {
+      return false;
+    }
+    return created >= start && created <= end;
+  }
+
+  return false;
+}
+
 export default function AdminVotingSecurity({ round, report }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [selectedVoteIds, setSelectedVoteIds] = useState<string[]>([]);
+  const [pendingVotes, setPendingVotes] = useState<PendingVote[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPending() {
+      setPendingLoading(true);
+      try {
+        const response = await fetch('/api/admin/security-pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roundId: round.id }),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.error || 'Unbestätigte Stimmen konnten nicht geladen werden.');
+        }
+        if (!cancelled) {
+          setPendingVotes(Array.isArray(data.votes) ? data.votes : []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMessage({
+            type: 'error',
+            text: error instanceof Error ? error.message : 'Unbestätigte Stimmen konnten nicht geladen werden.',
+          });
+        }
+      } finally {
+        if (!cancelled) setPendingLoading(false);
+      }
+    }
+
+    void loadPending();
+    return () => {
+      cancelled = true;
+    };
+  }, [round.id]);
+
+  function participantsForAlert(alert: VotingSecurityAlert): UiParticipant[] {
+    const map = new Map<string, UiParticipant>();
+
+    for (const participant of alert.participants) {
+      map.set(participant.voteId, {
+        voteId: participant.voteId,
+        name: participant.name,
+        email: participant.email,
+        createdAt: participant.createdAt,
+        verifiedAt: participant.verifiedAt,
+        isExcluded: participant.isExcluded,
+        isVerified: true,
+      });
+    }
+
+    for (const vote of pendingVotes) {
+      if (!pendingMatchesAlert(vote, alert)) continue;
+      map.set(vote.voteId, {
+        voteId: vote.voteId,
+        name: vote.name,
+        email: vote.email,
+        createdAt: vote.createdAt,
+        verifiedAt: vote.verifiedAt,
+        isExcluded: vote.isExcluded,
+        isVerified: false,
+      });
+    }
+
+    return [...map.values()].sort(
+      (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+    );
+  }
 
   const participantById = useMemo(() => {
-    const map = new Map<
-      string,
-      VotingSecurityAlert['participants'][number]
-    >();
+    const map = new Map<string, UiParticipant>();
 
     for (const alert of [...report.activeAlerts, ...report.resolvedAlerts]) {
       for (const participant of alert.participants) {
-        map.set(participant.voteId, participant);
+        map.set(participant.voteId, {
+          voteId: participant.voteId,
+          name: participant.name,
+          email: participant.email,
+          createdAt: participant.createdAt,
+          verifiedAt: participant.verifiedAt,
+          isExcluded: participant.isExcluded,
+          isVerified: true,
+        });
+      }
+
+      for (const vote of pendingVotes) {
+        if (!pendingMatchesAlert(vote, alert)) continue;
+        map.set(vote.voteId, {
+          voteId: vote.voteId,
+          name: vote.name,
+          email: vote.email,
+          createdAt: vote.createdAt,
+          verifiedAt: vote.verifiedAt,
+          isExcluded: vote.isExcluded,
+          isVerified: false,
+        });
       }
     }
 
     return map;
-  }, [report]);
+  }, [report, pendingVotes]);
 
-  const selectedCount = selectedVoteIds.length;
+  const selectedParticipants = selectedVoteIds
+    .map((voteId) => participantById.get(voteId))
+    .filter(Boolean) as UiParticipant[];
 
-  const selectedCountedIds = selectedVoteIds.filter(
-    (voteId) => !participantById.get(voteId)?.isExcluded
-  );
+  const selectedOpenIds = selectedParticipants
+    .filter((participant) => !participant.isExcluded)
+    .map((participant) => participant.voteId);
 
-  const selectedExcludedIds = selectedVoteIds.filter(
-    (voteId) => Boolean(participantById.get(voteId)?.isExcluded)
-  );
+  const selectedExcludedIds = selectedParticipants
+    .filter((participant) => participant.isExcluded)
+    .map((participant) => participant.voteId);
+
+  const selectedPendingCount = selectedParticipants.filter(
+    (participant) => !participant.isVerified
+  ).length;
 
   function isSelected(voteId: string) {
     return selectedVoteIds.includes(voteId);
@@ -74,9 +221,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
   }
 
   function addSelected(voteIds: string[]) {
-    setSelectedVoteIds((current) =>
-      Array.from(new Set([...current, ...voteIds]))
-    );
+    setSelectedVoteIds((current) => Array.from(new Set([...current, ...voteIds])));
   }
 
   function clearSelected() {
@@ -91,7 +236,6 @@ export default function AdminVotingSecurity({ round, report }: Props) {
     });
 
     const data = await response.json().catch(() => null);
-
     if (!response.ok || !data?.ok) {
       throw new Error(data?.error || 'Stimme konnte nicht geändert werden.');
     }
@@ -107,45 +251,38 @@ export default function AdminVotingSecurity({ round, report }: Props) {
   }
 
   async function updateSelected(excluded: boolean) {
-    const voteIds = excluded ? selectedCountedIds : selectedExcludedIds;
+    const voteIds = excluded ? selectedOpenIds : selectedExcludedIds;
 
     if (!voteIds.length) {
       setMessage({
         type: 'error',
         text: excluded
-          ? 'In deiner Auswahl ist keine derzeit gewertete Stimme.'
+          ? 'In deiner Auswahl ist keine noch nicht ausgeschlossene Stimme.'
           : 'In deiner Auswahl ist keine ausgeschlossene Stimme.',
       });
       return;
     }
 
     let reason = '';
-
     if (excluded) {
-      reason =
-        window.prompt(
-          `Grund für den Ausschluss von ${voteIds.length} ausgewählten Stimmen:`,
-          'Sicherheitsprüfung: manuelle Sammelauswahl'
-        ) ?? '';
-
+      reason = window.prompt(
+        `Grund für den Ausschluss von ${voteIds.length} ausgewählten Stimmen:`,
+        'Sicherheitsprüfung: manuelle Sammelauswahl'
+      ) ?? '';
       if (!reason.trim()) return;
     }
 
     const question = excluded
-      ? `${voteIds.length} ausgewählte Stimmen aus der offiziellen Wertung ausschließen? Die Stimmen bleiben vollständig gespeichert.`
-      : `${voteIds.length} ausgewählte Stimmen wieder für die offizielle Wertung zulassen?`;
+      ? `${voteIds.length} ausgewählte Stimmen ausschließen? Unbestätigte Stimmen bleiben auch ausgeschlossen, falls sie später per E-Mail bestätigt werden.`
+      : `${voteIds.length} ausgewählte Stimmen wieder zulassen?`;
 
     if (!window.confirm(question)) return;
 
     setBusy(true);
     setMessage(null);
-
     try {
       await changeMany(voteIds, excluded, reason);
-      setMessage({
-        type: 'ok',
-        text: `${voteIds.length} Stimmen wurden geändert.`,
-      });
+      setMessage({ type: 'ok', text: `${voteIds.length} Stimmen wurden geändert.` });
       clearSelected();
       window.location.reload();
     } catch (error) {
@@ -159,30 +296,30 @@ export default function AdminVotingSecurity({ round, report }: Props) {
   }
 
   async function updateGroup(alert: VotingSecurityAlert, excluded: boolean) {
-    const voteIds = excluded ? alert.countedVoteIds : alert.excludedVoteIds;
+    const participants = participantsForAlert(alert);
+    const voteIds = participants
+      .filter((participant) => excluded ? !participant.isExcluded : participant.isExcluded)
+      .map((participant) => participant.voteId);
+
     if (!voteIds.length) return;
 
     let reason = '';
-
     if (excluded) {
-      reason =
-        window.prompt(
-          'Grund für den Ausschluss dieser auffälligen Gruppe:',
-          `Sicherheitsprüfung: ${alert.title}`
-        ) ?? '';
-
+      reason = window.prompt(
+        'Grund für den Ausschluss dieser auffälligen Gruppe:',
+        `Sicherheitsprüfung: ${alert.title}`
+      ) ?? '';
       if (!reason.trim()) return;
     }
 
     const question = excluded
-      ? `${voteIds.length} derzeit gewertete Stimmen dieser Gruppe ausschließen? Die Stimmen bleiben gespeichert.`
+      ? `${voteIds.length} noch nicht ausgeschlossene Stimmen dieser Gruppe ausschließen? Dazu können auch unbestätigte Stimmen gehören. Sie bleiben gespeichert und würden auch nach einer späteren Mail-Bestätigung nicht gewertet.`
       : `${voteIds.length} ausgeschlossene Stimmen dieser Gruppe wieder zulassen?`;
 
     if (!window.confirm(question)) return;
 
     setBusy(true);
     setMessage(null);
-
     try {
       await changeMany(voteIds, excluded, reason);
       setMessage({ type: 'ok', text: 'Änderung gespeichert.' });
@@ -197,22 +334,21 @@ export default function AdminVotingSecurity({ round, report }: Props) {
     }
   }
 
-  async function updateSingle(voteId: string, excluded: boolean, alertTitle: string) {
+  async function updateSingle(participant: UiParticipant, excluded: boolean, alertTitle: string) {
     const question = excluded
-      ? 'Diese Stimme aus der offiziellen Wertung ausschließen?'
-      : 'Diese Stimme wieder für die offizielle Wertung zulassen?';
+      ? participant.isVerified
+        ? 'Diese bestätigte Stimme aus der offiziellen Wertung ausschließen?'
+        : 'Diese unbestätigte Stimme schon jetzt ausschließen? Falls sie später bestätigt wird, bleibt sie ausgeschlossen.'
+      : 'Diese Stimme wieder zulassen?';
 
     if (!window.confirm(question)) return;
 
-    const reason = excluded
-      ? `Sicherheitsprüfung: ${alertTitle}`
-      : '';
+    const reason = excluded ? `Sicherheitsprüfung: ${alertTitle}` : '';
 
     setBusy(true);
     setMessage(null);
-
     try {
-      await setVoteExcluded(voteId, excluded, reason);
+      await setVoteExcluded(participant.voteId, excluded, reason);
       setMessage({ type: 'ok', text: 'Änderung gespeichert.' });
       window.location.reload();
     } catch (error) {
@@ -226,10 +362,14 @@ export default function AdminVotingSecurity({ round, report }: Props) {
   }
 
   function renderAlertCard(alert: VotingSecurityAlert, resolved = false) {
-    const countedParticipants = alert.participants.filter(
-      (participant) => !participant.isExcluded
+    const participants = participantsForAlert(alert);
+    const verifiedCounted = participants.filter(
+      (participant) => participant.isVerified && !participant.isExcluded
     );
-    const excludedParticipants = alert.participants.filter(
+    const pendingOpen = participants.filter(
+      (participant) => !participant.isVerified && !participant.isExcluded
+    );
+    const excludedParticipants = participants.filter(
       (participant) => participant.isExcluded
     );
 
@@ -240,74 +380,38 @@ export default function AdminVotingSecurity({ round, report }: Props) {
             <small>{levelLabel(alert.level)}</small>
             <h2 style={{ marginTop: 4 }}>{alert.title}</h2>
           </div>
-          <b>{alert.voteCount} Stimmen</b>
+          <b>
+            {alert.voteCount} bestätigt
+            {pendingOpen.length > 0 ? ` + ${pendingOpen.length} unbestätigt` : ''}
+          </b>
         </div>
 
         <p>{alert.description}</p>
 
         <div className="admin-stats-grid">
-          <div className="stat-card">
-            <small>Ziel-Song im Muster</small>
-            <b>{alert.targetSong || '—'}</b>
-          </div>
-          <div className="stat-card">
-            <small>Song gewählt</small>
-            <b>{metric(alert.selectionPct, '%')}</b>
-          </div>
-          <div className="stat-card">
-            <small>Ø Punkte Gruppe</small>
-            <b>{metric(alert.averagePoints)}</b>
-          </div>
-          <div className="stat-card">
-            <small>Ø übriges Publikum</small>
-            <b>{metric(alert.baselineAveragePoints)}</b>
-          </div>
-          <div className="stat-card">
-            <small>Punkte-Abweichung</small>
-            <b>
-              {alert.pointsLift == null
-                ? '—'
-                : `${alert.pointsLift >= 0 ? '+' : ''}${alert.pointsLift}`}
-            </b>
-          </div>
-          <div className="stat-card">
-            <small>Noch gewertet</small>
-            <b>{alert.countedVoteIds.length}</b>
-          </div>
+          <div className="stat-card"><small>Ziel-Song im Muster</small><b>{alert.targetSong || '—'}</b></div>
+          <div className="stat-card"><small>Song gewählt</small><b>{metric(alert.selectionPct, '%')}</b></div>
+          <div className="stat-card"><small>Ø Punkte Gruppe</small><b>{metric(alert.averagePoints)}</b></div>
+          <div className="stat-card"><small>Ø übriges Publikum</small><b>{metric(alert.baselineAveragePoints)}</b></div>
+          <div className="stat-card"><small>Punkte-Abweichung</small><b>{alert.pointsLift == null ? '—' : `${alert.pointsLift >= 0 ? '+' : ''}${alert.pointsLift}`}</b></div>
+          <div className="stat-card"><small>Noch gewertet</small><b>{verifiedCounted.length}</b></div>
+          <div className="stat-card"><small>Noch unbestätigt</small><b>{pendingOpen.length}</b></div>
         </div>
 
         <p className="admin-help-text">
-          {alert.domain ? (
-            <>
-              Mail-Domain: <b>{alert.domain}</b> ·{' '}
-            </>
-          ) : null}
-          {alert.ipGroup ? (
-            <>
-              anonymisierte Anschluss-Gruppe: <b>{alert.ipGroup}</b> ·{' '}
-            </>
-          ) : null}
-          Zeitraum: {formatAdminDateTime(alert.windowStart)} bis{' '}
-          {formatAdminDateTime(alert.windowEnd)}
+          {alert.domain ? <>Mail-Domain: <b>{alert.domain}</b> · </> : null}
+          {alert.ipGroup ? <>anonymisierte Anschluss-Gruppe: <b>{alert.ipGroup}</b> · </> : null}
+          Zeitraum: {formatAdminDateTime(alert.windowStart)} bis {formatAdminDateTime(alert.windowEnd)}
         </p>
 
         <div className="action-cell">
-          {!resolved && alert.countedVoteIds.length > 0 && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => updateGroup(alert, true)}
-            >
-              Noch gewertete Gruppe ausschließen
+          {participants.some((participant) => !participant.isExcluded) && (
+            <button type="button" disabled={busy} onClick={() => updateGroup(alert, true)}>
+              Noch nicht ausgeschlossene Gruppe ausschließen
             </button>
           )}
-
-          {resolved && alert.excludedVoteIds.length > 0 && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => updateGroup(alert, false)}
-            >
+          {(resolved || excludedParticipants.length > 0) && excludedParticipants.length > 0 && (
+            <button type="button" disabled={busy} onClick={() => updateGroup(alert, false)}>
               Gruppe wieder zulassen
             </button>
           )}
@@ -316,107 +420,45 @@ export default function AdminVotingSecurity({ round, report }: Props) {
         <details style={{ marginTop: 16 }}>
           <summary>Betroffene Stimmen ansehen</summary>
 
-          <div
-            className="admin-card"
-            style={{
-              marginTop: 12,
-              padding: 14,
-              boxShadow: 'none',
-            }}
-          >
-            <div
-              className="action-cell"
-              style={{
-                display: 'flex',
-                gap: 8,
-                flexWrap: 'wrap',
-                alignItems: 'center',
-              }}
-            >
-              {countedParticipants.length > 0 && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    addSelected(
-                      countedParticipants.map(
-                        (participant) => participant.voteId
-                      )
-                    )
-                  }
-                >
-                  Alle gewerteten dieser Gruppe markieren
+          <div className="admin-card" style={{ marginTop: 12, padding: 14, boxShadow: 'none' }}>
+            <div className="action-cell" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {verifiedCounted.length > 0 && (
+                <button type="button" disabled={busy} onClick={() => addSelected(verifiedCounted.map((participant) => participant.voteId))}>
+                  Alle gewerteten markieren
                 </button>
               )}
-
+              {pendingOpen.length > 0 && (
+                <button type="button" disabled={busy} onClick={() => addSelected(pendingOpen.map((participant) => participant.voteId))}>
+                  Alle unbestätigten markieren
+                </button>
+              )}
               {excludedParticipants.length > 0 && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    addSelected(
-                      excludedParticipants.map(
-                        (participant) => participant.voteId
-                      )
-                    )
-                  }
-                >
-                  Alle ausgeschlossenen dieser Gruppe markieren
+                <button type="button" disabled={busy} onClick={() => addSelected(excludedParticipants.map((participant) => participant.voteId))}>
+                  Alle ausgeschlossenen markieren
                 </button>
               )}
-
-              <button
-                type="button"
-                disabled={busy || selectedCount === 0}
-                onClick={clearSelected}
-              >
+              <button type="button" disabled={busy || selectedVoteIds.length === 0} onClick={clearSelected}>
                 Auswahl aufheben
               </button>
             </div>
 
             <div style={{ marginTop: 10 }}>
-              <b>{selectedCount} Stimmen ausgewählt</b>
+              <b>{selectedVoteIds.length} Stimmen ausgewählt</b>
             </div>
 
-            {selectedCount > 0 && (
-              <div
-                className="action-cell"
-                style={{
-                  marginTop: 10,
-                  display: 'flex',
-                  gap: 8,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={busy || selectedCountedIds.length === 0}
-                  onClick={() => updateSelected(true)}
-                >
-                  Ausgewählte gewertete ausschließen
-                  {selectedCountedIds.length > 0
-                    ? ` (${selectedCountedIds.length})`
-                    : ''}
+            {selectedVoteIds.length > 0 && (
+              <div className="action-cell" style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" disabled={busy || selectedOpenIds.length === 0} onClick={() => updateSelected(true)}>
+                  Ausgewählte ausschließen ({selectedOpenIds.length})
                 </button>
-
-                <button
-                  type="button"
-                  disabled={busy || selectedExcludedIds.length === 0}
-                  onClick={() => updateSelected(false)}
-                >
-                  Ausgewählte ausgeschlossene wieder zulassen
-                  {selectedExcludedIds.length > 0
-                    ? ` (${selectedExcludedIds.length})`
-                    : ''}
+                <button type="button" disabled={busy || selectedExcludedIds.length === 0} onClick={() => updateSelected(false)}>
+                  Ausgewählte wieder zulassen ({selectedExcludedIds.length})
                 </button>
               </div>
             )}
           </div>
 
-          <div
-            className="admin-table-wrap compact"
-            style={{ marginTop: 12, maxHeight: 420, overflow: 'auto' }}
-          >
+          <div className="admin-table-wrap compact" style={{ marginTop: 12, maxHeight: 420, overflow: 'auto' }}>
             <table>
               <thead>
                 <tr>
@@ -429,49 +471,33 @@ export default function AdminVotingSecurity({ round, report }: Props) {
                   <th>Aktion</th>
                 </tr>
               </thead>
-
               <tbody>
-                {alert.participants.map((participant) => (
+                {participants.map((participant) => (
                   <tr key={participant.voteId}>
                     <td>
                       <input
                         type="checkbox"
                         checked={isSelected(participant.voteId)}
                         onChange={() => toggleSelected(participant.voteId)}
-                        aria-label={`Stimme von ${
-                          participant.email ||
-                          participant.name ||
-                          participant.voteId
-                        } auswählen`}
+                        aria-label={`Stimme von ${participant.email || participant.name || participant.voteId} auswählen`}
                       />
                     </td>
-
-                    <td>
-                      {participant.isExcluded
-                        ? 'Ausgeschlossen'
-                        : 'Gewertet'}
-                    </td>
-
+                    <td>{participantStatus(participant)}</td>
                     <td>{participant.name || '—'}</td>
                     <td>{participant.email || '—'}</td>
                     <td>{formatAdminDateTime(participant.createdAt)}</td>
                     <td>{formatAdminDateTime(participant.verifiedAt)}</td>
-
                     <td>
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() =>
-                          updateSingle(
-                            participant.voteId,
-                            !participant.isExcluded,
-                            alert.title
-                          )
-                        }
+                        onClick={() => updateSingle(participant, !participant.isExcluded, alert.title)}
                       >
                         {participant.isExcluded
                           ? 'Wieder zulassen'
-                          : 'Ausschließen'}
+                          : participant.isVerified
+                            ? 'Ausschließen'
+                            : 'Vorab ausschließen'}
                       </button>
                     </td>
                   </tr>
@@ -491,104 +517,61 @@ export default function AdminVotingSecurity({ round, report }: Props) {
         <div>
           <p>Sicherheitsprüfung</p>
           <h1>{round.title}</h1>
-          <span>
-            Passive Auffälligkeitserkennung. Es wird nichts automatisch
-            ausgeschlossen.
-          </span>
+          <span>Passive Auffälligkeitserkennung. Es wird nichts automatisch ausgeschlossen.</span>
         </div>
       </section>
 
       <section className="admin-card">
         <div className="action-cell">
-          <a href={`/admin/release-voting/${round.id}`}>
-            ← Zurück zur Abstimmung
-          </a>
+          <a href={`/admin/release-voting/${round.id}`}>← Zurück zur Abstimmung</a>
         </div>
       </section>
 
-      {message && (
-        <div
-          className={`notice ${
-            message.type === 'ok' ? 'success' : 'error'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
-
+      {message && <div className={`notice ${message.type === 'ok' ? 'success' : 'error'}`}>{message.text}</div>}
       {busy && <div className="notice">Speichert…</div>}
+      {pendingLoading && <div className="notice">Unbestätigte Stimmen der auffälligen Gruppen werden geladen…</div>}
 
-      {selectedCount > 0 && (
+      {selectedVoteIds.length > 0 && (
         <div className="notice">
-          <b>{selectedCount} Stimmen ausgewählt.</b>{' '}
-          {selectedCountedIds.length > 0 && (
-            <>
-              {selectedCountedIds.length} davon derzeit gewertet.{' '}
-            </>
-          )}
-          {selectedExcludedIds.length > 0 && (
-            <>
-              {selectedExcludedIds.length} davon bereits ausgeschlossen.
-            </>
-          )}
+          <b>{selectedVoteIds.length} Stimmen ausgewählt.</b>{' '}
+          {selectedOpenIds.length} noch nicht ausgeschlossen · {selectedExcludedIds.length} ausgeschlossen
+          {selectedPendingCount > 0 ? ` · ${selectedPendingCount} unbestätigt` : ''}.
         </div>
       )}
 
       <section className="admin-stats-grid">
-        <div className="stat-card">
-          <small>Bestätigte Stimmen geprüft</small>
-          <b>{report.verifiedVotes}</b>
-        </div>
-
-        <div className="stat-card">
-          <small>Aktiv gewertet</small>
-          <b>{report.countedVotes}</b>
-        </div>
-
-        <div className="stat-card">
-          <small>Aktive Auffälligkeiten</small>
-          <b>{report.activeAlerts.length}</b>
-        </div>
-
-        <div className="stat-card">
-          <small>Mit IP-Hash erfasst</small>
-          <b>{report.trackedVerifiedVotes}</b>
-        </div>
+        <div className="stat-card"><small>Bestätigte Stimmen geprüft</small><b>{report.verifiedVotes}</b></div>
+        <div className="stat-card"><small>Aktiv gewertet</small><b>{report.countedVotes}</b></div>
+        <div className="stat-card"><small>Aktive Auffälligkeiten</small><b>{report.activeAlerts.length}</b></div>
+        <div className="stat-card"><small>Mit IP-Hash erfasst</small><b>{report.trackedVerifiedVotes}</b></div>
       </section>
 
       <section className="admin-card">
         <h2>IP-Tracking</h2>
-
         {report.trackingConfigured && report.ipColumnAvailable ? (
-          <p>
-            Aktiv. Gespeichert wird nur ein pro Abstimmungsrunde erzeugter
-            Hash, keine Klartext-IP.
-          </p>
+          <p>Aktiv. Gespeichert wird nur ein pro Abstimmungsrunde erzeugter Hash, keine Klartext-IP.</p>
         ) : (
           <p>
             Noch nicht vollständig aktiv.
-            {!report.ipColumnAvailable
-              ? ' Die Supabase-Spalte ip_hash fehlt.'
-              : ''}
-            {!report.trackingConfigured
-              ? ' Die Vercel-Variable VOTING_IP_HASH_SECRET fehlt.'
-              : ''}
+            {!report.ipColumnAvailable ? ' Die Supabase-Spalte ip_hash fehlt.' : ''}
+            {!report.trackingConfigured ? ' Die Vercel-Variable VOTING_IP_HASH_SECRET fehlt.' : ''}
           </p>
         )}
       </section>
 
+      <section className="admin-card">
+        <h2>Unbestätigte auffällige Stimmen</h2>
+        <p>
+          Unbestätigte Stimmen einer bereits erkannten auffälligen Domain-, Anschluss- oder Zeitgruppe werden in den jeweiligen Gruppen mit angezeigt. Du kannst sie schon vor der Mail-Bestätigung ausschließen. Wird die Mail später bestätigt, bleibt <code>is_excluded</code> bestehen und die Stimme wird nicht gewertet.
+        </p>
+      </section>
+
       {report.errors.length > 0 && (
-        <div className="notice error">
-          Sicherheitsanalyse teilweise fehlgeschlagen:{' '}
-          {report.errors.join(' · ')}
-        </div>
+        <div className="notice error">Sicherheitsanalyse teilweise fehlgeschlagen: {report.errors.join(' · ')}</div>
       )}
 
       {report.activeAlerts.length === 0 ? (
-        <div className="notice success">
-          Aktuell keine noch gewerteten Stimmen mit einem ausreichend starken
-          Auffälligkeitsmuster gefunden.
-        </div>
+        <div className="notice success">Aktuell keine noch gewerteten Stimmen mit einem ausreichend starken Auffälligkeitsmuster gefunden.</div>
       ) : (
         <>
           <h2>Zu prüfen</h2>
@@ -598,13 +581,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
 
       {report.resolvedAlerts.length > 0 && (
         <details className="admin-card" style={{ marginTop: 20 }}>
-          <summary>
-            <b>
-              Bereits bearbeitete Auffälligkeiten (
-              {report.resolvedAlerts.length})
-            </b>
-          </summary>
-
+          <summary><b>Bereits bearbeitete Auffälligkeiten ({report.resolvedAlerts.length})</b></summary>
           <div style={{ marginTop: 16 }}>
             {report.resolvedAlerts.map((alert) => renderAlertCard(alert, true))}
           </div>
