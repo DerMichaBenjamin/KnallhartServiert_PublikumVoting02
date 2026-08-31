@@ -40,9 +40,16 @@ function formatAdminDateTime(value?: string | null) {
   }).format(date);
 }
 
-function buildEmailList(participants: AdminRoundSummary['participants'], verifiedOnly = false) {
+type EmailFilter = 'all' | 'confirmed' | 'counted' | 'excluded';
+
+function buildEmailList(participants: AdminRoundSummary['participants'], filter: EmailFilter) {
   return participants
-    .filter((participant) => !verifiedOnly || participant.isVerified)
+    .filter((participant) => {
+      if (filter === 'confirmed') return participant.isVerified;
+      if (filter === 'counted') return participant.isVerified && !participant.isExcluded;
+      if (filter === 'excluded') return participant.isExcluded;
+      return true;
+    })
     .map((participant) => participant.email.trim())
     .filter(Boolean)
     .filter((email, index, list) => list.indexOf(email) === index)
@@ -53,6 +60,12 @@ function statusLabel(status: string) {
   if (status === 'live') return 'Live';
   if (status === 'ended') return 'Beendet';
   return 'Entwurf';
+}
+
+function participantStatus(participant: AdminRoundSummary['participants'][number]) {
+  if (!participant.isVerified) return 'Unbestätigt';
+  if (participant.isExcluded) return 'Bestätigt · Ausgeschlossen';
+  return 'Bestätigt · Gewertet';
 }
 
 export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }: Props) {
@@ -74,8 +87,8 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
     setMessage({ type: 'ok', text: 'Backend-Direktlink kopiert.' });
   }
 
-  function copyParticipantEmails(verifiedOnly = false) {
-    const emails = buildEmailList(summary.participants, verifiedOnly);
+  function copyParticipantEmails(filter: EmailFilter) {
+    const emails = buildEmailList(summary.participants, filter);
 
     if (!emails) {
       setMessage({ type: 'error', text: 'Keine passenden E-Mail-Adressen gefunden.' });
@@ -83,7 +96,14 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
     }
 
     void navigator.clipboard?.writeText(emails);
-    setMessage({ type: 'ok', text: verifiedOnly ? 'Bestätigte E-Mail-Adressen kopiert.' : 'Alle E-Mail-Adressen kopiert.' });
+
+    const labels: Record<EmailFilter, string> = {
+      all: 'Alle E-Mail-Adressen kopiert.',
+      confirmed: 'Bestätigte E-Mail-Adressen kopiert.',
+      counted: 'Gewertete E-Mail-Adressen kopiert.',
+      excluded: 'Ausgeschlossene E-Mail-Adressen kopiert.',
+    };
+    setMessage({ type: 'ok', text: labels[filter] });
   }
 
   async function post(url: string, body: unknown, reload = true) {
@@ -114,6 +134,36 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
     }
   }
 
+  async function toggleExcluded(participant: AdminRoundSummary['participants'][number]) {
+    const nextExcluded = !participant.isExcluded;
+    let reason = '';
+
+    if (nextExcluded) {
+      reason = window.prompt(
+        `Grund für den Ausschluss von ${participant.email || participant.name || 'dieser Stimme'}:`,
+        'Manuell im Adminbereich ausgeschlossen'
+      ) ?? '';
+
+      if (!reason.trim()) return;
+
+      const ok = window.confirm(
+        'Diese Stimme aus der offiziellen Wertung ausschließen? Sie bleibt vollständig gespeichert und kann später wieder zugelassen werden.'
+      );
+      if (!ok) return;
+    } else {
+      const ok = window.confirm(
+        'Diese Stimme wieder für die offizielle Wertung zulassen?'
+      );
+      if (!ok) return;
+    }
+
+    await post('/api/admin/vote-exclusion', {
+      voteId: participant.voteId,
+      excluded: nextExcluded,
+      reason,
+    });
+  }
+
   return (
     <main className="admin-shell">
       <section className="admin-hero-card">
@@ -129,8 +179,10 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
       {busy && <div className="notice">Speichert…</div>}
 
       <section className="admin-stats-grid">
-        <div className="stat-card"><small>Gültige Teilnehmer</small><b>{summary.verifiedVotes}</b></div>
-        <div className="stat-card"><small>Offen / unbestätigt</small><b>{summary.pendingVotes}</b></div>
+        <div className="stat-card"><small>Bestätigt</small><b>{summary.confirmedVotes}</b></div>
+        <div className="stat-card"><small>Gewertet</small><b>{summary.countedVotes}</b></div>
+        <div className="stat-card"><small>Ausgeschlossen</small><b>{summary.excludedVotes}</b></div>
+        <div className="stat-card"><small>Unbestätigt</small><b>{summary.unverifiedVotes}</b></div>
         <div className="stat-card"><small>Gesamt eingegangen</small><b>{summary.totalVotes}</b></div>
         <div className="stat-card"><small>Songs</small><b>{summary.songsCount}</b></div>
       </section>
@@ -293,7 +345,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
 
       <section className="admin-card">
         <h2>Auswertung</h2>
-        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen dieser Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
+        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten und nicht ausgeschlossenen Stimmen. Ø = Gesamtpunkte geteilt durch alle gewerteten Stimmen dieser Umfrage. „Gewählt“ = wie oft der Song in gewerteten Top-Listen vorkommt.</p>
         <div className="admin-table-wrap compact">
           <table>
             <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
@@ -316,36 +368,74 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
       <section className="admin-grid two bottom">
         <div className="admin-card">
           <h2>ZONK-Auswertung</h2>
-          {zonkRows.length ? <ol className="zonk-admin-list">{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine bestätigten ZONK-Stimmen vorhanden.</p>}
+          {zonkRows.length ? <ol className="zonk-admin-list">{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine gewerteten ZONK-Stimmen vorhanden.</p>}
         </div>
 
         <div className="admin-card">
           <h2>Teilnehmer dieser Abstimmung</h2>
-          <p className="admin-help-text">Namen und E-Mail-Adressen bleiben nur im Backend sichtbar.</p>
+          <p className="admin-help-text">Namen und E-Mail-Adressen bleiben nur im Backend sichtbar. Ausgeschlossene Stimmen bleiben vollständig gespeichert und können jederzeit wieder zugelassen werden.</p>
           <div className="action-cell">
-            <button type="button" disabled={!summary.participants.length} onClick={() => copyParticipantEmails(false)}>Alle E-Mails kopieren</button>
-            <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails(true)}>Nur bestätigte E-Mails kopieren</button>
+            <button type="button" disabled={!summary.participants.length} onClick={() => copyParticipantEmails('all')}>Alle E-Mails</button>
+            <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails('confirmed')}>Bestätigte E-Mails</button>
+            <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified && !participant.isExcluded)} onClick={() => copyParticipantEmails('counted')}>Gewertete E-Mails</button>
+            <button type="button" disabled={!summary.participants.some((participant) => participant.isExcluded)} onClick={() => copyParticipantEmails('excluded')}>Ausgeschlossene E-Mails</button>
           </div>
         </div>
       </section>
 
       <section className="admin-card">
-        <div className="admin-table-wrap compact" style={{ maxHeight: '520px', overflow: 'auto' }}>
+        <div className="admin-table-wrap compact" style={{ maxHeight: '620px', overflow: 'auto' }}>
           <table>
-            <thead><tr><th>Status</th><th>Name</th><th>E-Mail</th><th>Instagram</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Name</th>
+                <th>E-Mail</th>
+                <th>Instagram</th>
+                <th>Abgestimmt</th>
+                <th>Bestätigt</th>
+                <th>Ausschluss</th>
+                <th>ZONK</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
             <tbody>
               {summary.participants.map((participant) => (
                 <tr key={participant.voteId}>
-                  <td>{participant.isVerified ? 'Bestätigt' : 'Offen'}</td>
+                  <td>{participantStatus(participant)}</td>
                   <td>{participant.name || '—'}</td>
                   <td>{participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}</td>
                   <td>{participant.instagram || '—'}</td>
                   <td>{formatAdminDateTime(participant.votedAt)}</td>
                   <td>{formatAdminDateTime(participant.verifiedAt)}</td>
+                  <td>
+                    {participant.isExcluded ? (
+                      <>
+                        <b>Ausgeschlossen</b>
+                        <br />
+                        <small>{participant.excludedReason || '—'}</small>
+                        <br />
+                        <small>{formatAdminDateTime(participant.excludedAt)}</small>
+                      </>
+                    ) : '—'}
+                  </td>
                   <td>{participant.zonkSong || '—'}</td>
+                  <td>
+                    {participant.isVerified ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleExcluded(participant)}
+                      >
+                        {participant.isExcluded ? 'Wieder zulassen' : 'Ausschließen'}
+                      </button>
+                    ) : (
+                      <span>Erst nach Bestätigung</span>
+                    )}
+                  </td>
                 </tr>
               ))}
-              {!summary.participants.length && <tr><td colSpan={7}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
+              {!summary.participants.length && <tr><td colSpan={9}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
             </tbody>
           </table>
         </div>
