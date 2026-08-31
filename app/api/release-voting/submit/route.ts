@@ -8,6 +8,7 @@ import {
   verificationWindow,
 } from '@/lib/emailVerification';
 import { checkRateLimit, clientIpFromRequest, minutesUntil } from '@/lib/rateLimit';
+import { hashVotingIpForRound } from '@/lib/ipHash';
 
 type RankingEntryInput = {
   songId?: unknown;
@@ -43,6 +44,16 @@ function sinceIso(hours: number) {
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 }
 
+function isMissingIpHashColumn(error: unknown) {
+  const message = dbMessage(error).toLowerCase();
+  return message.includes('ip_hash') && (
+    message.includes('column') ||
+    message.includes('schema cache') ||
+    message.includes('does not exist') ||
+    message.includes('could not find')
+  );
+}
+
 export async function POST(req: Request) {
   let createdVoteId: string | null = null;
 
@@ -71,6 +82,7 @@ export async function POST(req: Request) {
     if (!ranking.length) throw new Error('Bitte wähle deine Songs aus.');
 
     const clientIp = clientIpFromRequest(req);
+    const ipHash = hashVotingIpForRound(roundId, clientIp);
     const ipLimit = checkRateLimit(`vote-submit:ip:${roundId}:${clientIp}`, 10, 60 * 60 * 1000);
     if (!ipLimit.ok) {
       throw new Error(`Zu viele Voting-Versuche von diesem Anschluss. Bitte in ca. ${minutesUntil(ipLimit.resetAt)} Minuten erneut probieren.`);
@@ -178,22 +190,35 @@ export async function POST(req: Request) {
     const token = createVerificationToken();
     const win = verificationWindow();
 
-    const { data: vote, error: voteError } = await sb
+    const baseVotePayload = {
+      round_id: roundId,
+      juror_name: jurorName,
+      juror_email: jurorEmail,
+      juror_instagram: jurorInstagram,
+      zonk_song_id: zonkSongId,
+      is_verified: false,
+      verify_token_hash: hashVerificationToken(token),
+      verify_sent_at: win.sentAt,
+      verify_expires_at: win.expiresAt,
+    };
+
+    let voteInsert = await sb
       .from('release_voting_votes')
-      .insert({
-        round_id: roundId,
-        juror_name: jurorName,
-        juror_email: jurorEmail,
-        juror_instagram: jurorInstagram,
-        zonk_song_id: zonkSongId,
-        is_verified: false,
-        verify_token_hash: hashVerificationToken(token),
-        verify_sent_at: win.sentAt,
-        verify_expires_at: win.expiresAt,
-      })
+      .insert(ipHash ? { ...baseVotePayload, ip_hash: ipHash } : baseVotePayload)
       .select('id')
       .single();
 
+    // Safety fallback: if code gets deployed before the optional Supabase migration,
+    // voting still works exactly as before instead of failing.
+    if (voteInsert.error && ipHash && isMissingIpHashColumn(voteInsert.error)) {
+      voteInsert = await sb
+        .from('release_voting_votes')
+        .insert(baseVotePayload)
+        .select('id')
+        .single();
+    }
+
+    const { data: vote, error: voteError } = voteInsert;
     if (voteError) throw voteError;
     if (!vote?.id) throw new Error('Stimme konnte nicht gespeichert werden. Keine Vote-ID erhalten.');
     createdVoteId = vote.id;

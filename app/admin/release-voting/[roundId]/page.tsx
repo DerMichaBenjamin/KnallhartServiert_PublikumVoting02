@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { isAdminLoggedIn } from '@/lib/adminAuth';
 import AdminRoundDetail from '@/components/AdminRoundDetail';
 import { getAdminRoundDetailData, getCurrentDjRoundId } from '@/lib/releaseVoting';
+import { getVotingSecurityReport } from '@/lib/votingSecurity';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,12 +21,31 @@ export default async function AdminRoundPage({ params }: PageProps) {
 
   if (!data) notFound();
 
+  const securityReport = await getVotingSecurityReport(roundId);
+  const highAlerts = securityReport.activeAlerts.filter((alert) => alert.level === 'high').length;
+
   return (
-    <AdminRoundDetail
-      round={data.round}
-      songs={data.songs}
-      summary={data.summary}
-      isCurrentDj={currentDjRoundId === data.round.id}
-    />
+    <>
+      {securityReport.activeAlerts.length > 0 && (
+        <div style={{ maxWidth: 1180, margin: '18px auto -4px', padding: '0 18px' }}>
+          <div className={`notice ${highAlerts > 0 ? 'error' : ''}`}>
+            <b>
+              {highAlerts > 0 ? 'Auffälliges Voting-Muster gefunden.' : 'Voting-Hinweis:'}
+            </b>{' '}
+            {securityReport.activeAlerts.length} Auffälligkeit
+            {securityReport.activeAlerts.length === 1 ? '' : 'en'} sollte
+            {securityReport.activeAlerts.length === 1 ? '' : 'n'} geprüft werden.{' '}
+            <a href={`/admin/release-voting/${roundId}/security`}>Sicherheitsprüfung öffnen</a>
+          </div>
+        </div>
+      )}
+
+      <AdminRoundDetail
+        round={data.round}
+        songs={data.songs}
+        summary={data.summary}
+        isCurrentDj={currentDjRoundId === data.round.id}
+      />
+    </>
   );
 }
