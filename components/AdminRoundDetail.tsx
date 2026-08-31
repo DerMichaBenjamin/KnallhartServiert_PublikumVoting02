@@ -71,6 +71,7 @@ function participantStatus(participant: AdminRoundSummary['participants'][number
 export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selectedVoteIds, setSelectedVoteIds] = useState<string[]>([]);
 
   const duplicateGroups = useMemo(() => findSongDuplicateGroups(songs), [songs]);
   const zonkRows = summary.zonk.filter((entry) => entry.count > 0);
@@ -129,6 +130,102 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Unbekannter Fehler.' });
       return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const selectedParticipants = summary.participants.filter((participant) =>
+    selectedVoteIds.includes(participant.voteId)
+  );
+  const selectedCountedParticipants = selectedParticipants.filter(
+    (participant) => participant.isVerified && !participant.isExcluded
+  );
+  const selectedExcludedParticipants = selectedParticipants.filter(
+    (participant) => participant.isVerified && participant.isExcluded
+  );
+
+  function isSelected(voteId: string) {
+    return selectedVoteIds.includes(voteId);
+  }
+
+  function toggleSelected(voteId: string) {
+    setSelectedVoteIds((current) =>
+      current.includes(voteId)
+        ? current.filter((id) => id !== voteId)
+        : [...current, voteId]
+    );
+  }
+
+  function addSelected(voteIds: string[]) {
+    setSelectedVoteIds((current) => Array.from(new Set([...current, ...voteIds])));
+  }
+
+  function clearSelected() {
+    setSelectedVoteIds([]);
+  }
+
+  async function setVoteExcluded(voteId: string, excluded: boolean, reason: string) {
+    const response = await fetch('/api/admin/vote-exclusion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voteId, excluded, reason }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.ok) {
+      throw new Error(data?.error || 'Stimme konnte nicht geändert werden.');
+    }
+  }
+
+  async function updateSelected(excluded: boolean) {
+    const participants = excluded
+      ? selectedCountedParticipants
+      : selectedExcludedParticipants;
+
+    if (!participants.length) {
+      setMessage({
+        type: 'error',
+        text: excluded
+          ? 'In deiner Auswahl ist keine derzeit gewertete Stimme.'
+          : 'In deiner Auswahl ist keine ausgeschlossene Stimme.',
+      });
+      return;
+    }
+
+    let reason = '';
+    if (excluded) {
+      reason = window.prompt(
+        `Grund für den Ausschluss von ${participants.length} ausgewählten Stimmen:`,
+        'Manuell im Adminbereich gesammelt ausgeschlossen'
+      ) ?? '';
+      if (!reason.trim()) return;
+    }
+
+    const ok = window.confirm(
+      excluded
+        ? `${participants.length} ausgewählte Stimmen aus der offiziellen Wertung ausschließen? Die Stimmen bleiben vollständig gespeichert.`
+        : `${participants.length} ausgewählte Stimmen wieder für die offizielle Wertung zulassen?`
+    );
+    if (!ok) return;
+
+    setBusy(true);
+    setMessage(null);
+    try {
+      const voteIds = participants.map((participant) => participant.voteId);
+      for (let index = 0; index < voteIds.length; index += 4) {
+        const chunk = voteIds.slice(index, index + 4);
+        await Promise.all(
+          chunk.map((voteId) => setVoteExcluded(voteId, excluded, reason))
+        );
+      }
+      setMessage({ type: 'ok', text: `${voteIds.length} Stimmen wurden geändert.` });
+      clearSelected();
+      window.location.reload();
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Unbekannter Fehler.',
+      });
     } finally {
       setBusy(false);
     }
@@ -380,6 +477,47 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
             <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified && !participant.isExcluded)} onClick={() => copyParticipantEmails('counted')}>Gewertete E-Mails</button>
             <button type="button" disabled={!summary.participants.some((participant) => participant.isExcluded)} onClick={() => copyParticipantEmails('excluded')}>Ausgeschlossene E-Mails</button>
           </div>
+
+          <div className="action-cell" style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              disabled={busy || !summary.participants.some((participant) => participant.isVerified && !participant.isExcluded)}
+              onClick={() => addSelected(summary.participants.filter((participant) => participant.isVerified && !participant.isExcluded).map((participant) => participant.voteId))}
+            >
+              Alle gewerteten markieren
+            </button>
+            <button
+              type="button"
+              disabled={busy || !summary.participants.some((participant) => participant.isVerified && participant.isExcluded)}
+              onClick={() => addSelected(summary.participants.filter((participant) => participant.isVerified && participant.isExcluded).map((participant) => participant.voteId))}
+            >
+              Alle ausgeschlossenen markieren
+            </button>
+            <button type="button" disabled={busy || !selectedVoteIds.length} onClick={clearSelected}>Auswahl aufheben</button>
+          </div>
+
+          {selectedVoteIds.length > 0 && (
+            <div className="notice" style={{ marginBottom: 0 }}>
+              <b>{selectedVoteIds.length} Stimmen ausgewählt.</b>{' '}
+              {selectedCountedParticipants.length} davon gewertet · {selectedExcludedParticipants.length} davon ausgeschlossen.
+              <div className="action-cell" style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  disabled={busy || !selectedCountedParticipants.length}
+                  onClick={() => updateSelected(true)}
+                >
+                  Ausgewählte ausschließen ({selectedCountedParticipants.length})
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !selectedExcludedParticipants.length}
+                  onClick={() => updateSelected(false)}
+                >
+                  Ausgewählte wieder zulassen ({selectedExcludedParticipants.length})
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -388,6 +526,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
           <table>
             <thead>
               <tr>
+                <th>Auswahl</th>
                 <th>Status</th>
                 <th>Name</th>
                 <th>E-Mail</th>
@@ -402,6 +541,16 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
             <tbody>
               {summary.participants.map((participant) => (
                 <tr key={participant.voteId}>
+                  <td>
+                    {participant.isVerified ? (
+                      <input
+                        type="checkbox"
+                        checked={isSelected(participant.voteId)}
+                        onChange={() => toggleSelected(participant.voteId)}
+                        aria-label={`Stimme von ${participant.email || participant.name || participant.voteId} auswählen`}
+                      />
+                    ) : '—'}
+                  </td>
                   <td>{participantStatus(participant)}</td>
                   <td>{participant.name || '—'}</td>
                   <td>{participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}</td>
@@ -435,7 +584,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
                   </td>
                 </tr>
               ))}
-              {!summary.participants.length && <tr><td colSpan={9}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
+              {!summary.participants.length && <tr><td colSpan={10}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -225,13 +225,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
     }
   }
 
-  function AlertCard({
-    alert,
-    resolved = false,
-  }: {
-    alert: VotingSecurityAlert;
-    resolved?: boolean;
-  }) {
+  function renderAlertCard(alert: VotingSecurityAlert, resolved = false) {
     const countedParticipants = alert.participants.filter(
       (participant) => !participant.isExcluded
     );
@@ -598,9 +592,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
       ) : (
         <>
           <h2>Zu prüfen</h2>
-          {report.activeAlerts.map((alert) => (
-            <AlertCard key={alert.id} alert={alert} />
-          ))}
+          {report.activeAlerts.map((alert) => renderAlertCard(alert))}
         </>
       )}
 
@@ -614,13 +606,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
           </summary>
 
           <div style={{ marginTop: 16 }}>
-            {report.resolvedAlerts.map((alert) => (
-              <AlertCard
-                key={alert.id}
-                alert={alert}
-                resolved
-              />
-            ))}
+            {report.resolvedAlerts.map((alert) => renderAlertCard(alert, true))}
           </div>
         </details>
       )}
