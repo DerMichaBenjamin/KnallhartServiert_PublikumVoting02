@@ -64,13 +64,23 @@ export default function AdminDashboard({ rounds, currentRound, currentDjRound, r
     [roundSummaries]
   );
 
-  const totalVerified = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.verifiedVotes, 0),
+  const totalCounted = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.countedVotes, 0),
     [roundSummaries]
   );
 
-  const totalPending = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.pendingVotes, 0),
+  const totalReview = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.reviewVotes, 0),
+    [roundSummaries]
+  );
+
+  const totalExcluded = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.excludedVotes, 0),
+    [roundSummaries]
+  );
+
+  const totalUnverified = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.unverifiedVotes, 0),
     [roundSummaries]
   );
 
@@ -122,11 +132,13 @@ export default function AdminDashboard({ rounds, currentRound, currentDjRound, r
       {message && <div className={`notice ${message.type === 'ok' ? 'success' : 'error'}`}>{message.text}</div>}
       {busy && <div className="notice">Speichert…</div>}
 
-      <section className="admin-stats-grid">
+      <section className="admin-stats-grid integrity-stats-grid">
         <div className="stat-card"><small>Öffentliche Haupt-Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
         <div className="stat-card"><small>Aktuelles DJ-Voting</small><b>{currentDjRound?.title || 'Keine'}</b></div>
-        <div className="stat-card"><small>Gültige Stimmen gesamt</small><b>{totalVerified}</b></div>
-        <div className="stat-card"><small>Offen / unbestätigt gesamt</small><b>{totalPending}</b></div>
+        <div className="stat-card integrity-counted"><small>Gewertet gesamt</small><b>{totalCounted}</b></div>
+        <div className="stat-card integrity-review"><small>Prüfung / nicht gewertet</small><b>{totalReview}</b></div>
+        <div className="stat-card integrity-excluded"><small>Ausgeschlossen</small><b>{totalExcluded}</b></div>
+        <div className="stat-card integrity-unverified"><small>Unbestätigt</small><b>{totalUnverified}</b></div>
       </section>
 
       <section className="admin-grid two">
@@ -217,8 +229,11 @@ export default function AdminDashboard({ rounds, currentRound, currentDjRound, r
                     </td>
                     <td>{formatAdminDateTime(round.created_at)}</td>
                     <td className="vote-count-cell">
-                      <b>{summary?.verifiedVotes || 0}</b> gültig<br />
-                      <small>{summary?.pendingVotes || 0} offen · {summary?.totalVotes || 0} gesamt</small>
+                      <b>{summary?.countedVotes || 0}</b> gewertet<br />
+                      <small>
+                        {summary?.reviewVotes || 0} Prüfung · {summary?.excludedVotes || 0} ausgeschlossen · {summary?.unverifiedVotes || 0} unbestätigt<br />
+                        {summary?.totalVotes || 0} gesamt
+                      </small>
                     </td>
                     <td className="action-cell">
                       <a href={`/admin/release-voting/${round.id}`}>Details öffnen</a>

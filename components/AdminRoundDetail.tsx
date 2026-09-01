@@ -58,12 +58,31 @@ function statusLabel(status: string) {
   return 'Entwurf';
 }
 
+type ParticipantFilter = 'all' | 'counted' | 'review' | 'excluded' | 'unverified';
+
+function participantStatus(participant: AdminRoundSummary['participants'][number]) {
+  if (!participant.isVerified) return { key: 'unverified' as const, label: 'Unbestätigt' };
+  if (participant.integrityStatus === 'excluded') return { key: 'excluded' as const, label: 'Ausgeschlossen' };
+  if (!participant.isCounted || participant.integrityStatus === 'review') return { key: 'review' as const, label: 'Bestätigt · nicht gewertet' };
+  return { key: 'counted' as const, label: participant.integrityStatus === 'approved' ? 'Gewertet · geprüft' : 'Gewertet' };
+}
+
+function shortHash(value?: string | null) {
+  if (!value) return '—';
+  return `${value.slice(0, 8)}…`;
+}
+
 export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, juryData }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [participantFilter, setParticipantFilter] = useState<ParticipantFilter>('all');
 
   const duplicateGroups = useMemo(() => findSongDuplicateGroups(songs), [songs]);
   const zonkRows = summary.zonk.filter((entry) => entry.count > 0);
+  const filteredParticipants = useMemo(() => {
+    if (participantFilter === 'all') return summary.participants;
+    return summary.participants.filter((participant) => participantStatus(participant).key === participantFilter);
+  }, [participantFilter, summary.participants]);
 
   function copyPublicUrl(path: string, text = 'Link kopiert.') {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -131,11 +150,12 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       {message && <div className={`notice ${message.type === 'ok' ? 'success' : 'error'}`}>{message.text}</div>}
       {busy && <div className="notice">Speichert…</div>}
 
-      <section className="admin-stats-grid">
-        <div className="stat-card"><small>Gültige Teilnehmer</small><b>{summary.verifiedVotes}</b></div>
-        <div className="stat-card"><small>Offen / unbestätigt</small><b>{summary.pendingVotes}</b></div>
+      <section className="admin-stats-grid integrity-stats-grid">
+        <div className="stat-card integrity-counted"><small>Gewertet</small><b>{summary.countedVotes}</b></div>
+        <div className="stat-card integrity-review"><small>Bestätigt · nicht gewertet</small><b>{summary.reviewVotes}</b></div>
+        <div className="stat-card integrity-excluded"><small>Ausgeschlossen</small><b>{summary.excludedVotes}</b></div>
+        <div className="stat-card integrity-unverified"><small>Unbestätigt</small><b>{summary.unverifiedVotes}</b></div>
         <div className="stat-card"><small>Gesamt eingegangen</small><b>{summary.totalVotes}</b></div>
-        <div className="stat-card"><small>Songs</small><b>{summary.songsCount}</b></div>
       </section>
 
       <section className="admin-card">
@@ -207,7 +227,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
             <tbody>
               <tr>
                 <td><b>Publikum</b></td>
-                <td>{summary.verifiedVotes} bestätigte Stimmen</td>
+                <td>{summary.countedVotes} gewertet · {summary.reviewVotes + summary.excludedVotes} nicht gewertet</td>
                 <td>—</td>
                 <td><a href={`/release-voting/${round.slug}`} target="_blank" rel="noreferrer">Publikums-Voting öffnen</a></td>
                 <td><button type="button" onClick={() => copyPublicUrl(`/release-voting/${round.slug}`, 'Publikums-Link kopiert.')}>Link kopieren</button></td>
@@ -236,7 +256,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       <JuryResultsMatrix
         songs={songs}
         publicLeaderboard={summary.leaderboard}
-        publicVerifiedVotes={summary.verifiedVotes}
+        publicVerifiedVotes={summary.countedVotes}
         juryData={juryData}
       />
 
@@ -383,7 +403,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
 
       <section className="admin-card">
         <h2>Auswertung</h2>
-        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen dieser Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
+        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten und gewerteten Stimmen. Bestätigte Stimmen mit Prüfhinweis oder Ausschluss fließen nicht ein. Ø = Gesamtpunkte geteilt durch alle gewerteten Stimmen dieser Umfrage. „Gewählt“ = wie oft der Song in gewerteten Top-Listen vorkommt.</p>
         <div className="admin-table-wrap compact">
           <table>
             <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
@@ -406,7 +426,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       <section className="admin-grid two bottom">
         <div className="admin-card">
           <h2>ZONK-Auswertung</h2>
-          {zonkRows.length ? <ol className="zonk-admin-list">{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine bestätigten ZONK-Stimmen vorhanden.</p>}
+          {zonkRows.length ? <ol className="zonk-admin-list">{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine gewerteten ZONK-Stimmen vorhanden.</p>}
         </div>
 
         <div className="admin-card">
@@ -419,23 +439,54 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
         </div>
       </section>
 
-      <section className="admin-card">
-        <div className="admin-table-wrap compact" style={{ maxHeight: '520px', overflow: 'auto' }}>
-          <table>
-            <thead><tr><th>Status</th><th>Name</th><th>E-Mail</th><th>Instagram</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th></tr></thead>
+      <section className="admin-card integrity-review-card">
+        <div className="integrity-review-heading">
+          <div>
+            <h2>Vote-Check</h2>
+            <p className="admin-help-text">Automatische Hinweise sind Prüfhinweise, kein endgültiger Betrugsnachweis. Wegwerf-/Alias-Maildomains, identische Ranglisten und auffällige Häufungen derselben gehashten Verbindung werden zunächst nicht gewertet. Du kannst jede bestätigte Stimme manuell werten oder ausschließen.</p>
+          </div>
+          <div className="integrity-filter-tabs">
+            <button type="button" className={participantFilter === 'all' ? 'active' : ''} onClick={() => setParticipantFilter('all')}>Alle {summary.totalVotes}</button>
+            <button type="button" className={participantFilter === 'counted' ? 'active' : ''} onClick={() => setParticipantFilter('counted')}>Gewertet {summary.countedVotes}</button>
+            <button type="button" className={participantFilter === 'review' ? 'active' : ''} onClick={() => setParticipantFilter('review')}>Prüfung {summary.reviewVotes}</button>
+            <button type="button" className={participantFilter === 'excluded' ? 'active' : ''} onClick={() => setParticipantFilter('excluded')}>Ausgeschlossen {summary.excludedVotes}</button>
+            <button type="button" className={participantFilter === 'unverified' ? 'active' : ''} onClick={() => setParticipantFilter('unverified')}>Unbestätigt {summary.unverifiedVotes}</button>
+          </div>
+        </div>
+
+        <div className="admin-table-wrap compact" style={{ maxHeight: '620px', overflow: 'auto' }}>
+          <table className="integrity-table">
+            <thead><tr><th>Status</th><th>Prüfhinweis</th><th>Name</th><th>E-Mail</th><th>Verbindung</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th><th>Aktion</th></tr></thead>
             <tbody>
-              {summary.participants.map((participant) => (
-                <tr key={participant.voteId}>
-                  <td>{participant.isVerified ? 'Bestätigt' : 'Offen'}</td>
-                  <td>{participant.name || '—'}</td>
-                  <td>{participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}</td>
-                  <td>{participant.instagram || '—'}</td>
-                  <td>{formatAdminDateTime(participant.votedAt)}</td>
-                  <td>{formatAdminDateTime(participant.verifiedAt)}</td>
-                  <td>{participant.zonkSong || '—'}</td>
-                </tr>
-              ))}
-              {!summary.participants.length && <tr><td colSpan={7}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
+              {filteredParticipants.map((participant) => {
+                const status = participantStatus(participant);
+                return (
+                  <tr key={participant.voteId}>
+                    <td><span className={`vote-status-badge ${status.key}`}>{status.label}</span></td>
+                    <td className="integrity-reasons-cell">
+                      {participant.integrityReasons.length ? participant.integrityReasons.map((reason) => <div key={reason}>⚠ {reason}</div>) : <span className="muted">Keine Auffälligkeit</span>}
+                    </td>
+                    <td>{participant.name || '—'}</td>
+                    <td>
+                      {participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}
+                      {participant.emailDomain && <><br /><small>{participant.emailDomain}</small></>}
+                    </td>
+                    <td title={participant.ipHash || ''}>{shortHash(participant.ipHash)}{participant.sameIpVotes > 1 ? <><br /><small>{participant.sameIpVotes} Votes mit gleichem Hash</small></> : null}</td>
+                    <td>{formatAdminDateTime(participant.votedAt)}</td>
+                    <td>{formatAdminDateTime(participant.verifiedAt)}</td>
+                    <td>{participant.zonkSong || '—'}</td>
+                    <td className="action-cell integrity-actions">
+                      {participant.isVerified && (!participant.isCounted || participant.integrityStatus === 'excluded') && (
+                        <button type="button" onClick={() => post('/api/admin/vote-status', { voteId: participant.voteId, action: 'count' })}>Werten</button>
+                      )}
+                      {participant.integrityStatus !== 'excluded' && (
+                        <button type="button" onClick={() => { if (window.confirm(`Stimme von ${participant.email || participant.name || 'diesem Teilnehmer'} ausschließen?`)) post('/api/admin/vote-status', { voteId: participant.voteId, action: 'exclude' }); }}>Ausschließen</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!filteredParticipants.length && <tr><td colSpan={9}>Keine Stimmen in diesem Filter.</td></tr>}
             </tbody>
           </table>
         </div>

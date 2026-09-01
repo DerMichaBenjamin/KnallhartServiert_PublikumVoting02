@@ -30,13 +30,26 @@ export default async function Admin() {
 
     roundSummaries = rounds.map((round) => {
       const roundVotes = allVotes.filter((vote) => vote.round_id === round.id);
-      const verifiedVotes = roundVotes.filter((vote) => vote.is_verified);
+      const confirmedVotes = roundVotes.filter((vote) => vote.is_verified).length;
+      const countedVotes = roundVotes.filter((vote) => vote.is_verified && vote.is_counted !== false).length;
+      const excludedVotes = roundVotes.filter((vote) => vote.is_verified && vote.integrity_status === 'excluded').length;
+      const reviewVotes = roundVotes.filter((vote) =>
+        vote.is_verified
+        && vote.is_counted === false
+        && vote.integrity_status !== 'excluded'
+      ).length;
+      const unverifiedVotes = roundVotes.length - confirmedVotes;
 
       return {
         roundId: round.id,
         totalVotes: roundVotes.length,
-        verifiedVotes: verifiedVotes.length,
-        pendingVotes: roundVotes.length - verifiedVotes.length,
+        confirmedVotes,
+        countedVotes,
+        reviewVotes,
+        excludedVotes,
+        unverifiedVotes,
+        verifiedVotes: countedVotes,
+        pendingVotes: unverifiedVotes,
         songsCount: 0,
         leaderboard: [],
         zonk: [],

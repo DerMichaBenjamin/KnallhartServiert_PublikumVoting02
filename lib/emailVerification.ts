@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getSupabaseAdminClient } from './supabaseAdmin';
+import { recheckVoteIntegrityAfterVerification } from './voteIntegrity';
 
 function env(name: string) {
   return (process.env[name] || '').trim();
@@ -110,7 +111,7 @@ function buildVoteSummaryHtml(selections: VerificationEmailSelection[] = [], zon
 
   const rankingBlock = selections.length
     ? `<h3 style="margin:24px 0 8px;font-size:18px">Deine Punktevergabe</h3>
-      <p style="margin:0 0 10px;color:#475569">Nach deiner Bestätigung werden diese Punkte in die Auswertung übernommen.</p>
+      <p style="margin:0 0 10px;color:#475569">Für eine Wertung muss dein Voting per E-Mail bestätigt sein.</p>
       <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
         <thead>
           <tr>
@@ -166,8 +167,8 @@ export async function sendVerificationEmail(input: SendVerificationEmailInput) {
       from: `Knallhart serviert Publikums-Voting <${fromEmail}>`,
       to: [input.to],
       subject: 'Bitte bestätige dein Voting',
-      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2937;max-width:680px"><h2>Knallhart serviert Publikums-Voting</h2><p>Danke für dein Voting für <strong>${escapeHtml(input.roundTitle)}</strong>.</p><p>Bitte bestätige deine Stimme mit einem Klick:</p><p><a href="${escapedUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#ff6b3d;color:#fff;text-decoration:none;font-weight:700">Voting bestätigen</a></p>${summaryHtml}<p style="margin-top:22px;font-size:13px;color:#64748b">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:</p><p style="font-size:13px;word-break:break-all"><a href="${escapedUrl}">${escapedUrl}</a></p><p>Die Mail kann einige Minuten dauern. Prüfe bitte auch den Spam-Ordner.</p><p style="font-size:13px;color:#64748b">Nur bestätigte Stimmen fließen in die Auswertung ein.</p></div>`,
-      text: `Danke für dein Voting für "${input.roundTitle}".\n\nBestätige hier: ${input.verificationUrl}${summaryText}\n\nNur bestätigte Stimmen fließen in die Auswertung ein.`,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2937;max-width:680px"><h2>Knallhart serviert Publikums-Voting</h2><p>Danke für dein Voting für <strong>${escapeHtml(input.roundTitle)}</strong>.</p><p>Bitte bestätige deine Stimme mit einem Klick:</p><p><a href="${escapedUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#ff6b3d;color:#fff;text-decoration:none;font-weight:700">Voting bestätigen</a></p>${summaryHtml}<p style="margin-top:22px;font-size:13px;color:#64748b">Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:</p><p style="font-size:13px;word-break:break-all"><a href="${escapedUrl}">${escapedUrl}</a></p><p>Die Mail kann einige Minuten dauern. Prüfe bitte auch den Spam-Ordner.</p><p style="font-size:13px;color:#64748b">Nur bestätigte Stimmen können in die Auswertung einfließen.</p></div>`,
+      text: `Danke für dein Voting für "${input.roundTitle}".\n\nBestätige hier: ${input.verificationUrl}${summaryText}\n\nNur bestätigte Stimmen können in die Auswertung einfließen.`,
     }),
   });
 
@@ -203,5 +204,10 @@ export async function verifyVoteToken(tokenInput: string) {
     .eq('id', data.id);
 
   if (upd.error) return { ok: false as const, message: upd.error.message };
+
+  // Nach der Bestätigung noch einmal gegen bereits bestätigte Stimmen derselben
+  // Verbindung prüfen. Auffälligkeiten bleiben intern und werden im Adminbereich geprüft.
+  await recheckVoteIntegrityAfterVerification(String(data.id));
+
   return { ok: true as const, message: 'Dein Voting wurde bestätigt.' };
 }

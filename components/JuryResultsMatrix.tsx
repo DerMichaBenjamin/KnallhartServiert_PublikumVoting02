@@ -159,7 +159,7 @@ export default function JuryResultsMatrix({ songs, publicLeaderboard, publicVeri
         </div>
         <div className="jury-results-stats">
           <span className="status-badge">Juroren {submittedJurors.length}/{activeJurors.length}</span>
-          <span className="status-badge">Publikum {publicVerifiedVotes} bestätigt</span>
+          <span className="status-badge">Publikum {publicVerifiedVotes} gewertet</span>
           <span className="status-badge">Gewertet: {countedSources} Stimmen</span>
         </div>
       </div>
@@ -250,7 +250,7 @@ export default function JuryResultsMatrix({ songs, publicLeaderboard, publicVeri
       </div>
 
       <p className="admin-help-text jury-results-footnote">
-        Nur abgegebene Jury-Wertungen werden addiert. Nicht platzierte Songs erhalten von der jeweiligen Stimme 0 Punkte. Die Publikumswertung wird erst berücksichtigt, sobald mindestens eine bestätigte Publikumsstimme vorliegt.
+        Nur abgegebene Jury-Wertungen werden addiert. Nicht platzierte Songs erhalten von der jeweiligen Stimme 0 Punkte. Die Publikumswertung wird erst berücksichtigt, sobald mindestens eine bestätigte und gewertete Publikumsstimme vorliegt.
       </p>
     </section>
   );

@@ -132,6 +132,7 @@ export async function getVerifiedVotes(roundId: string) {
     .select('*')
     .eq('round_id', roundId)
     .eq('is_verified', true)
+    .eq('is_counted', true)
     .order('verified_at', { ascending: true });
 
   const ids = ((votes || []) as Vote[]).map((vote) => vote.id);
@@ -194,9 +195,16 @@ export async function getAdminRoundDetailData(roundId: string): Promise<AdminRou
 
   const results = await getRoundResults(round.id);
   const songById = new Map(songs.map((song) => [song.id, song]));
+  const sameIpCounts = new Map<string, number>();
+
+  for (const vote of votes) {
+    if (!vote.ip_hash) continue;
+    sameIpCounts.set(vote.ip_hash, (sameIpCounts.get(vote.ip_hash) || 0) + 1);
+  }
 
   const participants: AdminParticipantRow[] = votes.map((vote) => {
     const zonkSong = vote.zonk_song_id ? songById.get(vote.zonk_song_id) : null;
+    const integrityStatus = (vote.integrity_status || (vote.is_counted === false ? 'review' : 'clear')) as AdminParticipantRow['integrityStatus'];
 
     return {
       voteId: vote.id,
@@ -204,17 +212,38 @@ export async function getAdminRoundDetailData(roundId: string): Promise<AdminRou
       email: vote.juror_email || '',
       instagram: vote.juror_instagram || null,
       isVerified: Boolean(vote.is_verified),
+      isCounted: Boolean(vote.is_verified && vote.is_counted !== false),
+      integrityStatus,
+      integrityReasons: Array.isArray(vote.integrity_reasons) ? vote.integrity_reasons.filter(Boolean) : [],
+      emailDomain: vote.email_domain || null,
+      ipHash: vote.ip_hash || null,
+      sameIpVotes: vote.ip_hash ? (sameIpCounts.get(vote.ip_hash) || 1) : 0,
       votedAt: vote.created_at,
       verifiedAt: vote.verified_at,
       zonkSong: zonkSong ? combineSongLine(zonkSong) : null,
     };
   });
 
+  const confirmedVotes = votes.filter((vote) => Boolean(vote.is_verified)).length;
+  const countedVotes = votes.filter((vote) => Boolean(vote.is_verified) && vote.is_counted !== false).length;
+  const excludedVotes = votes.filter((vote) => Boolean(vote.is_verified) && vote.integrity_status === 'excluded').length;
+  const reviewVotes = votes.filter((vote) =>
+    Boolean(vote.is_verified)
+    && vote.is_counted === false
+    && vote.integrity_status !== 'excluded'
+  ).length;
+  const unverifiedVotes = votes.length - confirmedVotes;
+
   const summary: AdminRoundSummary = {
     roundId: round.id,
     totalVotes: votes.length,
-    verifiedVotes: results.validVotes,
-    pendingVotes: votes.length - results.validVotes,
+    confirmedVotes,
+    countedVotes,
+    reviewVotes,
+    excludedVotes,
+    unverifiedVotes,
+    verifiedVotes: countedVotes,
+    pendingVotes: unverifiedVotes,
     songsCount: results.songsCount,
     leaderboard: results.leaderboard,
     zonk: results.zonk,

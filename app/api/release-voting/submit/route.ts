@@ -8,6 +8,7 @@ import {
   verificationWindow,
 } from '@/lib/emailVerification';
 import { checkRateLimit, clientIpFromRequest, minutesUntil } from '@/lib/rateLimit';
+import { assessVoteIntegrity } from '@/lib/voteIntegrity';
 
 type RankingEntryInput = {
   songId?: unknown;
@@ -175,6 +176,15 @@ export async function POST(req: Request) {
       throw new Error('Ungültige ZONK-Auswahl: Dieser Song gehört nicht zu dieser Abstimmung. Bitte Seite neu laden.');
     }
 
+    // Fraud-/Integritätsprüfung läuft serverseitig. Auffällige Stimmen werden gespeichert und
+    // können bestätigt werden, fließen aber zunächst NICHT in die Auswertung ein.
+    const integrity = await assessVoteIntegrity({
+      roundId,
+      email: jurorEmail,
+      clientIp,
+      ranking: normalizedRanking,
+    });
+
     const token = createVerificationToken();
     const win = verificationWindow();
 
@@ -187,6 +197,13 @@ export async function POST(req: Request) {
         juror_instagram: jurorInstagram,
         zonk_song_id: zonkSongId,
         is_verified: false,
+        is_counted: integrity.isCounted,
+        integrity_status: integrity.status,
+        integrity_reasons: integrity.reasons,
+        email_domain: integrity.emailDomain,
+        ip_hash: integrity.ipHash,
+        ranking_hash: integrity.rankingHash,
+        integrity_updated_at: new Date().toISOString(),
         verify_token_hash: hashVerificationToken(token),
         verify_sent_at: win.sentAt,
         verify_expires_at: win.expiresAt,

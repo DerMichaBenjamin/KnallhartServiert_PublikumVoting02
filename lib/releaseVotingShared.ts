@@ -33,6 +33,14 @@ export type Vote = {
   juror_instagram: string | null;
   is_verified: boolean;
   verified_at: string | null;
+  is_counted: boolean;
+  integrity_status: 'clear' | 'review' | 'approved' | 'excluded';
+  integrity_reasons: string[] | null;
+  email_domain: string | null;
+  ip_hash: string | null;
+  ranking_hash: string | null;
+  integrity_updated_at: string | null;
+  moderated_at: string | null;
   zonk_song_id: string | null;
   created_at: string;
 };
@@ -67,6 +75,12 @@ export type AdminParticipantRow = {
   email: string;
   instagram: string | null;
   isVerified: boolean;
+  isCounted: boolean;
+  integrityStatus: 'clear' | 'review' | 'approved' | 'excluded';
+  integrityReasons: string[];
+  emailDomain: string | null;
+  ipHash: string | null;
+  sameIpVotes: number;
   votedAt: string;
   verifiedAt: string | null;
   zonkSong: string | null;
@@ -75,7 +89,14 @@ export type AdminParticipantRow = {
 export type AdminRoundSummary = {
   roundId: string;
   totalVotes: number;
+  confirmedVotes: number;
+  countedVotes: number;
+  reviewVotes: number;
+  excludedVotes: number;
+  unverifiedVotes: number;
+  /** Legacy alias used by older UI pieces: equals countedVotes. */
   verifiedVotes: number;
+  /** Legacy alias used by older UI pieces: equals unverifiedVotes. */
   pendingVotes: number;
   songsCount: number;
   leaderboard: LeaderboardRow[];
@@ -223,7 +244,7 @@ export function spotifyIdFromInput(input?: string | null) {
 }
 
 export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]): LeaderboardRow[] {
-  const validVoteIds = new Set(votes.filter((vote) => vote.is_verified).map((vote) => vote.id));
+  const validVoteIds = new Set(votes.filter((vote) => vote.is_verified && vote.is_counted !== false).map((vote) => vote.id));
   const validVotesCount = validVoteIds.size;
   const songIds = new Set(songs.map((song) => song.id));
   const rowsBySongId = new Map<string, LeaderboardRow>(
@@ -276,7 +297,7 @@ export function buildZonk(songs: Song[], votes: Vote[]): ZonkRow[] {
   const songIds = new Set(songs.map((song) => song.id));
 
   votes
-    .filter((vote) => vote.is_verified)
+    .filter((vote) => vote.is_verified && vote.is_counted !== false)
     .forEach((vote) => {
       if (vote.zonk_song_id && songIds.has(vote.zonk_song_id)) {
         counts.set(vote.zonk_song_id, (counts.get(vote.zonk_song_id) || 0) + 1);
