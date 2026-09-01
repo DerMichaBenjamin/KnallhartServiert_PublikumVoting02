@@ -1,0 +1,5 @@
+import type { AdminRoundSummary, Round } from '@/lib/releaseVotingShared';
+
+export default function PublicVotingSummary({ round, summary }: { round: Round; summary: AdminRoundSummary }) {
+  return <section className="ks-card" id="public-voting"><div className="ks-section-heading"><div><span className="ks-section-kicker">Publikums-Voting</span><h2>Stimmenstatus</h2><p>Bestätigt und gewertet bleiben getrennte Zustände.</p></div><a className="ks-button primary" href={`/admin/release-voting/${round.id}/votes`}>Publikumsstimmen verwalten</a></div><div className="ks-mini-metrics"><div><span>Insgesamt</span><strong>{summary.totalVotes}</strong></div><div className="success"><span>Gewertet</span><strong>{summary.countedVotes}</strong></div><div><span>Bestätigt</span><strong>{summary.confirmedVotes}</strong></div><div className="warning"><span>Nicht bestätigt</span><strong>{summary.unverifiedVotes}</strong></div><div className="warning"><span>In Prüfung</span><strong>{summary.reviewVotes}</strong></div><div className="danger"><span>Ausgeschlossen</span><strong>{summary.excludedVotes}</strong></div></div></section>;
+}

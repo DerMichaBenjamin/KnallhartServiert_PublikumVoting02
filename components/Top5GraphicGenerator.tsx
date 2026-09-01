@@ -3,7 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { LeaderboardRow, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
-import { JURY_PLACES_COUNT } from '@/lib/releaseVotingShared';
+import { buildCombinedResults } from '@/lib/combinedVotingResults';
 
 const DEFAULT_TEMPLATE_SRC = '/release-check-top5-template.png';
 const OUTPUT_WIDTH = 1080;
@@ -16,6 +16,7 @@ type Props = {
   publicVerifiedVotes: number;
   juryData: AdminJuryRoundData;
   initialTemplateDataUrl?: string;
+  variant?: 'full' | 'compact';
 };
 
 type GraphicRow = {
@@ -31,11 +32,6 @@ type WrappedTextResult = {
   lines: string[];
   lineHeight: number;
 };
-
-function compareSongs(a: Song, b: Song) {
-  return a.title.localeCompare(b.title, 'de', { sensitivity: 'base' })
-    || a.artist.localeCompare(b.artist, 'de', { sensitivity: 'base' });
-}
 
 function formatRoundDate(round: Round) {
   const raw = round.starts_at || round.created_at;
@@ -190,7 +186,7 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, publicVerifiedVotes, juryData, initialTemplateDataUrl = '' }: Props) {
+export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, publicVerifiedVotes, juryData, initialTemplateDataUrl = '', variant = 'full' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const templateImageRef = useRef<HTMLImageElement | null>(null);
   const [templateReady, setTemplateReady] = useState(false);
@@ -202,66 +198,23 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   const [uploadBusy, setUploadBusy] = useState(false);
   const [templateChanged, setTemplateChanged] = useState(false);
 
-  const activeJurors = useMemo(() => juryData.jurors.filter((juror) => juror.is_active), [juryData.jurors]);
-  const submittedJurors = useMemo(() => activeJurors.filter((juror) => Boolean(juror.submitted_at)), [activeJurors]);
-
-  const audiencePoints = useMemo(() => {
-    const map = new Map<string, number>();
-    if (publicVerifiedVotes <= 0) return map;
-
-    const sorted = [...publicLeaderboard].sort((a, b) =>
-      b.total - a.total
-      || compareSongs(a.song, b.song)
-    );
-
-    sorted.slice(0, JURY_PLACES_COUNT).forEach((row, index) => {
-      map.set(row.song.id, JURY_PLACES_COUNT - index);
-    });
-
-    return map;
-  }, [publicLeaderboard, publicVerifiedVotes]);
+  const combinedResults = useMemo(
+    () => buildCombinedResults(songs, publicLeaderboard, publicVerifiedVotes, juryData),
+    [songs, publicLeaderboard, publicVerifiedVotes, juryData]
+  );
+  const { submittedJurors, overallRows } = combinedResults;
 
   const graphicRows = useMemo<GraphicRow[]>(() => {
-    const hasVotes = audiencePoints.size > 0 || submittedJurors.length > 0;
-    if (!hasVotes) return [];
-
-    const rows = songs.map((song) => {
-      let total = audiencePoints.get(song.id) || 0;
-
-      for (const juror of activeJurors) {
-        if (!juror.submitted_at) continue;
-        const item = juror.items.find((entry) => entry.song_id === song.id);
-        const points = Number(item?.points || 0);
-        if (Number.isFinite(points) && points > 0) total += points;
-      }
-
-      return {
-        song,
-        total,
-        audiencePoints: audiencePoints.get(song.id) || 0,
-      };
-    });
-
-    rows.sort((a, b) => b.total - a.total || compareSongs(a.song, b.song));
-
-    let previousTotal: number | null = null;
-    let previousRank = 0;
-
-    const ranked = rows.map((row, index) => {
-      const rank = previousTotal === row.total ? previousRank : index + 1;
-      previousTotal = row.total;
-      previousRank = rank;
-      return {
-        rank,
+    return overallRows
+      .filter((row) => row.rank !== null && row.rank <= 5 && row.total > 0)
+      .map((row) => ({
+        rank: row.rank as number,
         title: row.song.title,
         artist: row.song.artist,
         total: row.total,
         audiencePoints: row.audiencePoints,
-      };
-    });
-
-    return ranked.filter((row) => row.rank <= 5 && row.total > 0);
-  }, [songs, audiencePoints, activeJurors, submittedJurors.length]);
+      }));
+  }, [overallRows]);
 
   const dateLabel = useMemo(() => formatRoundDate(round), [round]);
   const shortDateLabel = useMemo(() => formatShortRoundDate(round), [round]);
@@ -502,7 +455,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   }
 
   return (
-    <section className="admin-card top5-graphic-card">
+    <section id="top5" className={`admin-card top5-graphic-card ${variant === 'compact' ? 'top5-compact' : ''}`}>
       <div className="top5-graphic-header">
         <div>
           <h2>Top-5-Grafik</h2>
@@ -524,7 +477,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         </div>
       )}
 
-      <div className="top5-graphic-template-card">
+      {variant === 'full' && <div className="top5-graphic-template-card">
         <div>
           <h3>Hintergrundgrafik</h3>
           <p className="admin-help-text">Du kannst eine neue Hintergrundgrafik hochladen. Sie wird dann dauerhaft als Vorlage für die automatische Top-5-Grafik verwendet.</p>
@@ -541,7 +494,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
           )}
           <button type="button" disabled={uploadBusy} onClick={resetTemplateToDefault}>Auf Standard zurücksetzen</button>
         </div>
-      </div>
+      </div>}
 
       <div className="top5-graphic-layout">
         <div className="top5-graphic-preview-wrap">
@@ -556,19 +509,15 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
                 <button type="button" onClick={downloadGraphic} disabled={downloadBusy || !templateReady}>
                   {downloadBusy ? 'Erstelle PNG…' : 'PNG herunterladen'}
                 </button>
-                {previewUrl && (
-                  <a href={previewUrl} download={fileName}>
-                    Direktlink zur Vorschau
-                  </a>
-                )}
+                {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer">Vorschau ansehen</a>}
               </div>
 
-              <div className="top5-graphic-meta">
+              {variant === 'full' && <div className="top5-graphic-meta">
                 <p><b>Dateiname:</b> {fileName}</p>
                 <p><b>Format:</b> 1080 × 1920 Pixel (Instagram-Reel)</p>
-              </div>
+              </div>}
 
-              <div className="top5-graphic-ranking-list">
+              {variant === 'full' && <div className="top5-graphic-ranking-list">
                 <h3>Inhalt der Grafik</h3>
                 <ol>
                   {graphicRows.map((row) => (
@@ -579,7 +528,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
                     </li>
                   ))}
                 </ol>
-              </div>
+              </div>}
 
               <div className="top5-graphic-copy-card">
                 <div className="top5-copy-header">

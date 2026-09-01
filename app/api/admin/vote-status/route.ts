@@ -22,12 +22,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const voteId = clean(body.voteId);
+    const voteIds = Array.from(new Set([
+      ...((Array.isArray(body.voteIds) ? body.voteIds : []).map(clean)),
+      clean(body.voteId),
+    ].filter(Boolean)));
     const action = clean(body.action);
     const sb = getSupabaseAdminClient();
 
     if (!sb) throw new Error('Supabase ist nicht konfiguriert.');
-    if (!voteId) throw new Error('Vote-ID fehlt.');
+    if (!voteIds.length) throw new Error('Vote-ID fehlt.');
 
     const now = new Date().toISOString();
 
@@ -40,7 +43,7 @@ export async function POST(req: NextRequest) {
           moderated_at: now,
           integrity_updated_at: now,
         })
-        .eq('id', voteId)
+        .in('id', voteIds)
         .eq('is_verified', true);
       if (error) throw error;
       return NextResponse.json({ ok: true });
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
           moderated_at: now,
           integrity_updated_at: now,
         })
-        .eq('id', voteId);
+        .in('id', voteIds);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }
@@ -69,7 +72,7 @@ export async function POST(req: NextRequest) {
           moderated_at: now,
           integrity_updated_at: now,
         })
-        .eq('id', voteId);
+        .in('id', voteIds);
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }

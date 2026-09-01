@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import type { LeaderboardRow, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
-import { combineSongLine, JURY_PLACES_COUNT } from '@/lib/releaseVotingShared';
+import { combineSongLine } from '@/lib/releaseVotingShared';
+import { buildCombinedResults } from '@/lib/combinedVotingResults';
 
 type Props = {
   songs: Song[];
@@ -26,89 +27,11 @@ type FocusRow = {
   rank: number;
 };
 
-function compareSongs(a: Song, b: Song) {
-  return a.title.localeCompare(b.title, 'de', { sensitivity: 'base' })
-    || a.artist.localeCompare(b.artist, 'de', { sensitivity: 'base' });
-}
-
-function assignCompetitionRanks(rows: Omit<MatrixRow, 'overallRank'>[], hasVotes: boolean): MatrixRow[] {
-  let previousTotal: number | null = null;
-  let previousRank = 0;
-
-  return rows.map((row, index) => {
-    if (!hasVotes) return { ...row, overallRank: null };
-
-    const rank = previousTotal === row.total ? previousRank : index + 1;
-    previousTotal = row.total;
-    previousRank = rank;
-    return { ...row, overallRank: rank };
-  });
-}
-
 export default function JuryResultsMatrix({ songs, publicLeaderboard, publicVerifiedVotes, juryData }: Props) {
   const [activeView, setActiveView] = useState('overall');
-
-  const activeJurors = useMemo(() => juryData.jurors.filter((juror) => juror.is_active), [juryData.jurors]);
-  const submittedJurors = useMemo(() => activeJurors.filter((juror) => Boolean(juror.submitted_at)), [activeJurors]);
-
-  const audiencePoints = useMemo(() => {
-    const map = new Map<string, number>();
-    if (publicVerifiedVotes <= 0) return map;
-
-    const sorted = [...publicLeaderboard].sort((a, b) =>
-      b.total - a.total
-      || compareSongs(a.song, b.song)
-    );
-
-    sorted.slice(0, JURY_PLACES_COUNT).forEach((row, index) => {
-      map.set(row.song.id, JURY_PLACES_COUNT - index);
-    });
-
-    return map;
-  }, [publicLeaderboard, publicVerifiedVotes]);
-
-  const juryPointsByJuror = useMemo(() => {
-    const outer = new Map<string, Map<string, number>>();
-
-    for (const juror of activeJurors) {
-      const points = new Map<string, number>();
-      if (juror.submitted_at) {
-        for (const item of juror.items) {
-          const value = Number(item.points);
-          if (Number.isFinite(value) && value >= 1 && value <= JURY_PLACES_COUNT) {
-            points.set(item.song_id, value);
-          }
-        }
-      }
-      outer.set(juror.id, points);
-    }
-
-    return outer;
-  }, [activeJurors]);
-
-  const overallRows = useMemo(() => {
-    const rows: Omit<MatrixRow, 'overallRank'>[] = songs.map((song) => {
-      const juryPoints: Record<string, number> = {};
-      let total = audiencePoints.get(song.id) || 0;
-
-      for (const juror of activeJurors) {
-        const points = juryPointsByJuror.get(juror.id)?.get(song.id) || 0;
-        juryPoints[juror.id] = points;
-        total += points;
-      }
-
-      return {
-        song,
-        juryPoints,
-        audiencePoints: audiencePoints.get(song.id) || 0,
-        total,
-      };
-    });
-
-    rows.sort((a, b) => b.total - a.total || compareSongs(a.song, b.song));
-    const hasVotes = audiencePoints.size > 0 || submittedJurors.length > 0;
-    return assignCompetitionRanks(rows, hasVotes);
-  }, [songs, audiencePoints, activeJurors, juryPointsByJuror, submittedJurors.length]);
+  const combined = useMemo(() => buildCombinedResults(songs, publicLeaderboard, publicVerifiedVotes, juryData), [songs, publicLeaderboard, publicVerifiedVotes, juryData]);
+  const { activeJurors, submittedJurors, audiencePoints, juryPointsByJuror } = combined;
+  const overallRows: MatrixRow[] = useMemo(() => combined.overallRows.map((row) => ({ song: row.song, juryPoints: row.juryPointsByJuror, audiencePoints: row.audiencePoints, total: row.total, overallRank: row.rank })), [combined.overallRows]);
 
   const matrixRows = useMemo(() => {
     const rows = [...overallRows];
@@ -117,13 +40,13 @@ export default function JuryResultsMatrix({ songs, publicLeaderboard, publicVeri
     if (activeView === 'audience') {
       return rows.sort((a, b) =>
         b.audiencePoints - a.audiencePoints
-        || compareSongs(a.song, b.song)
+        || a.song.title.localeCompare(b.song.title, 'de', { sensitivity: 'base' })
       );
     }
 
     return rows.sort((a, b) =>
       (b.juryPoints[activeView] || 0) - (a.juryPoints[activeView] || 0)
-      || compareSongs(a.song, b.song)
+      || a.song.title.localeCompare(b.song.title, 'de', { sensitivity: 'base' })
     );
   }, [overallRows, activeView]);
 
@@ -137,7 +60,7 @@ export default function JuryResultsMatrix({ songs, publicLeaderboard, publicVeri
     return songs
       .map((song) => ({ song, points: points.get(song.id) || 0 }))
       .filter((row) => row.points > 0)
-      .sort((a, b) => b.points - a.points || compareSongs(a.song, b.song))
+      .sort((a, b) => b.points - a.points || a.song.title.localeCompare(b.song.title, 'de', { sensitivity: 'base' }))
       .map((row, index) => ({ ...row, rank: index + 1 }));
   }, [activeView, audiencePoints, juryPointsByJuror, songs]);
 

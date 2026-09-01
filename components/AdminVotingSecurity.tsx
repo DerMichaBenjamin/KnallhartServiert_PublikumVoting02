@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Round } from '@/lib/releaseVotingShared';
 import type { VotingSecurityAlert, VotingSecurityReport } from '@/lib/votingSecurityShared';
+import { PageHeader } from '@/components/admin/AdminUi';
 
 type Props = {
   round: Round;
@@ -511,21 +512,8 @@ export default function AdminVotingSecurity({ round, report }: Props) {
   }
 
   return (
-    <main className="admin-shell">
-      <section className="admin-hero-card">
-        <img src="/khs-logo.png" alt="Knallhart serviert" />
-        <div>
-          <p>Sicherheitsprüfung</p>
-          <h1>{round.title}</h1>
-          <span>Passive Auffälligkeitserkennung. Es wird nichts automatisch ausgeschlossen.</span>
-        </div>
-      </section>
-
-      <section className="admin-card">
-        <div className="action-cell">
-          <a href={`/admin/release-voting/${round.id}`}>← Zurück zur Abstimmung</a>
-        </div>
-      </section>
+    <main>
+      <PageHeader eyebrow={<a href={`/admin/release-voting/${round.id}`}>← Zur Umfrage</a>} title={`Voting-Prüfung – ${round.title}`} description="Auffällige Stimmen prüfen und bewusst werten oder ausschließen. Es wird nichts automatisch ausgeschlossen." />
 
       {message && <div className={`notice ${message.type === 'ok' ? 'success' : 'error'}`}>{message.text}</div>}
       {busy && <div className="notice">Speichert…</div>}
@@ -542,12 +530,12 @@ export default function AdminVotingSecurity({ round, report }: Props) {
       <section className="admin-stats-grid">
         <div className="stat-card"><small>Bestätigte Stimmen geprüft</small><b>{report.verifiedVotes}</b></div>
         <div className="stat-card"><small>Aktiv gewertet</small><b>{report.countedVotes}</b></div>
-        <div className="stat-card"><small>Aktive Auffälligkeiten</small><b>{report.activeAlerts.length}</b></div>
+        <div className="stat-card"><small>Offene Auffälligkeiten</small><b>{report.activeAlerts.length}</b></div>
         <div className="stat-card"><small>Mit IP-Hash erfasst</small><b>{report.trackedVerifiedVotes}</b></div>
       </section>
 
       <section className="admin-card">
-        <h2>IP-Tracking</h2>
+        <h2>Technischer Prüfstatus</h2>
         {report.trackingConfigured && report.ipColumnAvailable ? (
           <p>Aktiv. Gespeichert wird nur ein pro Abstimmungsrunde erzeugter Hash, keine Klartext-IP.</p>
         ) : (
@@ -560,7 +548,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
       </section>
 
       <section className="admin-card">
-        <h2>Unbestätigte auffällige Stimmen</h2>
+        <h2>Umgang mit unbestätigten auffälligen Stimmen</h2>
         <p>
           Unbestätigte Stimmen einer bereits erkannten auffälligen Domain-, Anschluss- oder Zeitgruppe werden in den jeweiligen Gruppen mit angezeigt. Du kannst sie schon vor der Mail-Bestätigung ausschließen. Wird die Mail später bestätigt, bleibt <code>is_excluded</code> bestehen und die Stimme wird nicht gewertet.
         </p>
@@ -574,7 +562,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
         <div className="notice success">Aktuell keine noch gewerteten Stimmen mit einem ausreichend starken Auffälligkeitsmuster gefunden.</div>
       ) : (
         <>
-          <h2>Zu prüfen</h2>
+          <h2>Stimmen müssen geprüft werden</h2>
           {report.activeAlerts.map((alert) => renderAlertCard(alert))}
         </>
       )}

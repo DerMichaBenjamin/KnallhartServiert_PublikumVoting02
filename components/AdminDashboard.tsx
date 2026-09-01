@@ -1,252 +1,86 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { AdminRoundSummary, Round } from '@/lib/releaseVotingShared';
+import { useMemo } from 'react';
+import type { Round, AdminRoundSummary, Song } from '@/lib/releaseVotingShared';
+import type { AdminJuryRoundData } from '@/lib/juryVoting';
+import { findSongDuplicateGroups } from '@/lib/releaseVotingShared';
+import { formatRoundPeriod, getAdminRoundStatus, adminRoundStatusLabel } from '@/lib/adminUi';
+import { PageHeader, StatCard, StatusBadge, EmptyState } from '@/components/admin/AdminUi';
+import VotingCheckCard from '@/components/admin/VotingCheckCard';
+import Top5GraphicGenerator from '@/components/Top5GraphicGenerator';
 
 type Props = {
-  rounds: Round[];
   currentRound: Round | null;
-  currentDjRound: Round | null;
-  roundSummaries: AdminRoundSummary[];
-  impressum: string;
+  currentSongs: Song[];
+  currentSummary: AdminRoundSummary | null;
+  currentJuryData: AdminJuryRoundData;
+  top5TemplateDataUrl: string;
 };
 
-function todayLocalDateTime(offsetDays = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 16);
+function QuickAction({ href, title, text, accent = false }: { href: string; title: string; text: string; accent?: boolean }) {
+  return <a className={`ks-quick-action ${accent ? 'accent' : ''}`} href={href}><strong>{title}</strong><span>{text}</span><b aria-hidden="true">→</b></a>;
 }
 
-function dateTimeLocalToIso(value: FormDataEntryValue | string | null) {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
-}
-
-function formatAdminDateTime(value?: string | null) {
-  if (!value) return '—';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-
-  return new Intl.DateTimeFormat('de-DE', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Europe/Berlin',
-  }).format(date);
-}
-
-function formatTitleDate(value?: string | null) {
-  const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(new Date());
-  return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(date);
-}
-
-function defaultRoundTitle() {
-  return `Neue Songs der Woche ${formatTitleDate()}`;
-}
-
-function statusLabel(status: string) {
-  if (status === 'live') return 'Live';
-  if (status === 'ended') return 'Beendet';
-  return 'Entwurf';
-}
-
-export default function AdminDashboard({ rounds, currentRound, currentDjRound, roundSummaries, impressum }: Props) {
-  const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const summaryByRoundId = useMemo(
-    () => new Map(roundSummaries.map((summary) => [summary.roundId, summary])),
-    [roundSummaries]
-  );
-
-  const totalCounted = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.countedVotes, 0),
-    [roundSummaries]
-  );
-
-  const totalReview = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.reviewVotes, 0),
-    [roundSummaries]
-  );
-
-  const totalExcluded = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.excludedVotes, 0),
-    [roundSummaries]
-  );
-
-  const totalUnverified = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.unverifiedVotes, 0),
-    [roundSummaries]
-  );
-
-  function copyBackendUrl(roundId: string) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    void navigator.clipboard?.writeText(`${origin}/admin/release-voting/${roundId}`);
-    setMessage({ type: 'ok', text: 'Backend-Direktlink kopiert.' });
-  }
-
-  async function post(url: string, body: unknown, reload = true) {
-    setMessage(null);
-    setBusy(true);
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data?.ok) {
-        setMessage({ type: 'error', text: data?.error || 'Ungültige Server-Antwort.' });
-        return false;
-      }
-
-      setMessage({ type: 'ok', text: 'Gespeichert.' });
-      if (reload) window.location.reload();
-      return true;
-    } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Unbekannter Fehler.' });
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
+export default function AdminDashboard({ currentRound, currentSongs, currentSummary, currentJuryData, top5TemplateDataUrl }: Props) {
+  const activeJurors = useMemo(() => currentJuryData.jurors.filter((juror) => juror.is_active), [currentJuryData]);
+  const submittedJurors = activeJurors.filter((juror) => Boolean(juror.submitted_at));
+  const duplicateGroups = useMemo(() => findSongDuplicateGroups(currentSongs), [currentSongs]);
+  const openJurors = activeJurors.length - submittedJurors.length;
 
   return (
-    <main className="admin-shell">
-      <section className="admin-hero-card">
-        <img src="/khs-logo.png" alt="Knallhart serviert" />
-        <div>
-          <p>Interner Verwaltungsbereich</p>
-          <h1>Release Voting verwalten</h1>
-          <span>Startseite mit kompakter Umfragen-Übersicht. Details und Ergebnisse liegen jetzt auf eigenen Umfrage-Seiten.</span>
-        </div>
-      </section>
+    <main>
+      <PageHeader title="Dashboard" description="Aktueller Status und die nächsten Arbeitsschritte." />
 
-      {message && <div className={`notice ${message.type === 'ok' ? 'success' : 'error'}`}>{message.text}</div>}
-      {busy && <div className="notice">Speichert…</div>}
+      {!currentRound || !currentSummary ? (
+        <section className="ks-card">
+          <EmptyState title="Keine aktuelle Umfrage" text="Lege eine neue Umfrage an oder markiere eine vorhandene Umfrage als aktuelle Haupt-Abstimmung." action={<a className="ks-button primary" href="/admin/rounds/new">Neue Umfrage</a>} />
+        </section>
+      ) : (
+        <>
+          <section className="ks-current-round-card">
+            <div className="ks-current-round-copy">
+              <StatusBadge status={getAdminRoundStatus(currentRound)}>{adminRoundStatusLabel(getAdminRoundStatus(currentRound))}</StatusBadge>
+              <span className="ks-section-kicker">Aktuelle Umfrage</span>
+              <h2>{currentRound.title}</h2>
+              <p>{formatRoundPeriod(currentRound)}</p>
+              <div className="ks-inline-actions">
+                <a className="ks-button primary" href={`/admin/release-voting/${currentRound.id}`}>Zur aktuellen Umfrage</a>
+                <a className="ks-button ghost-on-dark" href="/admin/rounds/new">Neue Umfrage</a>
+              </div>
+            </div>
+            <div className="ks-current-round-side">
+              <span>Jury-Fortschritt</span>
+              <strong>{submittedJurors.length}/{activeJurors.length}</strong>
+              <div className="ks-progress"><i style={{ width: `${activeJurors.length ? Math.round((submittedJurors.length / activeJurors.length) * 100) : 0}%` }} /></div>
+              <small>{openJurors ? `${openJurors} noch offen` : 'Jury vollständig'}</small>
+            </div>
+          </section>
 
-      <section className="admin-stats-grid integrity-stats-grid">
-        <div className="stat-card"><small>Öffentliche Haupt-Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
-        <div className="stat-card"><small>Aktuelles DJ-Voting</small><b>{currentDjRound?.title || 'Keine'}</b></div>
-        <div className="stat-card integrity-counted"><small>Gewertet gesamt</small><b>{totalCounted}</b></div>
-        <div className="stat-card integrity-review"><small>Prüfung / nicht gewertet</small><b>{totalReview}</b></div>
-        <div className="stat-card integrity-excluded"><small>Ausgeschlossen</small><b>{totalExcluded}</b></div>
-        <div className="stat-card integrity-unverified"><small>Unbestätigt</small><b>{totalUnverified}</b></div>
-      </section>
+          <section className="ks-stats-grid dashboard">
+            <StatCard label="Songs" value={currentSummary.songsCount} />
+            <StatCard label="Jury-Mitglieder" value={activeJurors.length} />
+            <StatCard label="Jury abgegeben" value={submittedJurors.length} tone={openJurors ? 'warning' : 'success'} />
+            <StatCard label="Publikumsstimmen" value={currentSummary.totalVotes} />
+            <StatCard label="Gewertet" value={currentSummary.countedVotes} tone="success" />
+            <StatCard label="Nicht bestätigt" value={currentSummary.unverifiedVotes} tone="warning" />
+            <StatCard label="Ausgeschlossen" value={currentSummary.excludedVotes} tone="danger" />
+          </section>
 
-      <section className="admin-grid two">
-        <form
-          className="admin-card admin-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-            post('/api/admin/round', {
-              title: form.get('title'),
-              slug: form.get('slug'),
-              description: form.get('description'),
-              status: form.get('status'),
-              startsAt: dateTimeLocalToIso(form.get('startsAt')),
-              endsAt: dateTimeLocalToIso(form.get('endsAt')),
-              placesCount: Number(form.get('placesCount') || 12),
-              songsText: form.get('songsText'),
-              spotifyPlaylistId: form.get('spotifyPlaylistId'),
-              isPublicResults: form.get('isPublicResults') === 'on',
-              makeCurrent: form.get('makeCurrent') === 'on',
-              makeCurrentDj: form.get('makeCurrentDj') === 'on',
-            });
-          }}
-        >
-          <h2>Neue Umfrage anlegen</h2>
-          <label>Titel<input name="title" defaultValue={defaultRoundTitle()} /></label>
-          <p className="admin-help-text">Der Titel sollte das Datum enthalten, z. B. „Neue Songs der Woche {formatTitleDate()}“. Falls du kein Datum einträgst, ergänzt die API beim Anlegen automatisch das Startdatum.</p>
-          <label>Slug / URL-Kürzel <input name="slug" placeholder="leer lassen = automatisch mit Datum" /></label>
-          <label>Beschreibung<textarea name="description" defaultValue="Bewerte die stärksten neuen Releases der Woche." /></label>
-          <div className="admin-form-row">
-            <label>Status<select name="status" defaultValue="live"><option value="draft">Entwurf</option><option value="live">Live</option><option value="ended">Beendet</option></select></label>
-            <label>Plätze<input name="placesCount" type="number" min="1" max="50" defaultValue={12} /></label>
-          </div>
-          <div className="admin-form-row">
-            <label>Start<input name="startsAt" type="datetime-local" defaultValue={todayLocalDateTime(0)} /></label>
-            <label>Ende<input name="endsAt" type="datetime-local" defaultValue={todayLocalDateTime(7)} /></label>
-          </div>
-          <label>Spotify-Playlist-ID oder URL<input name="spotifyPlaylistId" defaultValue="5F2g4rTr0KpYgy9YGiE4aI" /></label>
-          <label className="check-row"><input type="checkbox" name="makeCurrent" defaultChecked /> Als öffentliche Haupt-Abstimmung unter /release-voting anzeigen</label>
-          <label className="check-row"><input type="checkbox" name="makeCurrentDj" /> Als aktuelles DJ-Voting unter /dj-voting anzeigen</label>
-          <label className="check-row"><input type="checkbox" name="isPublicResults" /> Ergebnis öffentlich anzeigen</label>
-          <p className="admin-help-text">Für eine DJ-Abstimmung: Status „Live“ lassen, „öffentliche Haupt-Abstimmung“ deaktivieren und „aktuelles DJ-Voting“ aktivieren. DJs können dann dauerhaft denselben Link /dj-voting verwenden.</p>
-          <label>Songliste<textarea name="songsText" placeholder="Songtitel - Interpret" rows={8} /></label>
-          <button className="submit" type="submit">Umfrage anlegen</button>
-        </form>
+          <section className="ks-section-block">
+            <div className="ks-section-heading"><div><span className="ks-section-kicker">Direkte Arbeitswege</span><h2>Schnellzugriff</h2></div></div>
+            <div className="ks-quick-grid">
+              <QuickAction href={`/admin/release-voting/${currentRound.id}#jury`} title="Jury-Voting aktuell" text={`${submittedJurors.length} von ${activeJurors.length} abgegeben`} />
+              <QuickAction href={`/admin/release-voting/${currentRound.id}/votes`} title="Publikums-Voting aktuell" text={`${currentSummary.countedVotes} von ${currentSummary.totalVotes} gewertet`} />
+              <QuickAction href={`/admin/release-voting/${currentRound.id}/results#public-results`} title="Statistikanalyse aktuelles Voting" text="Publikum, Jury und Gesamtwertung" />
+              <QuickAction href={`/admin/release-voting/${currentRound.id}/security`} title="Voting-Prüfung" text="Auffällige Stimmen und Integrität prüfen" accent={currentSummary.reviewVotes > 0} />
+            </div>
+          </section>
 
-        <form
-          className="admin-card admin-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-            post('/api/admin/settings', { impressum: String(form.get('impressum') || '') });
-          }}
-        >
-          <h2>Impressum</h2>
-          <textarea name="impressum" rows={18} defaultValue={impressum} />
-          <button className="submit" type="submit">Impressum speichern</button>
-        </form>
-      </section>
+          <VotingCheckCard roundId={currentRound.id} reviewVotes={currentSummary.reviewVotes} duplicateGroups={duplicateGroups.length} openJurors={openJurors} />
 
-      <section className="admin-card">
-        <h2>Alle Umfragen</h2>
-        <p className="admin-help-text">Kompakte Übersicht. Einstellungen, Direktlinks, Songs, Doppler-Merge, Teilnehmer und Ergebnisse bearbeitest du über „Details öffnen“.</p>
-        <div className="admin-table-wrap compact">
-          <table>
-            <thead>
-              <tr>
-                <th>Titel</th>
-                <th>Status</th>
-                <th>Erstellt</th>
-                <th>Teilnehmer</th>
-                <th>Aktion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rounds.map((round) => {
-                const summary = summaryByRoundId.get(round.id);
-
-                return (
-                  <tr key={round.id}>
-                    <td>
-                      <b>{round.title}</b><br />
-                      <small>{round.slug}</small>
-                    </td>
-                    <td>
-                      <b>{statusLabel(round.status)}</b><br />
-                      <small>{round.is_current ? 'Hauptseite' : 'nicht Hauptseite'} · {currentDjRound?.id === round.id ? 'DJ-Voting' : 'nicht DJ'} · {round.is_public_results ? 'Ergebnis öffentlich' : 'Ergebnis intern'}</small>
-                    </td>
-                    <td>{formatAdminDateTime(round.created_at)}</td>
-                    <td className="vote-count-cell">
-                      <b>{summary?.countedVotes || 0}</b> gewertet<br />
-                      <small>
-                        {summary?.reviewVotes || 0} Prüfung · {summary?.excludedVotes || 0} ausgeschlossen · {summary?.unverifiedVotes || 0} unbestätigt<br />
-                        {summary?.totalVotes || 0} gesamt
-                      </small>
-                    </td>
-                    <td className="action-cell">
-                      <a href={`/admin/release-voting/${round.id}`}>Details öffnen</a>
-                      <button type="button" onClick={() => copyBackendUrl(round.id)}>Backend-Link kopieren</button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!rounds.length && <tr><td colSpan={5}>Noch keine Umfragen angelegt.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <Top5GraphicGenerator round={currentRound} songs={currentSongs} publicLeaderboard={currentSummary.leaderboard} publicVerifiedVotes={currentSummary.countedVotes} juryData={currentJuryData} initialTemplateDataUrl={top5TemplateDataUrl} variant="compact" />
+        </>
+      )}
     </main>
   );
 }
