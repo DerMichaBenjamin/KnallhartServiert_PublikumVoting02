@@ -5,6 +5,7 @@ import type { AdminRoundSummary, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { combineSongLine, findSongDuplicateGroups } from '@/lib/releaseVotingShared';
 import JuryResultsMatrix from '@/components/JuryResultsMatrix';
+import Top5GraphicGenerator from '@/components/Top5GraphicGenerator';
 
 type Props = {
   round: Round;
@@ -76,6 +77,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [participantFilter, setParticipantFilter] = useState<ParticipantFilter>('all');
+  const [selectedVoteIds, setSelectedVoteIds] = useState<Set<string>>(() => new Set());
 
   const duplicateGroups = useMemo(() => findSongDuplicateGroups(songs), [songs]);
   const zonkRows = summary.zonk.filter((entry) => entry.count > 0);
@@ -83,6 +85,15 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
     if (participantFilter === 'all') return summary.participants;
     return summary.participants.filter((participant) => participantStatus(participant).key === participantFilter);
   }, [participantFilter, summary.participants]);
+  const selectableVisibleVoteIds = useMemo(
+    () => filteredParticipants.filter((participant) => participant.isVerified).map((participant) => participant.voteId),
+    [filteredParticipants],
+  );
+  const reviewVoteIds = useMemo(
+    () => summary.participants.filter((participant) => participant.isVerified && participantStatus(participant).key === 'review').map((participant) => participant.voteId),
+    [summary.participants],
+  );
+  const allVisibleSelected = selectableVisibleVoteIds.length > 0 && selectableVisibleVoteIds.every((voteId) => selectedVoteIds.has(voteId));
 
   function copyPublicUrl(path: string, text = 'Link kopiert.') {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -106,6 +117,40 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
 
     void navigator.clipboard?.writeText(emails);
     setMessage({ type: 'ok', text: verifiedOnly ? 'Bestätigte E-Mail-Adressen kopiert.' : 'Alle E-Mail-Adressen kopiert.' });
+  }
+
+  function toggleVoteSelection(voteId: string, checked: boolean) {
+    setSelectedVoteIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(voteId);
+      else next.delete(voteId);
+      return next;
+    });
+  }
+
+  function setVoteSelection(voteIds: string[], checked: boolean) {
+    setSelectedVoteIds((current) => {
+      const next = new Set(current);
+      for (const voteId of voteIds) {
+        if (checked) next.add(voteId);
+        else next.delete(voteId);
+      }
+      return next;
+    });
+  }
+
+  async function runBulkVoteAction(action: 'count' | 'exclude') {
+    const voteIds = [...selectedVoteIds];
+    if (!voteIds.length) {
+      setMessage({ type: 'error', text: 'Bitte zuerst mindestens eine Stimme auswählen.' });
+      return;
+    }
+
+    const label = action === 'exclude' ? 'ausschließen' : 'werten';
+    const ok = window.confirm(`${voteIds.length} ausgewählte ${voteIds.length === 1 ? 'Stimme' : 'Stimmen'} wirklich ${label}?`);
+    if (!ok) return;
+
+    await post('/api/admin/vote-status', { voteIds, action });
   }
 
   async function post(url: string, body: unknown, reload = true) {
@@ -157,6 +202,25 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
         <div className="stat-card integrity-unverified"><small>Unbestätigt</small><b>{summary.unverifiedVotes}</b></div>
         <div className="stat-card"><small>Gesamt eingegangen</small><b>{summary.totalVotes}</b></div>
       </section>
+
+      {summary.reviewVotes > 0 && (
+        <section className="fake-vote-alert" role="alert">
+          <div className="fake-vote-alert-icon" aria-hidden="true">⚠</div>
+          <div className="fake-vote-alert-copy">
+            <strong>Fake-Vote-Alarm: {summary.reviewVotes} {summary.reviewVotes === 1 ? 'auffällige Stimme' : 'auffällige Stimmen'} prüfen</strong>
+            <p>Diese bestätigten Stimmen werden aktuell nicht mitgezählt. Prüfe die Hinweise und entscheide gesammelt, welche Stimmen gewertet oder ausgeschlossen werden.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setParticipantFilter('review');
+              window.setTimeout(() => document.getElementById('vote-check')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+            }}
+          >
+            Jetzt prüfen
+          </button>
+        </section>
+      )}
 
       <section className="admin-card">
         <div className="action-cell">
@@ -254,6 +318,14 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       </section>
 
       <JuryResultsMatrix
+        songs={songs}
+        publicLeaderboard={summary.leaderboard}
+        publicVerifiedVotes={summary.countedVotes}
+        juryData={juryData}
+      />
+
+      <Top5GraphicGenerator
+        round={round}
         songs={songs}
         publicLeaderboard={summary.leaderboard}
         publicVerifiedVotes={summary.countedVotes}
@@ -439,29 +511,64 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
         </div>
       </section>
 
-      <section className="admin-card integrity-review-card">
+      <section className="admin-card integrity-review-card" id="vote-check">
         <div className="integrity-review-heading">
           <div>
             <h2>Vote-Check</h2>
-            <p className="admin-help-text">Automatische Hinweise sind Prüfhinweise, kein endgültiger Betrugsnachweis. Wegwerf-/Alias-Maildomains, identische Ranglisten und auffällige Häufungen derselben gehashten Verbindung werden zunächst nicht gewertet. Du kannst jede bestätigte Stimme manuell werten oder ausschließen.</p>
+            <p className="admin-help-text">Automatische Hinweise sind Prüfhinweise, kein endgültiger Betrugsnachweis. Auffällige bestätigte Stimmen werden zunächst nicht gewertet. Wähle einzelne oder mehrere Stimmen per Kästchen aus und entscheide gesammelt.</p>
           </div>
           <div className="integrity-filter-tabs">
             <button type="button" className={participantFilter === 'all' ? 'active' : ''} onClick={() => setParticipantFilter('all')}>Alle {summary.totalVotes}</button>
             <button type="button" className={participantFilter === 'counted' ? 'active' : ''} onClick={() => setParticipantFilter('counted')}>Gewertet {summary.countedVotes}</button>
-            <button type="button" className={participantFilter === 'review' ? 'active' : ''} onClick={() => setParticipantFilter('review')}>Prüfung {summary.reviewVotes}</button>
+            <button type="button" className={participantFilter === 'review' ? 'active alarm-tab' : 'alarm-tab'} onClick={() => setParticipantFilter('review')}>⚠ Prüfung {summary.reviewVotes}</button>
             <button type="button" className={participantFilter === 'excluded' ? 'active' : ''} onClick={() => setParticipantFilter('excluded')}>Ausgeschlossen {summary.excludedVotes}</button>
             <button type="button" className={participantFilter === 'unverified' ? 'active' : ''} onClick={() => setParticipantFilter('unverified')}>Unbestätigt {summary.unverifiedVotes}</button>
           </div>
         </div>
 
+        <div className="integrity-bulk-toolbar">
+          <div className="integrity-bulk-selection">
+            <b>{selectedVoteIds.size} ausgewählt</b>
+            <button type="button" disabled={!reviewVoteIds.length} onClick={() => setVoteSelection(reviewVoteIds, true)}>Alle auffälligen auswählen ({reviewVoteIds.length})</button>
+            <button type="button" disabled={!selectedVoteIds.size} onClick={() => setSelectedVoteIds(new Set())}>Auswahl aufheben</button>
+          </div>
+          <div className="integrity-bulk-actions">
+            <button type="button" className="bulk-count" disabled={!selectedVoteIds.size || busy} onClick={() => runBulkVoteAction('count')}>Ausgewählte werten</button>
+            <button type="button" className="bulk-exclude" disabled={!selectedVoteIds.size || busy} onClick={() => runBulkVoteAction('exclude')}>Ausgewählte ausschließen</button>
+          </div>
+        </div>
+
         <div className="admin-table-wrap compact" style={{ maxHeight: '620px', overflow: 'auto' }}>
           <table className="integrity-table">
-            <thead><tr><th>Status</th><th>Prüfhinweis</th><th>Name</th><th>E-Mail</th><th>Verbindung</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th><th>Aktion</th></tr></thead>
+            <thead>
+              <tr>
+                <th className="integrity-select-cell">
+                  <input
+                    type="checkbox"
+                    aria-label="Alle sichtbaren bestätigten Stimmen auswählen"
+                    checked={allVisibleSelected}
+                    disabled={!selectableVisibleVoteIds.length}
+                    onChange={(event) => setVoteSelection(selectableVisibleVoteIds, event.target.checked)}
+                  />
+                </th>
+                <th>Status</th><th>Prüfhinweis</th><th>Name</th><th>E-Mail</th><th>Verbindung</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th><th>Aktion</th>
+              </tr>
+            </thead>
             <tbody>
               {filteredParticipants.map((participant) => {
                 const status = participantStatus(participant);
+                const selected = selectedVoteIds.has(participant.voteId);
                 return (
-                  <tr key={participant.voteId}>
+                  <tr key={participant.voteId} className={`${status.key === 'review' ? 'integrity-row-alert' : ''} ${selected ? 'integrity-row-selected' : ''}`.trim()}>
+                    <td className="integrity-select-cell">
+                      <input
+                        type="checkbox"
+                        aria-label={`Stimme von ${participant.email || participant.name || 'Teilnehmer'} auswählen`}
+                        checked={selected}
+                        disabled={!participant.isVerified}
+                        onChange={(event) => toggleVoteSelection(participant.voteId, event.target.checked)}
+                      />
+                    </td>
                     <td><span className={`vote-status-badge ${status.key}`}>{status.label}</span></td>
                     <td className="integrity-reasons-cell">
                       {participant.integrityReasons.length ? participant.integrityReasons.map((reason) => <div key={reason}>⚠ {reason}</div>) : <span className="muted">Keine Auffälligkeit</span>}
@@ -486,7 +593,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
                   </tr>
                 );
               })}
-              {!filteredParticipants.length && <tr><td colSpan={9}>Keine Stimmen in diesem Filter.</td></tr>}
+              {!filteredParticipants.length && <tr><td colSpan={10}>Keine Stimmen in diesem Filter.</td></tr>}
             </tbody>
           </table>
         </div>
