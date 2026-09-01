@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { LeaderboardRow, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { JURY_PLACES_COUNT } from '@/lib/releaseVotingShared';
 
-const TEMPLATE_SRC = '/release-check-top5-template.png';
+const DEFAULT_TEMPLATE_SRC = '/release-check-top5-template.png';
 const OUTPUT_WIDTH = 1080;
 const OUTPUT_HEIGHT = 1920;
 
@@ -15,6 +15,7 @@ type Props = {
   publicLeaderboard: LeaderboardRow[];
   publicVerifiedVotes: number;
   juryData: AdminJuryRoundData;
+  initialTemplateDataUrl?: string;
 };
 
 type GraphicRow = {
@@ -23,6 +24,12 @@ type GraphicRow = {
   artist: string;
   total: number;
   audiencePoints: number;
+};
+
+type WrappedTextResult = {
+  fontSize: number;
+  lines: string[];
+  lineHeight: number;
 };
 
 function compareSongs(a: Song, b: Song) {
@@ -37,6 +44,19 @@ function formatRoundDate(round: Round) {
 
   return new Intl.DateTimeFormat('de-DE', {
     weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Europe/Berlin',
+  }).format(date);
+}
+
+function formatShortRoundDate(round: Round) {
+  const raw = round.starts_at || round.created_at;
+  const date = raw ? new Date(raw) : new Date();
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -67,12 +87,44 @@ function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, wi
   ctx.closePath();
 }
 
-function fitSingleLineFont(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxFontSize: number, minFontSize: number, fontFamily: string, fontWeight = 900) {
-  for (let size = maxFontSize; size >= minFontSize; size -= 1) {
-    ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
-    if (ctx.measureText(text).width <= maxWidth) return size;
+function wrapTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (!current || ctx.measureText(next).width <= maxWidth) {
+      current = next;
+      continue;
+    }
+
+    lines.push(current);
+    current = word;
+
+    if (lines.length === maxLines - 1) break;
   }
-  return minFontSize;
+
+  if (current) {
+    const consumedWords = lines.join(' ').split(/\s+/).filter(Boolean).length;
+    const remainingWords = words.slice(consumedWords);
+    const finalLine = remainingWords.length ? remainingWords.join(' ') : current;
+
+    if (lines.length < maxLines) {
+      if (ctx.measureText(finalLine).width <= maxWidth) lines.push(finalLine);
+      else {
+        let trimmed = finalLine;
+        while (trimmed.length > 2 && ctx.measureText(`${trimmed}…`).width > maxWidth) {
+          trimmed = trimmed.slice(0, -1).trim();
+        }
+        lines.push(`${trimmed}…`);
+      }
+    }
+  }
+
+  return lines.slice(0, maxLines);
 }
 
 function fitWrappedText(
@@ -84,29 +136,25 @@ function fitWrappedText(
   minFontSize: number,
   fontFamily: string,
   fontWeight = 900,
-) {
-  const words = text.split(/\s+/).filter(Boolean);
-
+): WrappedTextResult {
   for (let size = maxFontSize; size >= minFontSize; size -= 1) {
     ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
-    const lines: string[] = [];
-    let current = '';
-
-    for (const word of words) {
-      const next = current ? `${current} ${word}` : word;
-      if (!current || ctx.measureText(next).width <= maxWidth) {
-        current = next;
-      } else {
-        lines.push(current);
-        current = word;
-      }
+    const lines = wrapTextLines(ctx, text, maxWidth, maxLines);
+    const widest = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    if (lines.length <= maxLines && widest <= maxWidth) {
+      return {
+        fontSize: size,
+        lines,
+        lineHeight: size * 1.02,
+      };
     }
-
-    if (current) lines.push(current);
-    if (lines.length <= maxLines) return { fontSize: size, lines };
   }
 
-  return { fontSize: minFontSize, lines: [text] };
+  return {
+    fontSize: minFontSize,
+    lines: [text],
+    lineHeight: minFontSize * 1.02,
+  };
 }
 
 function drawTextLine(
@@ -122,10 +170,10 @@ function drawTextLine(
   ctx.save();
   ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
   ctx.fillStyle = color;
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.88)';
   ctx.lineWidth = Math.max(2, fontSize * 0.08);
   ctx.lineJoin = 'round';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.58)';
   ctx.shadowBlur = Math.max(8, fontSize * 0.2);
   ctx.textBaseline = 'alphabetic';
   ctx.strokeText(text, x, y);
@@ -133,12 +181,26 @@ function drawTextLine(
   ctx.restore();
 }
 
-export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, publicVerifiedVotes, juryData }: Props) {
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Die Datei konnte nicht gelesen werden.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, publicVerifiedVotes, juryData, initialTemplateDataUrl = '' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const templateImageRef = useRef<HTMLImageElement | null>(null);
   const [templateReady, setTemplateReady] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [notice, setNotice] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+  const [templateSource, setTemplateSource] = useState(initialTemplateDataUrl || DEFAULT_TEMPLATE_SRC);
+  const [pendingTemplateDataUrl, setPendingTemplateDataUrl] = useState('');
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [templateChanged, setTemplateChanged] = useState(false);
 
   const activeJurors = useMemo(() => juryData.jurors.filter((juror) => juror.is_active), [juryData.jurors]);
   const submittedJurors = useMemo(() => activeJurors.filter((juror) => Boolean(juror.submitted_at)), [activeJurors]);
@@ -202,11 +264,34 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   }, [songs, audiencePoints, activeJurors, submittedJurors.length]);
 
   const dateLabel = useMemo(() => formatRoundDate(round), [round]);
+  const shortDateLabel = useMemo(() => formatShortRoundDate(round), [round]);
   const countedSources = submittedJurors.length + (publicVerifiedVotes > 0 ? 1 : 0);
   const fileName = useMemo(() => {
     const base = safeFileName(round.slug || round.title || 'release-check');
     return `knallhart-serviert-top5-${base || 'release-check'}.png`;
   }, [round.slug, round.title]);
+
+  const votingIncomplete = useMemo(() => {
+    const now = Date.now();
+    const publicStillOpen = round.status !== 'ended' && (!round.ends_at || Date.parse(round.ends_at) > now);
+    const juryDeadline = round.jury_voting_ends_at || round.ends_at || null;
+    const juryStillOpen = !round.jury_voting_closed && (!juryDeadline || Date.parse(juryDeadline) > now);
+    return publicStillOpen || juryStillOpen;
+  }, [round]);
+
+  const socialMediaText = useMemo(() => {
+    if (!graphicRows.length) return '';
+
+    const lines = [
+      `Knallhart Release-Check der Woche mit den neuen Songs vom Freitag, dem ${shortDateLabel}.`,
+      '',
+      'Unsere Top 5 der Woche sind:',
+      '',
+      ...graphicRows.map((row) => `${row.rank}. ${row.title} — ${row.artist}`),
+    ];
+
+    return lines.join('\n');
+  }, [graphicRows, shortDateLabel]);
 
   useEffect(() => {
     const image = new window.Image();
@@ -214,9 +299,12 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       templateImageRef.current = image;
       setTemplateReady(true);
     };
-    image.onerror = () => setTemplateReady(false);
-    image.src = TEMPLATE_SRC;
-  }, []);
+    image.onerror = () => {
+      setTemplateReady(false);
+      setNotice({ type: 'error', text: 'Die Hintergrundgrafik konnte nicht geladen werden.' });
+    };
+    image.src = templateSource || DEFAULT_TEMPLATE_SRC;
+  }, [templateSource]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -243,14 +331,14 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     const gap = rowsCount <= 5 ? 24 : rowsCount <= 6 ? 18 : 14;
     const rowHeight = (groupBottom - groupTop - gap * (rowsCount - 1)) / rowsCount;
     const circleSize = Math.min(150, rowHeight - 4);
-    const circleX = 86;
-    const barX = 208;
-    const barWidth = 784;
+    const circleX = 84;
+    const barX = 183;
+    const barWidth = 810;
 
     graphicRows.forEach((row, index) => {
       const y = groupTop + index * (rowHeight + gap);
       const circleY = y + (rowHeight - circleSize) / 2;
-      const barY = y + (rowHeight - (rowHeight - 4)) / 2;
+      const barY = y + 2;
       const barHeight = rowHeight - 4;
 
       ctx.save();
@@ -290,29 +378,102 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       drawTextLine(ctx, String(row.rank), circleX + circleSize / 2, circleY + circleSize * 0.82, '#111111', rankFont, 'Arial Black, Arial, sans-serif');
       ctx.restore();
 
-      const textX = barX + 28;
-      const titleMaxWidth = barWidth - 52;
+      const textX = barX + 64;
+      const textMaxWidth = barWidth - 96;
       const titleText = row.title.toUpperCase();
       const artistText = row.artist.toUpperCase();
-      const titleFont = fitSingleLineFont(ctx, titleText, titleMaxWidth, Math.max(30, Math.min(64, rowHeight * 0.34)), 24, 'Arial Black, Arial, sans-serif');
-      const artistWrap = fitWrappedText(ctx, artistText, titleMaxWidth, 2, Math.max(20, Math.min(40, rowHeight * 0.22)), 16, 'Arial Black, Arial, sans-serif');
 
-      const titleBaseline = barY + rowHeight * (artistWrap.lines.length > 1 ? 0.44 : 0.42);
-      drawTextLine(ctx, titleText, textX, titleBaseline, '#f0f0f0', titleFont, 'Arial Black, Arial, sans-serif');
+      let titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, Math.max(26, Math.min(60, rowHeight * 0.31)), 20, 'Arial Black, Arial, sans-serif');
+      let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, Math.max(18, Math.min(36, rowHeight * 0.2)), 15, 'Arial Black, Arial, sans-serif');
 
-      const artistLineHeight = artistWrap.fontSize * 1.1;
-      const artistStartY = barY + rowHeight * 0.72 - (artistWrap.lines.length - 1) * (artistLineHeight / 2);
+      const availableTextHeight = rowHeight * 0.76;
+      let totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + 8;
+      while (totalTextHeight > availableTextHeight && (titleWrap.fontSize > 18 || artistWrap.fontSize > 14)) {
+        titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, titleWrap.fontSize - 1, 18, 'Arial Black, Arial, sans-serif');
+        artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, artistWrap.fontSize - 1, 14, 'Arial Black, Arial, sans-serif');
+        totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + 8;
+      }
+
+      const textBlockTop = barY + (barHeight - totalTextHeight) / 2 + titleWrap.fontSize;
+      titleWrap.lines.forEach((line, titleIndex) => {
+        drawTextLine(ctx, line, textX, textBlockTop + titleIndex * titleWrap.lineHeight, '#f0f0f0', titleWrap.fontSize, 'Arial Black, Arial, sans-serif');
+      });
+
+      const artistStartY = textBlockTop + titleWrap.lines.length * titleWrap.lineHeight + 8;
       artistWrap.lines.forEach((line, artistIndex) => {
-        drawTextLine(ctx, line, textX, artistStartY + artistIndex * artistLineHeight, '#ffd117', artistWrap.fontSize, 'Arial Black, Arial, sans-serif');
+        drawTextLine(ctx, line, textX, artistStartY + artistIndex * artistWrap.lineHeight, '#ffd117', artistWrap.fontSize, 'Arial Black, Arial, sans-serif');
       });
     });
 
     setPreviewUrl(canvas.toDataURL('image/png'));
-  }, [templateReady, graphicRows]);
+  }, [templateReady, graphicRows, templateSource]);
+
+  async function saveTemplate(dataUrl: string) {
+    setUploadBusy(true);
+    setNotice(null);
+    try {
+      const response = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ top5GraphicTemplateDataUrl: dataUrl }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || 'Die Hintergrundgrafik konnte nicht gespeichert werden.');
+      }
+
+      setPendingTemplateDataUrl(dataUrl);
+      setTemplateChanged(false);
+      setNotice({ type: 'ok', text: 'Die neue Hintergrundgrafik wurde gespeichert.' });
+    } catch (error) {
+      setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Unbekannter Fehler.' });
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  async function handleTemplateFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setTemplateSource(dataUrl);
+      setPendingTemplateDataUrl(dataUrl);
+      setTemplateChanged(true);
+      setNotice({ type: 'ok', text: 'Neue Hintergrundgrafik geladen. Speichere sie, wenn sie künftig dauerhaft verwendet werden soll.' });
+    } catch (error) {
+      setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Die Datei konnte nicht verarbeitet werden.' });
+    } finally {
+      event.target.value = '';
+    }
+  }
+
+  async function resetTemplateToDefault() {
+    const ok = window.confirm('Die gespeicherte Hintergrundgrafik wirklich zurücksetzen und wieder die Standardvorlage verwenden?');
+    if (!ok) return;
+
+    setTemplateSource(DEFAULT_TEMPLATE_SRC);
+    setPendingTemplateDataUrl('');
+    setTemplateChanged(true);
+    await saveTemplate('');
+  }
+
+  async function copySocialMediaText() {
+    if (!socialMediaText) return;
+    await navigator.clipboard?.writeText(socialMediaText);
+    setNotice({ type: 'ok', text: 'Social-Media-Text kopiert.' });
+  }
 
   function downloadGraphic() {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    if (votingIncomplete) {
+      const ok = window.confirm('Achtung: Das Voting ist noch nicht abgeschlossen. Die Grafik basiert auf einem Zwischenstand. Wirklich jetzt als PNG erstellen?');
+      if (!ok) return;
+    }
 
     setDownloadBusy(true);
     canvas.toBlob((blob) => {
@@ -354,6 +515,32 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         </div>
       </div>
 
+      {notice && <div className={`notice ${notice.type === 'ok' ? 'success' : 'error'}`}>{notice.text}</div>}
+      {votingIncomplete && (
+        <div className="notice top5-warning-notice">
+          Achtung: Das Voting ist noch nicht abgeschlossen. Die Vorschau und der PNG-Export zeigen deshalb nur einen Zwischenstand.
+        </div>
+      )}
+
+      <div className="top5-graphic-template-card">
+        <div>
+          <h3>Hintergrundgrafik</h3>
+          <p className="admin-help-text">Du kannst eine neue Hintergrundgrafik hochladen. Sie wird dann dauerhaft als Vorlage für die automatische Top-5-Grafik verwendet.</p>
+        </div>
+        <div className="top5-template-actions">
+          <label className="top5-template-upload">
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleTemplateFileChange} />
+            Neue Hintergrundgrafik laden
+          </label>
+          {templateChanged && (
+            <button type="button" disabled={uploadBusy || !pendingTemplateDataUrl} onClick={() => saveTemplate(pendingTemplateDataUrl)}>
+              {uploadBusy ? 'Speichere…' : 'Neue Vorlage speichern'}
+            </button>
+          )}
+          <button type="button" disabled={uploadBusy} onClick={resetTemplateToDefault}>Auf Standard zurücksetzen</button>
+        </div>
+      </div>
+
       <div className="top5-graphic-layout">
         <div className="top5-graphic-preview-wrap">
           <canvas ref={canvasRef} className="top5-graphic-canvas" />
@@ -392,11 +579,13 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
                 </ol>
               </div>
 
-              {round.status !== 'ended' && (
-                <div className="notice">
-                  Die Grafik kann schon jetzt erzeugt werden. Endgültig sinnvoll ist sie, sobald Publikum und Jury vollständig abgeschlossen sind.
+              <div className="top5-graphic-copy-card">
+                <div className="top5-copy-header">
+                  <h3>Social-Media-Text</h3>
+                  <button type="button" onClick={copySocialMediaText}>Text kopieren</button>
                 </div>
-              )}
+                <textarea value={socialMediaText} readOnly rows={12} />
+              </div>
             </>
           ) : (
             <div className="notice">

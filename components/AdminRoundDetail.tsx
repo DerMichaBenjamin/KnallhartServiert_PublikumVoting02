@@ -13,6 +13,7 @@ type Props = {
   summary: AdminRoundSummary;
   isCurrentDj: boolean;
   juryData: AdminJuryRoundData;
+  top5TemplateDataUrl?: string;
 };
 
 function toDateTimeLocal(value?: string | null) {
@@ -73,7 +74,7 @@ function shortHash(value?: string | null) {
   return `${value.slice(0, 8)}…`;
 }
 
-export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, juryData }: Props) {
+export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, juryData, top5TemplateDataUrl = '' }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [participantFilter, setParticipantFilter] = useState<ParticipantFilter>('all');
@@ -330,6 +331,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
         publicLeaderboard={summary.leaderboard}
         publicVerifiedVotes={summary.countedVotes}
         juryData={juryData}
+        initialTemplateDataUrl={top5TemplateDataUrl}
       />
 
       <section className="admin-grid two">

@@ -8,7 +8,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    await setSetting('impressum_text', String(body.impressum || ''));
+
+    if (typeof body.impressum !== 'undefined') {
+      await setSetting('impressum_text', String(body.impressum || ''));
+    }
+
+    if (typeof body.top5GraphicTemplateDataUrl !== 'undefined') {
+      await setSetting('top5_graphic_template_data_url', String(body.top5GraphicTemplateDataUrl || ''));
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Fehler' }, { status: 500 });
