@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { combineSongLine, JURY_PLACES_COUNT, type Song } from '@/lib/releaseVotingShared';
 
 type InitialItem = { song_id: string; points: number };
@@ -79,6 +79,13 @@ export default function JuryVotingForm({
     });
   }
 
+  function handleSongRowKeyDown(event: KeyboardEvent<HTMLDivElement>, song: Song) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      add(song);
+    }
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setMessage(null);
@@ -113,6 +120,11 @@ export default function JuryVotingForm({
         <small>Persönliches Jury-Voting</small>
         <h2>{jurorName}</h2>
         <p>Ordne exakt 12 Songs. Platz 1 erhält 12 Punkte, Platz 12 erhält 1 Punkt.</p>
+        {canEdit ? (
+          <div className="notice jury-helper-notice">Song per Klick auf den Titel oder auf <b>Wählen</b> in deine Top 12 übernehmen. Danach mit den Pfeilen sortieren. Bereits gespeicherte Wertungen können bis zum Fristende jederzeit wieder geändert und neu gespeichert werden.</div>
+        ) : (
+          <div className="notice">Dieses Jury-Voting ist aktuell nicht bearbeitbar. Die zuletzt gespeicherte Reihenfolge bleibt aber sichtbar.</div>
+        )}
       </section>
 
       <div className="vote-workspace">
@@ -121,9 +133,16 @@ export default function JuryVotingForm({
           <input className="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Suche nach Song oder Artist..." disabled={!canEdit} />
           <div className="song-list-scroll">
             {available.map((song) => (
-              <div className="song-row" key={song.id}>
-                <button type="button" onClick={() => add(song)} disabled={!canEdit}>{combineSongLine(song)}</button>
-                <button type="button" className="plus" onClick={() => add(song)} disabled={!canEdit}>+</button>
+              <div
+                className={`song-row jury-song-row ${canEdit ? 'is-clickable' : 'is-disabled'}`}
+                key={song.id}
+                onClick={() => add(song)}
+                onKeyDown={(event) => handleSongRowKeyDown(event, song)}
+                role={canEdit ? 'button' : undefined}
+                tabIndex={canEdit ? 0 : -1}
+              >
+                <div className="jury-song-text">{combineSongLine(song)}</div>
+                <button type="button" className="song-action-btn" onClick={(event) => { event.stopPropagation(); add(song); }} disabled={!canEdit}>Wählen</button>
               </div>
             ))}
           </div>

@@ -288,6 +288,8 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       'Unsere Top 5 der Woche sind:',
       '',
       ...graphicRows.map((row) => `${row.rank}. ${row.title} — ${row.artist}`),
+      '',
+      '#knallhartserviert #top5 #releasecheck #neuemusik #partyschlager',
     ];
 
     return lines.join('\n');
@@ -378,13 +380,13 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       drawTextLine(ctx, String(row.rank), circleX + circleSize / 2, circleY + circleSize * 0.82, '#111111', rankFont, 'Arial Black, Arial, sans-serif');
       ctx.restore();
 
-      const textX = barX + 64;
-      const textMaxWidth = barWidth - 96;
+      const textX = barX + 104;
+      const textMaxWidth = barWidth - 156;
       const titleText = row.title.toUpperCase();
       const artistText = row.artist.toUpperCase();
 
-      let titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, Math.max(26, Math.min(60, rowHeight * 0.31)), 20, 'Arial Black, Arial, sans-serif');
-      let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, Math.max(18, Math.min(36, rowHeight * 0.2)), 15, 'Arial Black, Arial, sans-serif');
+      let titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, Math.max(24, Math.min(56, rowHeight * 0.29)), 18, 'Arial Black, Arial, sans-serif');
+      let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, Math.max(17, Math.min(33, rowHeight * 0.19)), 14, 'Arial Black, Arial, sans-serif');
 
       const availableTextHeight = rowHeight * 0.76;
       let totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + 8;
