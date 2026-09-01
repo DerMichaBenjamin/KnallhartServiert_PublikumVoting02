@@ -30,22 +30,13 @@ export default async function Admin() {
 
     roundSummaries = rounds.map((round) => {
       const roundVotes = allVotes.filter((vote) => vote.round_id === round.id);
-      const confirmedVotes = roundVotes.filter((vote) => Boolean(vote.is_verified)).length;
-      const excludedVotes = roundVotes.filter(
-        (vote) => Boolean(vote.is_verified) && Boolean(vote.is_excluded)
-      ).length;
-      const countedVotes = roundVotes.filter(
-        (vote) => Boolean(vote.is_verified) && !Boolean(vote.is_excluded)
-      ).length;
-      const unverifiedVotes = roundVotes.filter((vote) => !Boolean(vote.is_verified)).length;
+      const verifiedVotes = roundVotes.filter((vote) => vote.is_verified);
 
       return {
         roundId: round.id,
         totalVotes: roundVotes.length,
-        confirmedVotes,
-        countedVotes,
-        excludedVotes,
-        unverifiedVotes,
+        verifiedVotes: verifiedVotes.length,
+        pendingVotes: roundVotes.length - verifiedVotes.length,
         songsCount: 0,
         leaderboard: [],
         zonk: [],
@@ -56,13 +47,5 @@ export default async function Admin() {
 
   const impressum = await getSetting('impressum_text', DEFAULT_IMPRESSUM);
 
-  return (
-    <AdminDashboard
-      rounds={rounds}
-      currentRound={current}
-      currentDjRound={currentDjRound}
-      roundSummaries={roundSummaries}
-      impressum={impressum}
-    />
-  );
+  return <AdminDashboard rounds={rounds} currentRound={current} currentDjRound={currentDjRound} roundSummaries={roundSummaries} impressum={impressum} />;
 }

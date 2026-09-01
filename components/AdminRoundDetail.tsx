@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { AdminRoundSummary, Round, Song } from '@/lib/releaseVotingShared';
+import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { combineSongLine, findSongDuplicateGroups } from '@/lib/releaseVotingShared';
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
   songs: Song[];
   summary: AdminRoundSummary;
   isCurrentDj: boolean;
+  juryData: AdminJuryRoundData;
 };
 
 function toDateTimeLocal(value?: string | null) {
@@ -40,16 +42,9 @@ function formatAdminDateTime(value?: string | null) {
   }).format(date);
 }
 
-type EmailFilter = 'all' | 'confirmed' | 'counted' | 'excluded';
-
-function buildEmailList(participants: AdminRoundSummary['participants'], filter: EmailFilter) {
+function buildEmailList(participants: AdminRoundSummary['participants'], verifiedOnly = false) {
   return participants
-    .filter((participant) => {
-      if (filter === 'confirmed') return participant.isVerified;
-      if (filter === 'counted') return participant.isVerified && !participant.isExcluded;
-      if (filter === 'excluded') return participant.isExcluded;
-      return true;
-    })
+    .filter((participant) => !verifiedOnly || participant.isVerified)
     .map((participant) => participant.email.trim())
     .filter(Boolean)
     .filter((email, index, list) => list.indexOf(email) === index)
@@ -62,17 +57,9 @@ function statusLabel(status: string) {
   return 'Entwurf';
 }
 
-function participantStatus(participant: AdminRoundSummary['participants'][number]) {
-  if (!participant.isVerified && participant.isExcluded) return 'Unbestätigt · Ausgeschlossen';
-  if (!participant.isVerified) return 'Unbestätigt';
-  if (participant.isExcluded) return 'Bestätigt · Ausgeschlossen';
-  return 'Bestätigt · Gewertet';
-}
-
-export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }: Props) {
+export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, juryData }: Props) {
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [selectedVoteIds, setSelectedVoteIds] = useState<string[]>([]);
 
   const duplicateGroups = useMemo(() => findSongDuplicateGroups(songs), [songs]);
   const zonkRows = summary.zonk.filter((entry) => entry.count > 0);
@@ -89,8 +76,8 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
     setMessage({ type: 'ok', text: 'Backend-Direktlink kopiert.' });
   }
 
-  function copyParticipantEmails(filter: EmailFilter) {
-    const emails = buildEmailList(summary.participants, filter);
+  function copyParticipantEmails(verifiedOnly = false) {
+    const emails = buildEmailList(summary.participants, verifiedOnly);
 
     if (!emails) {
       setMessage({ type: 'error', text: 'Keine passenden E-Mail-Adressen gefunden.' });
@@ -98,14 +85,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
     }
 
     void navigator.clipboard?.writeText(emails);
-
-    const labels: Record<EmailFilter, string> = {
-      all: 'Alle E-Mail-Adressen kopiert.',
-      confirmed: 'Bestätigte E-Mail-Adressen kopiert.',
-      counted: 'Gewertete E-Mail-Adressen kopiert.',
-      excluded: 'Ausgeschlossene E-Mail-Adressen kopiert.',
-    };
-    setMessage({ type: 'ok', text: labels[filter] });
+    setMessage({ type: 'ok', text: verifiedOnly ? 'Bestätigte E-Mail-Adressen kopiert.' : 'Alle E-Mail-Adressen kopiert.' });
   }
 
   async function post(url: string, body: unknown, reload = true) {
@@ -136,137 +116,6 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
     }
   }
 
-  const selectedParticipants = summary.participants.filter((participant) =>
-    selectedVoteIds.includes(participant.voteId)
-  );
-  const selectedOpenParticipants = selectedParticipants.filter(
-    (participant) => !participant.isExcluded
-  );
-  const selectedExcludedParticipants = selectedParticipants.filter(
-    (participant) => participant.isExcluded
-  );
-  const selectedUnverifiedParticipants = selectedParticipants.filter(
-    (participant) => !participant.isVerified
-  );
-
-  function isSelected(voteId: string) {
-    return selectedVoteIds.includes(voteId);
-  }
-
-  function toggleSelected(voteId: string) {
-    setSelectedVoteIds((current) =>
-      current.includes(voteId)
-        ? current.filter((id) => id !== voteId)
-        : [...current, voteId]
-    );
-  }
-
-  function addSelected(voteIds: string[]) {
-    setSelectedVoteIds((current) => Array.from(new Set([...current, ...voteIds])));
-  }
-
-  function clearSelected() {
-    setSelectedVoteIds([]);
-  }
-
-  async function setVoteExcluded(voteId: string, excluded: boolean, reason: string) {
-    const response = await fetch('/api/admin/vote-exclusion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ voteId, excluded, reason }),
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok || !data?.ok) {
-      throw new Error(data?.error || 'Stimme konnte nicht geändert werden.');
-    }
-  }
-
-  async function updateSelected(excluded: boolean) {
-    const participants = excluded
-      ? selectedOpenParticipants
-      : selectedExcludedParticipants;
-
-    if (!participants.length) {
-      setMessage({
-        type: 'error',
-        text: excluded
-          ? 'In deiner Auswahl ist keine noch nicht ausgeschlossene Stimme.'
-          : 'In deiner Auswahl ist keine ausgeschlossene Stimme.',
-      });
-      return;
-    }
-
-    let reason = '';
-    if (excluded) {
-      reason = window.prompt(
-        `Grund für den Ausschluss von ${participants.length} ausgewählten Stimmen:`,
-        'Manuell im Adminbereich gesammelt ausgeschlossen'
-      ) ?? '';
-      if (!reason.trim()) return;
-    }
-
-    const ok = window.confirm(
-      excluded
-        ? `${participants.length} ausgewählte Stimmen ausschließen? Unbestätigte Stimmen bleiben auch ausgeschlossen, falls sie später per E-Mail bestätigt werden.`
-        : `${participants.length} ausgewählte Stimmen wieder zulassen?`
-    );
-    if (!ok) return;
-
-    setBusy(true);
-    setMessage(null);
-    try {
-      const voteIds = participants.map((participant) => participant.voteId);
-      for (let index = 0; index < voteIds.length; index += 4) {
-        const chunk = voteIds.slice(index, index + 4);
-        await Promise.all(
-          chunk.map((voteId) => setVoteExcluded(voteId, excluded, reason))
-        );
-      }
-      setMessage({ type: 'ok', text: `${voteIds.length} Stimmen wurden geändert.` });
-      clearSelected();
-      window.location.reload();
-    } catch (error) {
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Unbekannter Fehler.',
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function toggleExcluded(participant: AdminRoundSummary['participants'][number]) {
-    const nextExcluded = !participant.isExcluded;
-    let reason = '';
-
-    if (nextExcluded) {
-      reason = window.prompt(
-        `Grund für den Ausschluss von ${participant.email || participant.name || 'dieser Stimme'}:`,
-        'Manuell im Adminbereich ausgeschlossen'
-      ) ?? '';
-
-      if (!reason.trim()) return;
-
-      const ok = window.confirm(
-        participant.isVerified
-          ? 'Diese Stimme aus der offiziellen Wertung ausschließen? Sie bleibt vollständig gespeichert und kann später wieder zugelassen werden.'
-          : 'Diese unbestätigte Stimme schon jetzt ausschließen? Falls sie später per E-Mail bestätigt wird, bleibt sie ausgeschlossen und wird nicht gewertet.'
-      );
-      if (!ok) return;
-    } else {
-      const ok = window.confirm(
-        'Diese Stimme wieder für die offizielle Wertung zulassen?'
-      );
-      if (!ok) return;
-    }
-
-    await post('/api/admin/vote-exclusion', {
-      voteId: participant.voteId,
-      excluded: nextExcluded,
-      reason,
-    });
-  }
-
   return (
     <main className="admin-shell">
       <section className="admin-hero-card">
@@ -282,10 +131,8 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
       {busy && <div className="notice">Speichert…</div>}
 
       <section className="admin-stats-grid">
-        <div className="stat-card"><small>Bestätigt</small><b>{summary.confirmedVotes}</b></div>
-        <div className="stat-card"><small>Gewertet</small><b>{summary.countedVotes}</b></div>
-        <div className="stat-card"><small>Ausgeschlossen</small><b>{summary.excludedVotes}</b></div>
-        <div className="stat-card"><small>Unbestätigt</small><b>{summary.unverifiedVotes}</b></div>
+        <div className="stat-card"><small>Gültige Teilnehmer</small><b>{summary.verifiedVotes}</b></div>
+        <div className="stat-card"><small>Offen / unbestätigt</small><b>{summary.pendingVotes}</b></div>
         <div className="stat-card"><small>Gesamt eingegangen</small><b>{summary.totalVotes}</b></div>
         <div className="stat-card"><small>Songs</small><b>{summary.songsCount}</b></div>
       </section>
@@ -302,6 +149,86 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
           {round.is_public_results && <a href={`/ergebnisse/${round.slug}`} target="_blank" rel="noreferrer">Ergebnis öffnen</a>}
           {round.is_public_results && <button type="button" onClick={() => copyPublicUrl(`/ergebnisse/${round.slug}`, 'Ergebnis-Link kopiert.')}>Ergebnis-Link kopieren</button>}
           <button type="button" onClick={copyBackendUrl}>Backend-Link kopieren</button>
+        </div>
+      </section>
+
+      <section className="admin-card jury-admin-card">
+        <div className="jury-admin-heading">
+          <div>
+            <h2>Jury-Voting</h2>
+            <p className="admin-help-text">Eigene Wertung mit exakt 12 Plätzen (12 bis 1 Punkt). Jeder Juror erhält einen persönlichen Link und kann seine Stimme bis zur Schließung bearbeiten.</p>
+          </div>
+          <span className={`status-badge ${round.jury_voting_closed ? 'jury-closed' : ''}`}>{round.jury_voting_closed ? 'Geschlossen' : 'Offen'}</span>
+        </div>
+
+        <div className="admin-grid two jury-admin-controls">
+          <form
+            className="admin-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = new FormData(event.currentTarget);
+              post('/api/admin/jury', {
+                action: 'settings',
+                roundId: round.id,
+                closed: form.get('juryClosed') === 'on',
+                endsAt: dateTimeLocalToIso(form.get('juryEndsAt')),
+              });
+            }}
+          >
+            <h3>Öffnung & Deadline</h3>
+            <label>Jury-Deadline<input name="juryEndsAt" type="datetime-local" defaultValue={toDateTimeLocal(round.jury_voting_ends_at)} /></label>
+            <p className="admin-help-text">Leer = das normale Enddatum der Runde ({formatAdminDateTime(round.ends_at)}) gilt. Zusätzlich kann jederzeit manuell geschlossen werden.</p>
+            <label className="check-row"><input type="checkbox" name="juryClosed" defaultChecked={Boolean(round.jury_voting_closed)} /> Jury-Voting manuell schließen</label>
+            <button type="submit">Jury-Einstellungen speichern</button>
+          </form>
+
+          <div className="admin-form">
+            <h3>Juroren hinzufügen</h3>
+            <button type="button" onClick={() => post('/api/admin/jury', { action: 'add-defaults', roundId: round.id })}>Standardjuroren hinzufügen</button>
+            <p className="admin-help-text">Standard: {juryData.defaultProfiles.length ? juryData.defaultProfiles.map((profile) => profile.name).join(', ') : 'noch keine Profile vorhanden'}</p>
+            <form
+              className="admin-form jury-guest-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                post('/api/admin/jury', { action: 'add-juror', roundId: round.id, name: form.get('jurorName') });
+              }}
+            >
+              <label>Gast / weiterer Juror<input name="jurorName" placeholder="z. B. Heike Melody" required /></label>
+              <button type="submit">Juror anlegen</button>
+            </form>
+          </div>
+        </div>
+
+        <div className="admin-table-wrap compact jury-status-table">
+          <table>
+            <thead><tr><th>Teilnehmer</th><th>Status</th><th>Letzte Abgabe</th><th>Persönlicher Link</th><th>Aktion</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>Publikum</b></td>
+                <td>{summary.verifiedVotes} bestätigte Stimmen</td>
+                <td>—</td>
+                <td><a href={`/release-voting/${round.slug}`} target="_blank" rel="noreferrer">Publikums-Voting öffnen</a></td>
+                <td><button type="button" onClick={() => copyPublicUrl(`/release-voting/${round.slug}`, 'Publikums-Link kopiert.')}>Link kopieren</button></td>
+              </tr>
+              {juryData.jurors.map((juror) => {
+                const juryPath = `/jury-voting/${juror.access_token}`;
+                return (
+                  <tr key={juror.id}>
+                    <td><b>{juror.display_name}</b></td>
+                    <td>{juror.submitted_at ? '✓ Abgegeben' : '⏳ Offen'}</td>
+                    <td>{formatAdminDateTime(juror.vote_updated_at || juror.submitted_at)}</td>
+                    <td className="action-cell"><a href={juryPath} target="_blank" rel="noreferrer">Öffnen</a><button type="button" onClick={() => copyPublicUrl(juryPath, `Jury-Link für ${juror.display_name} kopiert.`)}>Link kopieren</button></td>
+                    <td className="action-cell">
+                      <button type="button" onClick={() => { if (window.confirm(`Neuen Link für ${juror.display_name} erzeugen? Der alte Link wird sofort ungültig.`)) post('/api/admin/jury', { action: 'new-link', roundId: round.id, jurorId: juror.id }); }}>Neuer Link</button>
+                      <button type="button" onClick={() => { if (window.confirm(`${juror.display_name} aus diesem Jury-Voting entfernen? Eine vorhandene Jury-Stimme wird mit gelöscht.`)) post('/api/admin/jury', { action: 'remove-juror', roundId: round.id, jurorId: juror.id }); }}>Entfernen</button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!juryData.jurors.length && <tr><td colSpan={5}>Noch keine Juroren angelegt. Klicke auf „Standardjuroren hinzufügen“ oder lege einen Gast an.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -448,7 +375,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
 
       <section className="admin-card">
         <h2>Auswertung</h2>
-        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten und nicht ausgeschlossenen Stimmen. Ø = Gesamtpunkte geteilt durch alle gewerteten Stimmen dieser Umfrage. „Gewählt“ = wie oft der Song in gewerteten Top-Listen vorkommt.</p>
+        <p className="admin-help-text">Gesamt = Summe der Punkte aus bestätigten Stimmen. Ø = Gesamtpunkte geteilt durch alle gültig bestätigten Stimmen dieser Umfrage. „Gewählt“ = wie oft der Song in bestätigten Top-Listen vorkommt.</p>
         <div className="admin-table-wrap compact">
           <table>
             <thead><tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø</th><th>Gewählt</th></tr></thead>
@@ -471,131 +398,36 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj }:
       <section className="admin-grid two bottom">
         <div className="admin-card">
           <h2>ZONK-Auswertung</h2>
-          {zonkRows.length ? <ol className="zonk-admin-list">{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine gewerteten ZONK-Stimmen vorhanden.</p>}
+          {zonkRows.length ? <ol className="zonk-admin-list">{zonkRows.map((entry) => <li key={entry.song.id}>{combineSongLine(entry.song)} <b>{entry.count}</b></li>)}</ol> : <p>Noch keine bestätigten ZONK-Stimmen vorhanden.</p>}
         </div>
 
         <div className="admin-card">
           <h2>Teilnehmer dieser Abstimmung</h2>
-          <p className="admin-help-text">Namen und E-Mail-Adressen bleiben nur im Backend sichtbar. Auch unbestätigte Stimmen können vorab ausgeschlossen werden. Falls sie später per Mail bestätigt werden, bleiben sie ausgeschlossen und werden nicht gewertet.</p>
+          <p className="admin-help-text">Namen und E-Mail-Adressen bleiben nur im Backend sichtbar.</p>
           <div className="action-cell">
-            <button type="button" disabled={!summary.participants.length} onClick={() => copyParticipantEmails('all')}>Alle E-Mails</button>
-            <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails('confirmed')}>Bestätigte E-Mails</button>
-            <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified && !participant.isExcluded)} onClick={() => copyParticipantEmails('counted')}>Gewertete E-Mails</button>
-            <button type="button" disabled={!summary.participants.some((participant) => participant.isExcluded)} onClick={() => copyParticipantEmails('excluded')}>Ausgeschlossene E-Mails</button>
+            <button type="button" disabled={!summary.participants.length} onClick={() => copyParticipantEmails(false)}>Alle E-Mails kopieren</button>
+            <button type="button" disabled={!summary.participants.some((participant) => participant.isVerified)} onClick={() => copyParticipantEmails(true)}>Nur bestätigte E-Mails kopieren</button>
           </div>
-
-          <div className="action-cell" style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              disabled={busy || !summary.participants.some((participant) => participant.isVerified && !participant.isExcluded)}
-              onClick={() => addSelected(summary.participants.filter((participant) => participant.isVerified && !participant.isExcluded).map((participant) => participant.voteId))}
-            >
-              Alle gewerteten markieren
-            </button>
-            <button
-              type="button"
-              disabled={busy || !summary.participants.some((participant) => !participant.isVerified && !participant.isExcluded)}
-              onClick={() => addSelected(summary.participants.filter((participant) => !participant.isVerified && !participant.isExcluded).map((participant) => participant.voteId))}
-            >
-              Alle unbestätigten markieren
-            </button>
-            <button
-              type="button"
-              disabled={busy || !summary.participants.some((participant) => participant.isExcluded)}
-              onClick={() => addSelected(summary.participants.filter((participant) => participant.isExcluded).map((participant) => participant.voteId))}
-            >
-              Alle ausgeschlossenen markieren
-            </button>
-            <button type="button" disabled={busy || !selectedVoteIds.length} onClick={clearSelected}>Auswahl aufheben</button>
-          </div>
-
-          {selectedVoteIds.length > 0 && (
-            <div className="notice" style={{ marginBottom: 0 }}>
-              <b>{selectedVoteIds.length} Stimmen ausgewählt.</b>{' '}
-              {selectedOpenParticipants.length} noch nicht ausgeschlossen · {selectedExcludedParticipants.length} ausgeschlossen · {selectedUnverifiedParticipants.length} unbestätigt.
-              <div className="action-cell" style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  disabled={busy || !selectedOpenParticipants.length}
-                  onClick={() => updateSelected(true)}
-                >
-                  Ausgewählte ausschließen ({selectedOpenParticipants.length})
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || !selectedExcludedParticipants.length}
-                  onClick={() => updateSelected(false)}
-                >
-                  Ausgewählte wieder zulassen ({selectedExcludedParticipants.length})
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
       <section className="admin-card">
-        <div className="admin-table-wrap compact" style={{ maxHeight: '620px', overflow: 'auto' }}>
+        <div className="admin-table-wrap compact" style={{ maxHeight: '520px', overflow: 'auto' }}>
           <table>
-            <thead>
-              <tr>
-                <th>Auswahl</th>
-                <th>Status</th>
-                <th>Name</th>
-                <th>E-Mail</th>
-                <th>Instagram</th>
-                <th>Abgestimmt</th>
-                <th>Bestätigt</th>
-                <th>Ausschluss</th>
-                <th>ZONK</th>
-                <th>Aktion</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Status</th><th>Name</th><th>E-Mail</th><th>Instagram</th><th>Abgestimmt</th><th>Bestätigt</th><th>ZONK</th></tr></thead>
             <tbody>
               {summary.participants.map((participant) => (
                 <tr key={participant.voteId}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={isSelected(participant.voteId)}
-                      onChange={() => toggleSelected(participant.voteId)}
-                      aria-label={`Stimme von ${participant.email || participant.name || participant.voteId} auswählen`}
-                    />
-                  </td>
-                  <td>{participantStatus(participant)}</td>
+                  <td>{participant.isVerified ? 'Bestätigt' : 'Offen'}</td>
                   <td>{participant.name || '—'}</td>
                   <td>{participant.email ? <a href={`mailto:${participant.email}`}>{participant.email}</a> : '—'}</td>
                   <td>{participant.instagram || '—'}</td>
                   <td>{formatAdminDateTime(participant.votedAt)}</td>
                   <td>{formatAdminDateTime(participant.verifiedAt)}</td>
-                  <td>
-                    {participant.isExcluded ? (
-                      <>
-                        <b>Ausgeschlossen</b>
-                        <br />
-                        <small>{participant.excludedReason || '—'}</small>
-                        <br />
-                        <small>{formatAdminDateTime(participant.excludedAt)}</small>
-                      </>
-                    ) : '—'}
-                  </td>
                   <td>{participant.zonkSong || '—'}</td>
-                  <td>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => toggleExcluded(participant)}
-                    >
-                      {participant.isExcluded
-                        ? 'Wieder zulassen'
-                        : participant.isVerified
-                          ? 'Ausschließen'
-                          : 'Vorab ausschließen'}
-                    </button>
-                  </td>
                 </tr>
               ))}
-              {!summary.participants.length && <tr><td colSpan={10}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
+              {!summary.participants.length && <tr><td colSpan={7}>Noch keine Stimmen für diese Abstimmung vorhanden.</td></tr>}
             </tbody>
           </table>
         </div>

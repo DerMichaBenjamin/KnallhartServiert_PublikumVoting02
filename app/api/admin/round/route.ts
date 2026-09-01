@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
@@ -49,6 +50,28 @@ function dbMessage(error: unknown) {
     return [e.message, e.details, e.hint, e.code].filter(Boolean).map(String).join(' | ');
   }
   return String(error);
+}
+
+
+async function addDefaultJuryMembers(sb: NonNullable<ReturnType<typeof getSupabaseAdminClient>>, roundId: string) {
+  // Jury-Tabellen werden über sql_jury_voting_stage1.sql angelegt. Falls die Migration
+  // noch nicht ausgeführt wurde, soll das normale Anlegen einer Publikumsrunde nicht scheitern.
+  const { data: profiles, error } = await sb
+    .from('release_voting_jury_profiles')
+    .select('id,name')
+    .eq('is_default', true)
+    .order('name');
+
+  if (error || !profiles?.length) return;
+
+  await sb.from('release_voting_round_jurors').insert(
+    profiles.map((profile) => ({
+      round_id: roundId,
+      profile_id: profile.id,
+      display_name: profile.name,
+      access_token: randomBytes(24).toString('base64url'),
+    }))
+  );
 }
 
 const CURRENT_DJ_ROUND_SETTING = 'current_dj_round_id';
@@ -223,6 +246,8 @@ export async function POST(req: NextRequest) {
       );
       if (songError) throw songError;
     }
+
+    await addDefaultJuryMembers(sb, round.id);
 
     return NextResponse.json({ ok: true, slug: finalSlug });
   } catch (error) {

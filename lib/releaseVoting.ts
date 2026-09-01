@@ -132,7 +132,6 @@ export async function getVerifiedVotes(roundId: string) {
     .select('*')
     .eq('round_id', roundId)
     .eq('is_verified', true)
-    .eq('is_excluded', false)
     .order('verified_at', { ascending: true });
 
   const ids = ((votes || []) as Vote[]).map((vote) => vote.id);
@@ -205,27 +204,17 @@ export async function getAdminRoundDetailData(roundId: string): Promise<AdminRou
       email: vote.juror_email || '',
       instagram: vote.juror_instagram || null,
       isVerified: Boolean(vote.is_verified),
-      isExcluded: Boolean(vote.is_excluded),
-      excludedReason: vote.excluded_reason || null,
-      excludedAt: vote.excluded_at || null,
       votedAt: vote.created_at,
       verifiedAt: vote.verified_at,
       zonkSong: zonkSong ? combineSongLine(zonkSong) : null,
     };
   });
 
-  const confirmedVotes = votes.filter((vote) => Boolean(vote.is_verified)).length;
-  const excludedVotes = votes.filter((vote) => Boolean(vote.is_verified) && Boolean(vote.is_excluded)).length;
-  const countedVotes = votes.filter((vote) => Boolean(vote.is_verified) && !Boolean(vote.is_excluded)).length;
-  const unverifiedVotes = votes.filter((vote) => !Boolean(vote.is_verified)).length;
-
   const summary: AdminRoundSummary = {
     roundId: round.id,
     totalVotes: votes.length,
-    confirmedVotes,
-    countedVotes,
-    excludedVotes,
-    unverifiedVotes,
+    verifiedVotes: results.validVotes,
+    pendingVotes: votes.length - results.validVotes,
     songsCount: results.songsCount,
     leaderboard: results.leaderboard,
     zonk: results.zonk,

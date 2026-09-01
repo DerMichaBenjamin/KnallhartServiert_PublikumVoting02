@@ -41,9 +41,7 @@ function formatAdminDateTime(value?: string | null) {
 
 function formatTitleDate(value?: string | null) {
   const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) {
-    return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(new Date());
-  }
+  if (Number.isNaN(date.getTime())) return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(new Date());
   return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin' }).format(date);
 }
 
@@ -66,23 +64,13 @@ export default function AdminDashboard({ rounds, currentRound, currentDjRound, r
     [roundSummaries]
   );
 
-  const totalConfirmed = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.confirmedVotes, 0),
+  const totalVerified = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.verifiedVotes, 0),
     [roundSummaries]
   );
 
-  const totalCounted = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.countedVotes, 0),
-    [roundSummaries]
-  );
-
-  const totalExcluded = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.excludedVotes, 0),
-    [roundSummaries]
-  );
-
-  const totalUnverified = useMemo(
-    () => roundSummaries.reduce((sum, summary) => sum + summary.unverifiedVotes, 0),
+  const totalPending = useMemo(
+    () => roundSummaries.reduce((sum, summary) => sum + summary.pendingVotes, 0),
     [roundSummaries]
   );
 
@@ -137,10 +125,8 @@ export default function AdminDashboard({ rounds, currentRound, currentDjRound, r
       <section className="admin-stats-grid">
         <div className="stat-card"><small>Öffentliche Haupt-Umfrage</small><b>{currentRound?.title || 'Keine'}</b></div>
         <div className="stat-card"><small>Aktuelles DJ-Voting</small><b>{currentDjRound?.title || 'Keine'}</b></div>
-        <div className="stat-card"><small>Bestätigt gesamt</small><b>{totalConfirmed}</b></div>
-        <div className="stat-card"><small>Gewertet gesamt</small><b>{totalCounted}</b></div>
-        <div className="stat-card"><small>Ausgeschlossen gesamt</small><b>{totalExcluded}</b></div>
-        <div className="stat-card"><small>Unbestätigt gesamt</small><b>{totalUnverified}</b></div>
+        <div className="stat-card"><small>Gültige Stimmen gesamt</small><b>{totalVerified}</b></div>
+        <div className="stat-card"><small>Offen / unbestätigt gesamt</small><b>{totalPending}</b></div>
       </section>
 
       <section className="admin-grid two">
@@ -231,10 +217,8 @@ export default function AdminDashboard({ rounds, currentRound, currentDjRound, r
                     </td>
                     <td>{formatAdminDateTime(round.created_at)}</td>
                     <td className="vote-count-cell">
-                      <b>{summary?.countedVotes || 0}</b> gewertet<br />
-                      <small>
-                        {summary?.confirmedVotes || 0} bestätigt · {summary?.excludedVotes || 0} ausgeschlossen · {summary?.unverifiedVotes || 0} unbestätigt · {summary?.totalVotes || 0} gesamt
-                      </small>
+                      <b>{summary?.verifiedVotes || 0}</b> gültig<br />
+                      <small>{summary?.pendingVotes || 0} offen · {summary?.totalVotes || 0} gesamt</small>
                     </td>
                     <td className="action-cell">
                       <a href={`/admin/release-voting/${round.id}`}>Details öffnen</a>

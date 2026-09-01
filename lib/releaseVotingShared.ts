@@ -1,3 +1,5 @@
+export const JURY_PLACES_COUNT = 12;
+
 export type Round = {
   id: string;
   slug: string;
@@ -10,6 +12,8 @@ export type Round = {
   is_current: boolean;
   is_public_results: boolean;
   spotify_playlist_id: string | null;
+  jury_voting_closed: boolean;
+  jury_voting_ends_at: string | null;
   created_at: string;
 };
 
@@ -31,9 +35,6 @@ export type Vote = {
   verified_at: string | null;
   zonk_song_id: string | null;
   created_at: string;
-  is_excluded: boolean;
-  excluded_reason: string | null;
-  excluded_at: string | null;
 };
 
 export type VoteItem = {
@@ -66,9 +67,6 @@ export type AdminParticipantRow = {
   email: string;
   instagram: string | null;
   isVerified: boolean;
-  isExcluded: boolean;
-  excludedReason: string | null;
-  excludedAt: string | null;
   votedAt: string;
   verifiedAt: string | null;
   zonkSong: string | null;
@@ -77,10 +75,8 @@ export type AdminParticipantRow = {
 export type AdminRoundSummary = {
   roundId: string;
   totalVotes: number;
-  confirmedVotes: number;
-  countedVotes: number;
-  excludedVotes: number;
-  unverifiedVotes: number;
+  verifiedVotes: number;
+  pendingVotes: number;
   songsCount: number;
   leaderboard: LeaderboardRow[];
   zonk: ZonkRow[];
@@ -227,17 +223,16 @@ export function spotifyIdFromInput(input?: string | null) {
 }
 
 export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]): LeaderboardRow[] {
-  const validVoteIds = new Set(
-    votes
-      .filter((vote) => vote.is_verified && !vote.is_excluded)
-      .map((vote) => vote.id)
-  );
+  const validVoteIds = new Set(votes.filter((vote) => vote.is_verified).map((vote) => vote.id));
   const validVotesCount = validVoteIds.size;
   const songIds = new Set(songs.map((song) => song.id));
   const rowsBySongId = new Map<string, LeaderboardRow>(
     songs.map((song) => [song.id, { song, total: 0, count: 0, avg: 0 }])
   );
 
+  // Important after manual merges: count every song only once per verified vote.
+  // If an older merge left duplicate vote_items for the same vote/song, keep the highest points.
+  // Also ignore all items from unverified votes and all items pointing to songs outside this round.
   const bestItemByVoteAndSong = new Map<string, VoteItem>();
 
   for (const item of items) {
@@ -281,7 +276,7 @@ export function buildZonk(songs: Song[], votes: Vote[]): ZonkRow[] {
   const songIds = new Set(songs.map((song) => song.id));
 
   votes
-    .filter((vote) => vote.is_verified && !vote.is_excluded)
+    .filter((vote) => vote.is_verified)
     .forEach((vote) => {
       if (vote.zonk_song_id && songIds.has(vote.zonk_song_id)) {
         counts.set(vote.zonk_song_id, (counts.get(vote.zonk_song_id) || 0) + 1);

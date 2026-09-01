@@ -116,6 +116,66 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Jury-Stimmen separat mitführen, damit ein Song-Merge keine Jury-Punkte verliert.
+    const { data: juryVotesData, error: juryVotesError } = await sb
+      .from('release_voting_jury_votes')
+      .select('id')
+      .eq('round_id', roundId);
+
+    if (!juryVotesError) {
+      const juryVoteIds = (juryVotesData || []).map((vote) => String(vote.id));
+      let juryItems: VoteItemRow[] = [];
+
+      if (juryVoteIds.length) {
+        const { data: juryItemsData, error: juryItemsError } = await sb
+          .from('release_voting_jury_vote_items')
+          .select('id, vote_id, song_id, points')
+          .in('vote_id', juryVoteIds)
+          .in('song_id', [targetSongId, sourceSongId]);
+
+        if (juryItemsError) throw juryItemsError;
+        juryItems = (juryItemsData || []) as VoteItemRow[];
+      }
+
+      const targetJuryItemByVoteId = new Map(
+        juryItems.filter((item) => item.song_id === targetSongId).map((item) => [item.vote_id, item])
+      );
+      const sourceJuryItems = juryItems.filter((item) => item.song_id === sourceSongId);
+
+      for (const sourceItem of sourceJuryItems) {
+        const targetItem = targetJuryItemByVoteId.get(sourceItem.vote_id);
+
+        if (!targetItem) {
+          const { error } = await sb
+            .from('release_voting_jury_vote_items')
+            .update({ song_id: targetSongId })
+            .eq('id', sourceItem.id)
+            .eq('vote_id', sourceItem.vote_id);
+          if (error) throw error;
+          continue;
+        }
+
+        const sourcePoints = Number(sourceItem.points || 0);
+        const targetPoints = Number(targetItem.points || 0);
+
+        const { error: deleteSourceJuryItemError } = await sb
+          .from('release_voting_jury_vote_items')
+          .delete()
+          .eq('id', sourceItem.id)
+          .eq('vote_id', sourceItem.vote_id);
+        if (deleteSourceJuryItemError) throw deleteSourceJuryItemError;
+
+        if (sourcePoints > targetPoints) {
+          const { error: updateTargetJuryPointsError } = await sb
+            .from('release_voting_jury_vote_items')
+            .update({ points: sourcePoints })
+            .eq('id', targetItem.id)
+            .eq('vote_id', targetItem.vote_id);
+          if (updateTargetJuryPointsError) throw updateTargetJuryPointsError;
+        }
+      }
+    }
+
     const { error: updateZonkError } = await sb
       .from('release_voting_votes')
       .update({ zonk_song_id: targetSongId })
