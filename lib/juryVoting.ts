@@ -40,6 +40,7 @@ export type JuryVoteItem = {
 export type AdminJuryJurorRow = JuryRoundJuror & {
   submitted_at: string | null;
   vote_updated_at: string | null;
+  items: JuryVoteItem[];
 };
 
 export type AdminJuryRoundData = {
@@ -94,6 +95,23 @@ export async function getAdminJuryRoundData(roundId: string): Promise<AdminJuryR
   }
 
   const voteByJuror = new Map(votes.map((vote) => [vote.round_juror_id, vote]));
+  const voteIds = votes.map((vote) => vote.id);
+  let voteItems: JuryVoteItem[] = [];
+
+  if (voteIds.length) {
+    const { data } = await sb
+      .from('release_voting_jury_vote_items')
+      .select('vote_id,song_id,points')
+      .in('vote_id', voteIds);
+    voteItems = (data || []) as JuryVoteItem[];
+  }
+
+  const itemsByVoteId = new Map<string, JuryVoteItem[]>();
+  for (const item of voteItems) {
+    const current = itemsByVoteId.get(item.vote_id) || [];
+    current.push(item);
+    itemsByVoteId.set(item.vote_id, current);
+  }
 
   return {
     defaultProfiles: (profiles || []) as JuryProfile[],
@@ -103,6 +121,9 @@ export async function getAdminJuryRoundData(roundId: string): Promise<AdminJuryR
         ...juror,
         submitted_at: vote?.submitted_at || null,
         vote_updated_at: vote?.updated_at || null,
+        items: vote?.id
+          ? [...(itemsByVoteId.get(vote.id) || [])].sort((a, b) => Number(b.points) - Number(a.points))
+          : [],
       };
     }),
   };

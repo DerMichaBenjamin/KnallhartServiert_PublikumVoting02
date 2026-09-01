@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import type { AdminRoundSummary, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { combineSongLine, findSongDuplicateGroups } from '@/lib/releaseVotingShared';
+import JuryResultsMatrix from '@/components/JuryResultsMatrix';
 
 type Props = {
   round: Round;
@@ -231,6 +232,13 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
           </table>
         </div>
       </section>
+
+      <JuryResultsMatrix
+        songs={songs}
+        publicLeaderboard={summary.leaderboard}
+        publicVerifiedVotes={summary.verifiedVotes}
+        juryData={juryData}
+      />
 
       <section className="admin-grid two">
         <form
