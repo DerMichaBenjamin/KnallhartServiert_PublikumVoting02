@@ -198,12 +198,43 @@ export async function verifyVoteToken(tokenInput: string) {
     return { ok: false as const, message: 'Der Link ist abgelaufen. Bitte stimme erneut ab.' };
   }
 
+  const normalizedEmail = String(data.juror_email || '').trim().toLowerCase();
+  const votingChannel = data.voting_channel === 'dj' ? 'dj' : 'audience';
+  if (normalizedEmail) {
+    const { data: existingVote, error: duplicateError } = await sb
+      .from('release_voting_votes')
+      .select('id')
+      .eq('round_id', data.round_id)
+      .eq('voting_channel', votingChannel)
+      .ilike('juror_email', normalizedEmail)
+      .eq('is_verified', true)
+      .neq('id', data.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (duplicateError) return { ok: false as const, message: duplicateError.message };
+    if (existingVote?.id) {
+      return {
+        ok: false as const,
+        message: 'Für diese Abstimmung wurde mit dieser E-Mail-Adresse bereits eine andere Stimme bestätigt.',
+      };
+    }
+  }
+
   const upd = await sb
     .from('release_voting_votes')
     .update({ is_verified: true, verified_at: new Date().toISOString(), verify_expires_at: null })
     .eq('id', data.id);
 
-  if (upd.error) return { ok: false as const, message: upd.error.message };
+  if (upd.error) {
+    const duplicate = upd.error.code === '23505' || /bereits eine bestätigte Stimme/i.test(upd.error.message);
+    return {
+      ok: false as const,
+      message: duplicate
+        ? 'Für diese Abstimmung wurde mit dieser E-Mail-Adresse bereits eine andere Stimme bestätigt.'
+        : upd.error.message,
+    };
+  }
 
   // Nach der Bestätigung noch einmal gegen bereits bestätigte Stimmen derselben
   // Verbindung prüfen. Auffälligkeiten bleiben intern und werden im Adminbereich geprüft.

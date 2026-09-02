@@ -2,6 +2,7 @@ import 'server-only';
 
 import { unstable_noStore as noStore } from 'next/cache';
 import { getSupabaseAdminClient } from './supabaseAdmin';
+import { databaseError } from './supabaseErrors';
 import { getSetting, setSetting } from './settings';
 import {
   buildLeaderboard,
@@ -224,7 +225,7 @@ export async function getVoteItemsForVoteIds(voteIds: string[]) {
 }
 
 function exactCount(result: { count: number | null; error: unknown }, label: string) {
-  if (result.error) throw new Error(`${label} konnten nicht gezählt werden.`);
+  if (result.error) throw databaseError(`${label} konnten nicht gezählt werden`, result.error);
   return result.count || 0;
 }
 

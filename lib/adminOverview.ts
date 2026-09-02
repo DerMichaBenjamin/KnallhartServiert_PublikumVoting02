@@ -5,6 +5,8 @@ import { getSupabaseAdminClient } from './supabaseAdmin';
 import { getRoundVoteCounts } from './releaseVoting';
 import type { Round } from './releaseVotingShared';
 import type { AdminRoundStatus } from './adminUi';
+import { databaseError } from './supabaseErrors';
+import { STATISTICS_TEST_PATTERN } from './statisticsRoundFilter';
 
 export type AdminRoundOverview = {
   roundId: string;
@@ -50,8 +52,20 @@ const ROUND_STATUS: Record<Exclude<AdminRoundsFilter, 'all'>, string> = {
 };
 
 function countValue(result: { count: number | null; error: unknown }, label: string) {
-  if (result.error) throw new Error(`${label} konnten nicht gezählt werden.`);
+  if (result.error) throw databaseError(`${label} konnten nicht gezählt werden`, result.error);
   return result.count || 0;
+}
+
+async function countByRoundIds(
+  roundIds: string[],
+  label: string,
+  request: (ids: string[]) => PromiseLike<{ count: number | null; error: unknown }>,
+) {
+  let total = 0;
+  for (let index = 0; index < roundIds.length; index += 75) {
+    total += countValue(await request(roundIds.slice(index, index + 75)), label);
+  }
+  return total;
 }
 
 function safeSearch(value: string) {
@@ -99,11 +113,13 @@ export async function getAdminRoundsPage({
   pageSize = 8,
   query = '',
   filter = 'all',
+  excludeTestRounds = false,
 }: {
   page?: number;
   pageSize?: number;
   query?: string;
   filter?: AdminRoundsFilter;
+  excludeTestRounds?: boolean;
 }): Promise<AdminRoundsPageData> {
   noStore();
   const sb = getSupabaseAdminClient();
@@ -117,6 +133,7 @@ export async function getAdminRoundsPage({
     .order('created_at', { ascending: false });
 
   if (filter !== 'all') request = request.eq('status', ROUND_STATUS[filter]);
+  if (excludeTestRounds) request = request.not('title', 'ilike', STATISTICS_TEST_PATTERN).not('slug', 'ilike', STATISTICS_TEST_PATTERN);
   const normalizedQuery = safeSearch(query);
   if (normalizedQuery) request = request.or(`title.ilike.%${normalizedQuery}%,slug.ilike.%${normalizedQuery}%`);
 
@@ -128,33 +145,91 @@ export async function getAdminRoundsPage({
   return { rounds, overviews, total: count || 0, page: safePage, pageSize: safePageSize };
 }
 
-export async function getAdminOverviewTotals(roundsInput?: Round[]): Promise<AdminOverviewTotals> {
+export async function getAdminOverviewTotals(
+  roundsInput?: Round[],
+  options: { excludeTestRounds?: boolean } = {},
+): Promise<AdminOverviewTotals> {
   noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return { databaseRounds: 0, conductedRounds: 0, songsCount: 0, totalVotes: 0, confirmedVotes: 0, countedVotes: 0, reviewVotes: 0, excludedVotes: 0, unverifiedVotes: 0 };
 
-  const [roundsCount, songs, total, confirmed, counted, review, excluded] = await Promise.all([
-    sb.from('release_voting_rounds').select('id', { count: 'exact', head: true }),
-    sb.from('release_voting_songs').select('id', { count: 'exact', head: true }),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience'),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).or('is_counted.eq.true,is_counted.is.null'),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).eq('is_counted', false).or('integrity_status.neq.excluded,integrity_status.is.null'),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).eq('integrity_status', 'excluded'),
-  ]);
-
-  let roundIds = roundsInput?.map((round) => round.id) || [];
-  if (!roundsInput) {
+  let statisticsRoundIds: string[] | null = null;
+  if (options.excludeTestRounds) {
+    statisticsRoundIds = [];
     for (let from = 0; ; from += OVERVIEW_ROUND_PAGE_SIZE) {
       const { data, error } = await sb
         .from('release_voting_rounds')
         .select('id')
+        .not('title', 'ilike', STATISTICS_TEST_PATTERN)
+        .not('slug', 'ilike', STATISTICS_TEST_PATTERN)
         .order('created_at', { ascending: false })
         .range(from, from + OVERVIEW_ROUND_PAGE_SIZE - 1);
-      if (error) throw error;
-      const pageIds = (data || []).map((round) => String(round.id));
-      roundIds.push(...pageIds);
-      if (pageIds.length < OVERVIEW_ROUND_PAGE_SIZE) break;
+      if (error) throw databaseError('Statistik-Umfragen konnten nicht geladen werden', error);
+      const ids = (data || []).map((round) => String(round.id));
+      statisticsRoundIds.push(...ids);
+      if (ids.length < OVERVIEW_ROUND_PAGE_SIZE) break;
+    }
+  }
+
+  const scopedCount = (
+    label: string,
+    requestAll: () => PromiseLike<{ count: number | null; error: unknown }>,
+    requestIds: (ids: string[]) => PromiseLike<{ count: number | null; error: unknown }>,
+  ) => statisticsRoundIds
+    ? countByRoundIds(statisticsRoundIds, label, requestIds)
+    : Promise.resolve(requestAll()).then((result) => countValue(result, label));
+
+  const [databaseRounds, songsCount, totalVotes, confirmedVotes, countedVotes, reviewVotes, excludedVotes] = await Promise.all([
+    statisticsRoundIds
+      ? Promise.resolve(statisticsRoundIds.length)
+      : Promise.resolve(sb.from('release_voting_rounds').select('id', { count: 'exact', head: true })).then((result) => countValue(result, 'Umfragen')),
+    scopedCount(
+      'Songs',
+      () => sb.from('release_voting_songs').select('id', { count: 'exact', head: true }),
+      (ids) => sb.from('release_voting_songs').select('id', { count: 'exact', head: true }).in('round_id', ids),
+    ),
+    scopedCount(
+      'Publikumsstimmen',
+      () => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience'),
+      (ids) => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).in('round_id', ids).eq('voting_channel', 'audience'),
+    ),
+    scopedCount(
+      'Bestätigte Stimmen',
+      () => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true),
+      (ids) => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).in('round_id', ids).eq('voting_channel', 'audience').eq('is_verified', true),
+    ),
+    scopedCount(
+      'Gewertete Stimmen',
+      () => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).or('is_counted.eq.true,is_counted.is.null'),
+      (ids) => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).in('round_id', ids).eq('voting_channel', 'audience').eq('is_verified', true).or('is_counted.eq.true,is_counted.is.null'),
+    ),
+    scopedCount(
+      'Stimmen in Prüfung',
+      () => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).eq('is_counted', false).or('integrity_status.neq.excluded,integrity_status.is.null'),
+      (ids) => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).in('round_id', ids).eq('voting_channel', 'audience').eq('is_verified', true).eq('is_counted', false).or('integrity_status.neq.excluded,integrity_status.is.null'),
+    ),
+    scopedCount(
+      'Ausgeschlossene Stimmen',
+      () => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).eq('integrity_status', 'excluded'),
+      (ids) => sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).in('round_id', ids).eq('voting_channel', 'audience').eq('is_verified', true).eq('integrity_status', 'excluded'),
+    ),
+  ]);
+
+  let roundIds = roundsInput?.map((round) => round.id) || [];
+  if (!roundsInput) {
+    if (statisticsRoundIds) roundIds = [...statisticsRoundIds];
+    else {
+      for (let from = 0; ; from += OVERVIEW_ROUND_PAGE_SIZE) {
+        const { data, error } = await sb
+          .from('release_voting_rounds')
+          .select('id')
+          .order('created_at', { ascending: false })
+          .range(from, from + OVERVIEW_ROUND_PAGE_SIZE - 1);
+        if (error) throw databaseError('Umfragen konnten nicht geladen werden', error);
+        const pageIds = (data || []).map((round) => String(round.id));
+        roundIds.push(...pageIds);
+        if (pageIds.length < OVERVIEW_ROUND_PAGE_SIZE) break;
+      }
     }
   }
 
@@ -164,7 +239,7 @@ export async function getAdminOverviewTotals(roundsInput?: Round[]): Promise<Adm
         sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('voting_channel', 'audience'),
         sb.from('release_voting_round_jurors').select('id').eq('round_id', roundId).eq('voting_role', 'jury'),
       ]);
-      if (juryJurors.error) throw juryJurors.error;
+      if (juryJurors.error) throw databaseError('Juryaktivität konnte nicht geladen werden', juryJurors.error);
       const juryIds = (juryJurors.data || []).map((juror) => String(juror.id));
       const jury = juryIds.length
         ? await sb.from('release_voting_jury_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).in('round_juror_id', juryIds).not('submitted_at', 'is', null)
@@ -173,18 +248,15 @@ export async function getAdminOverviewTotals(roundsInput?: Round[]): Promise<Adm
     })
   );
   const conductedRounds = activityCounts.filter(Boolean).length;
-  const totalVotes = countValue(total, 'Publikumsstimmen');
-  const confirmedVotes = countValue(confirmed, 'Bestätigte Stimmen');
-
   return {
-    databaseRounds: countValue(roundsCount, 'Umfragen'),
+    databaseRounds,
     conductedRounds,
-    songsCount: countValue(songs, 'Songs'),
+    songsCount,
     totalVotes,
     confirmedVotes,
-    countedVotes: countValue(counted, 'Gewertete Stimmen'),
-    reviewVotes: countValue(review, 'Stimmen in Prüfung'),
-    excludedVotes: countValue(excluded, 'Ausgeschlossene Stimmen'),
+    countedVotes,
+    reviewVotes,
+    excludedVotes,
     unverifiedVotes: Math.max(0, totalVotes - confirmedVotes),
   };
 }

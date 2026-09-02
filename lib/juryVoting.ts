@@ -3,6 +3,7 @@ import 'server-only';
 import { unstable_noStore as noStore } from 'next/cache';
 import { getSupabaseAdminClient } from './supabaseAdmin';
 import { JURY_PLACES_COUNT, type Round, type Song } from './releaseVotingShared';
+import { databaseError } from './supabaseErrors';
 
 export { JURY_PLACES_COUNT };
 
@@ -84,17 +85,22 @@ export async function getAdminJuryRoundData(
   const sb = getSupabaseAdminClient();
   if (!sb) return { defaultProfiles: [], jurors: [] };
 
-  const [{ data: profiles }, { data: jurors }] = await Promise.all([
+  const [profilesResult, jurorsResult] = await Promise.all([
     sb.from('release_voting_jury_profiles').select('id,name,is_default').eq('is_default', true).order('name'),
     sb.from('release_voting_round_jurors').select('*').eq('round_id', roundId).eq('voting_role', options.role || 'jury').order('created_at', { ascending: true }),
   ]);
+  if (profilesResult.error) throw databaseError('Juryprofile konnten nicht geladen werden', profilesResult.error);
+  if (jurorsResult.error) throw databaseError('Jury-Mitglieder konnten nicht geladen werden', jurorsResult.error);
+  const profiles = profilesResult.data;
+  const jurors = jurorsResult.data;
 
   const jurorRows = (jurors || []) as JuryRoundJuror[];
   const ids = jurorRows.map((juror) => juror.id);
   let votes: JuryVote[] = [];
 
   if (ids.length) {
-    const { data } = await sb.from('release_voting_jury_votes').select('*').in('round_juror_id', ids);
+    const { data, error } = await sb.from('release_voting_jury_votes').select('*').in('round_juror_id', ids);
+    if (error) throw databaseError('Jury-Votings konnten nicht geladen werden', error);
     votes = (data || []) as JuryVote[];
   }
 
@@ -103,10 +109,11 @@ export async function getAdminJuryRoundData(
   let voteItems: JuryVoteItem[] = [];
 
   if (voteIds.length) {
-    const { data } = await sb
+    const { data, error } = await sb
       .from('release_voting_jury_vote_items')
       .select('vote_id,song_id,points')
       .in('vote_id', voteIds);
+    if (error) throw databaseError('Jury-Einzelwertungen konnten nicht geladen werden', error);
     voteItems = (data || []) as JuryVoteItem[];
   }
 
