@@ -1,6 +1,6 @@
 import type { AdminJuryRoundData } from './juryVoting';
 import { buildCombinedResults, compareResultSongs, type CombinedResultRow } from './combinedVotingResults';
-import type { AdminRoundSummary, Round, Song } from './releaseVotingShared';
+import type { AdminRoundSummary, AudienceRatingStats, Round, Song } from './releaseVotingShared';
 
 export type StatisticTone = 'neutral' | 'success' | 'warning' | 'danger' | 'violet';
 
@@ -11,6 +11,17 @@ export type StatisticHighlight = {
   detail: string;
   tone: StatisticTone;
   songId?: string;
+};
+
+export type SongDetailStatistics = {
+  ratingCount: number;
+  averageRating: number | null;
+  highestRating: number | null;
+  lowestRating: number | null;
+  topRatings: number;
+  zeroRatings: number;
+  standardDeviation: number | null;
+  distribution: number[];
 };
 
 export type RankingComparisonRow = {
@@ -28,6 +39,7 @@ export type RankingComparisonRow = {
   polarizationIndex: number | null;
   polarizationLabel: string;
   ratingVoices: number;
+  detail: SongDetailStatistics;
 };
 
 export type WeekComparisonMetric = {
@@ -52,6 +64,7 @@ export type ReleaseWeekStatistics = {
   submittedJurors: number;
   individualRatings: number;
   winnerGap: number | null;
+  winnerGapPercent: number | null;
   top3Share: number | null;
   top5Share: number | null;
   songsWithoutPoints: number;
@@ -99,9 +112,14 @@ export type ReportGraphicData = {
   title: string;
   period: string;
   songsCount: number;
+  totalVotes: number;
   countedVotes: number;
+  individualRatings: number;
   juryStatus: string;
+  winner: string;
+  winnerPoints: number | null;
   winnerGap: number | null;
+  winnerGapPercent: number | null;
   top3Share: number | null;
   top5Share: number | null;
   averagePolarization: number | null;
@@ -129,6 +147,34 @@ function finiteMean(values: Array<number | null | undefined>) {
 
 function percent(part: number, total: number) {
   return total > 0 ? (part / total) * 100 : null;
+}
+
+function buildSongDetailStatistics(audience: AudienceRatingStats | undefined, juryScores: number[]): SongDetailStatistics {
+  const distribution = Array.from({ length: 13 }, (_, points) => audience?.distribution[points] || 0);
+  for (const rawScore of juryScores) {
+    const score = Math.min(12, Math.max(0, Number(rawScore) || 0));
+    distribution[score] += 1;
+  }
+  const ratingCount = distribution.reduce((sum, count) => sum + count, 0);
+  const sum = distribution.reduce((total, count, points) => total + count * points, 0);
+  const sumSquares = distribution.reduce((total, count, points) => total + count * (points ** 2), 0);
+  const averageRating = ratingCount ? sum / ratingCount : null;
+  const variance = ratingCount && averageRating !== null ? Math.max(0, (sumSquares / ratingCount) - (averageRating ** 2)) : null;
+  const lowestPositive = distribution.findIndex((count, points) => points > 0 && count > 0);
+  let highestRating: number | null = null;
+  for (let points = distribution.length - 1; points >= 1; points -= 1) {
+    if (distribution[points] > 0) { highestRating = points; break; }
+  }
+  return {
+    ratingCount,
+    averageRating,
+    highestRating,
+    lowestRating: lowestPositive >= 1 ? lowestPositive : null,
+    topRatings: distribution[12] || 0,
+    zeroRatings: distribution[0] || 0,
+    standardDeviation: variance === null ? null : Math.sqrt(variance),
+    distribution,
+  };
 }
 
 function competitionRanks<T>(rows: T[], score: (row: T) => number, hasVotes: boolean) {
@@ -206,8 +252,9 @@ export function buildReleaseWeekStatistics(
     const publicRow = publicBySong.get(row.song.id);
     const audienceRank = audienceRanks.get(row) ?? null;
     const juryRank = juryRanks.get(row) ?? null;
+    const juryScores = combined.submittedJurors.map((juror) => row.juryPointsByJuror[juror.id] || 0);
     const scores = [
-      ...combined.submittedJurors.map((juror) => row.juryPointsByJuror[juror.id] || 0),
+      ...juryScores,
       ...(hasAudience ? [row.audiencePoints] : []),
     ];
     const polarizationIndex = calculatePolarizationIndex(scores);
@@ -226,6 +273,7 @@ export function buildReleaseWeekStatistics(
       polarizationIndex,
       polarizationLabel: polarizationLabel(polarizationIndex),
       ratingVoices: scores.length,
+      detail: buildSongDetailStatistics(summary.audienceRatingStatsBySong?.[row.song.id], juryScores),
     };
   });
 
@@ -234,6 +282,9 @@ export function buildReleaseWeekStatistics(
   const top5Share = percent(combined.overallRows.slice(0, 5).reduce((sum, row) => sum + row.total, 0), totalPoints);
   const winnerGap = combined.overallRows.length > 1 && (hasAudience || hasJury)
     ? combined.overallRows[0].total - combined.overallRows[1].total
+    : null;
+  const winnerGapPercent = winnerGap !== null && combined.overallRows[0].total > 0
+    ? percent(winnerGap, combined.overallRows[0].total)
     : null;
   const individualRatings = summary.leaderboard.reduce((sum, row) => sum + row.count, 0)
     + combined.submittedJurors.reduce((sum, juror) => sum + juror.items.filter((item) => Number(item.points) > 0).length, 0);
@@ -252,12 +303,15 @@ export function buildReleaseWeekStatistics(
   const zonkRows = summary.zonk.filter((entry) => entry.count > 0);
   const topZonkCount = zonkRows[0]?.count || 0;
   const topZonk = zonkRows.filter((entry) => entry.count === topZonkCount);
+  const lastRank = combined.overallRows.at(-1)?.rank ?? null;
+  const lastPlaced = lastRank === null ? [] : combined.overallRows.filter((row) => row.rank === lastRank);
   const highlights: StatisticHighlight[] = [];
 
   if (combined.overallRows[0]?.rank !== null) {
     highlights.push({
-      key: 'winner', title: 'Sieger-Abstand', value: winnerGap === null ? '—' : `${winnerGap} Punkte`,
-      detail: `${combined.overallRows[0].song.title} liegt vor Platz 2.`, tone: winnerGap !== null && winnerGap <= 2 ? 'warning' : 'success',
+      key: 'winner', title: 'Klarster Sieger', value: combined.overallRows[0].song.title,
+      detail: winnerGap === null ? `${combined.overallRows[0].total} Gesamtpunkte` : `${winnerGap} Punkte Vorsprung${winnerGapPercent === null ? '' : ` · ${winnerGapPercent.toFixed(1)} % relativ`}`,
+      tone: winnerGap !== null && winnerGap <= 2 ? 'warning' : 'success',
       songId: combined.overallRows[0].song.id,
     });
   }
@@ -295,7 +349,12 @@ export function buildReleaseWeekStatistics(
   });
   if (topZonk.length) highlights.push({
     key: 'zonk', title: 'ZONK', value: topZonk.map((entry) => entry.song.title).join(' / '),
-    detail: `${topZonkCount} ZONK-${topZonkCount === 1 ? 'Stimme' : 'Stimmen'}`, tone: 'danger', songId: topZonk[0].song.id,
+    detail: `${topZonkCount} ZONK-${topZonkCount === 1 ? 'Stimme' : 'Stimmen'} · Gesamtplatz ${comparisonRows.find((row) => row.song.id === topZonk[0].song.id)?.overallRank ?? '—'}`,
+    tone: 'danger', songId: topZonk[0].song.id,
+  });
+  if (lastPlaced.length) highlights.push({
+    key: 'last-place', title: 'Letzter Gesamtplatz', value: lastPlaced.map((row) => row.song.title).join(' / '),
+    detail: `Platz ${lastRank} · ${lastPlaced[0].total} Gesamtpunkte`, tone: 'neutral', songId: lastPlaced[0].song.id,
   });
 
   return {
@@ -311,6 +370,7 @@ export function buildReleaseWeekStatistics(
     submittedJurors: combined.submittedJurors.length,
     individualRatings,
     winnerGap,
+    winnerGapPercent,
     top3Share,
     top5Share,
     songsWithoutPoints,
@@ -409,14 +469,20 @@ export function formatReportPeriod(round: Round) {
 }
 
 export function buildReportGraphicData(stats: ReleaseWeekStatistics): ReportGraphicData {
+  const winner = stats.overallRows.find((row) => row.rank === 1) || null;
   return {
     roundId: stats.round.id,
     title: stats.round.title,
     period: formatReportPeriod(stats.round),
     songsCount: stats.songsCount,
+    totalVotes: stats.totalVotes,
     countedVotes: stats.countedVotes,
+    individualRatings: stats.individualRatings,
     juryStatus: `${stats.submittedJurors}/${stats.activeJurors} abgegeben`,
+    winner: winner?.song.title || 'Noch kein Ergebnis',
+    winnerPoints: winner?.total ?? null,
     winnerGap: stats.winnerGap,
+    winnerGapPercent: stats.winnerGapPercent,
     top3Share: stats.top3Share,
     top5Share: stats.top5Share,
     averagePolarization: stats.averagePolarization,

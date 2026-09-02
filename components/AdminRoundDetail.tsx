@@ -15,6 +15,9 @@ import RoundSettingsPanel from '@/components/admin/RoundSettingsPanel';
 import RoundScheduleDialog from '@/components/admin/RoundScheduleDialog';
 import RoundLinksBar from '@/components/admin/RoundLinksBar';
 import Top5GraphicGenerator from '@/components/Top5GraphicGenerator';
+import RoundViewNav from '@/components/admin/RoundViewNav';
+import ReportActions from '@/components/admin/ReportActions';
+import { buildReleaseWeekStatistics, buildReportGraphicData } from '@/lib/releaseStatisticsCore';
 
 type Props = {
   round: Round;
@@ -35,6 +38,8 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
   const duplicates = useMemo(() => findSongDuplicateGroups(songs), [songs]);
   const openJurors = activeJurors.length - submittedJurors.length;
   const openCheckItems = summary.reviewVotes + (securityAlerts || 0) + duplicates.length + openJurors;
+  const statistics = useMemo(() => buildReleaseWeekStatistics(round, songs, summary, juryData), [round, songs, summary, juryData]);
+  const graphicData = useMemo(() => buildReportGraphicData(statistics), [statistics]);
 
   async function post(url: string, body: unknown) {
     setBusy(true);
@@ -68,10 +73,10 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       actions={<>
         <StatusBadge status={getAdminRoundStatus(round)}>{adminRoundStatusLabel(getAdminRoundStatus(round))}</StatusBadge>
         <button className="ks-button secondary" type="button" onClick={() => setScheduleOpen(true)}>Zeitraum bearbeiten</button>
-        <a className="ks-button secondary" href={`/admin/release-voting/${round.id}/statistics`}>Statistiken</a>
-        <a className="ks-button primary" href={`/admin/release-voting/${round.id}/results`}>Zur Auswertung</a>
       </>}
     />
+    <RoundViewNav roundId={round.id} active="overview" />
+    <ReportActions data={graphicData} view="overview" />
     {message && <div className={`notice ${message.type === 'ok' ? 'success' : 'error'}`}>{message.text}</div>}
     {busy && <div className="notice">Speichert…</div>}
     <RoundLinksBar round={round} isCurrentDj={isCurrentDj} copyUrl={copyUrl} />

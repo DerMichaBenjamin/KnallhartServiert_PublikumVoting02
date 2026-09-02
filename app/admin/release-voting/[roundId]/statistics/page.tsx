@@ -6,6 +6,7 @@ import { buildReleaseWeekStatistics, buildReportGraphicData, formatReportPeriod 
 import { PageHeader } from '@/components/admin/AdminUi';
 import ReportActions from '@/components/admin/ReportActions';
 import WeeklyStatistics from '@/components/admin/WeeklyStatistics';
+import RoundViewNav from '@/components/admin/RoundViewNav';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,11 +31,11 @@ export default async function AdminRoundStatisticsPage({
 
   return <main className="ks-print-report ks-statistics-report">
     <PageHeader
-      eyebrow={<a href={`/admin/release-voting/${roundId}/results`}>← Zur Auswertung</a>}
+      eyebrow={<a href="/admin/statistics">← Alle Statistiken</a>}
       title={`Statistiken – ${stats.round.title}`}
       description={formatReportPeriod(stats.round)}
-      actions={<a className="ks-button secondary no-print" href={`/admin/release-voting/${roundId}`}>Umfrage verwalten</a>}
     />
+    <RoundViewNav roundId={roundId} active="statistics" />
     <ReportActions data={graphicData} view="statistics" autoPrint={query.print === '1'} />
     <WeeklyStatistics stats={stats} />
   </main>;

@@ -51,6 +51,17 @@ export type VoteItem = {
   points: number;
 };
 
+export type AudienceRatingStats = {
+  ratingCount: number;
+  sum: number;
+  sumSquares: number;
+  minimum: number | null;
+  maximum: number | null;
+  topRatings: number;
+  zeroRatings: number;
+  distribution: number[];
+};
+
 export type LeaderboardRow = {
   song: Song;
   total: number;
@@ -102,7 +113,59 @@ export type AdminRoundSummary = {
   leaderboard: LeaderboardRow[];
   zonk: ZonkRow[];
   participants: AdminParticipantRow[];
+  /** Kompakte Rohwert-Aggregate je Song; verändert die Ergebniswertung nicht. */
+  audienceRatingStatsBySong?: Record<string, AudienceRatingStats>;
 };
+
+/**
+ * Verdichtet die Einzelwertungen des Publikums ohne große Item-Arrays an die UI
+ * weiterzureichen. Ein nicht platzierter Song zählt pro gewerteter Stimme mit 0.
+ * Mehrfachzeilen desselben Vote/Song-Paars werden defensiv nur einmal gezählt.
+ */
+export function buildAudienceRatingStats(
+  songs: Song[],
+  countedVotes: number,
+  items: VoteItem[],
+): Record<string, AudienceRatingStats> {
+  const safeVoteCount = Math.max(0, Math.floor(countedVotes));
+  const result: Record<string, AudienceRatingStats> = {};
+  for (const song of songs) {
+    const distribution = Array.from({ length: JURY_PLACES_COUNT + 1 }, () => 0);
+    distribution[0] = safeVoteCount;
+    result[song.id] = {
+      ratingCount: safeVoteCount,
+      sum: 0,
+      sumSquares: 0,
+      minimum: safeVoteCount ? 0 : null,
+      maximum: safeVoteCount ? 0 : null,
+      topRatings: 0,
+      zeroRatings: safeVoteCount,
+      distribution,
+    };
+  }
+
+  const uniqueItems = new Map<string, VoteItem>();
+  for (const item of items) uniqueItems.set(`${item.vote_id}\u0000${item.song_id}`, item);
+  for (const item of uniqueItems.values()) {
+    const stats = result[item.song_id];
+    const points = Number(item.points);
+    if (!stats || !Number.isInteger(points) || points < 1 || points > JURY_PLACES_COUNT || stats.zeroRatings <= 0) continue;
+    stats.sum += points;
+    stats.sumSquares += points ** 2;
+    stats.maximum = Math.max(stats.maximum || 0, points);
+    stats.topRatings += points === JURY_PLACES_COUNT ? 1 : 0;
+    stats.zeroRatings -= 1;
+    stats.distribution[0] = stats.zeroRatings;
+    stats.distribution[points] += 1;
+  }
+
+  for (const stats of Object.values(result)) {
+    if (!stats.ratingCount) continue;
+    const firstPositive = stats.distribution.findIndex((count, points) => points > 0 && count > 0);
+    stats.minimum = stats.zeroRatings > 0 ? 0 : firstPositive >= 1 ? firstPositive : 0;
+  }
+  return result;
+}
 
 function stripDiacritics(value: string) {
   return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');

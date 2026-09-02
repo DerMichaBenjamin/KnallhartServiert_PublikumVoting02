@@ -419,6 +419,10 @@
 }
 
 /* Statistik-, Report- und Exportbereich */
+.ks-round-view-nav { display: flex; align-items: center; gap: 6px; margin: -7px 0 18px; padding: 6px; overflow-x: auto; border: 1px solid var(--ks-line); border-radius: 11px; background: #fff; box-shadow: 0 4px 13px rgba(21,41,67,.035); }
+.ks-round-view-nav a { display: inline-flex; align-items: center; justify-content: center; min-height: 39px; padding: 8px 14px; border-radius: 8px; color: #5b6b7e; font-size: 13px; font-weight: 850; white-space: nowrap; }
+.ks-round-view-nav a:hover { background: #f3f1ff; color: var(--ks-violet-dark); }
+.ks-round-view-nav a.active { background: var(--ks-violet); color: #fff; box-shadow: 0 5px 13px rgba(92,62,207,.18); }
 .ks-report-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: -4px 0 22px; padding: 13px; border: 1px solid var(--ks-line); border-radius: 11px; background: #fff; box-shadow: 0 5px 16px rgba(21,41,67,.04); }
 .ks-export-menu { display: grid; gap: 5px; min-width: 245px; }
 .ks-export-menu > strong { margin: 7px 8px 3px; color: var(--ks-muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
@@ -427,6 +431,9 @@
 .ks-export-menu > a:hover { background: #f3f6fa; color: var(--ks-violet-dark); }
 
 .ks-stats-grid.weekly-kpis { grid-template-columns: repeat(5,minmax(150px,1fr)); }
+.ks-stats-grid.inside-card { margin-bottom: 0; }
+.ks-stats-grid.inside-card .ks-stat-card { box-shadow: none; }
+.ks-stats-grid.inside-card .ks-stat-card:first-child strong { font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
 .ks-stat-section { scroll-margin-top: 24px; }
 .ks-highlight-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
 .ks-highlight-card { min-height: 150px; padding: 17px; border: 1px solid var(--ks-line); border-top: 4px solid #b9c5d4; border-radius: 11px; background: #fbfcfe; }
@@ -484,6 +491,42 @@
 .ks-inline-load-status { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: -4px 0 16px; padding: 10px 12px; border: 1px solid #ded7fb; border-radius: 9px; background: #f7f5ff; color: #58449f; font-size: 13px; }
 .ks-inline-load-status strong { white-space: nowrap; }
 
+.ks-song-stat-list { display: grid; gap: 9px; }
+.ks-song-stat-list > details { overflow: hidden; border: 1px solid var(--ks-line); border-radius: 10px; background: #fff; }
+.ks-song-stat-list > details[open] { border-color: #c9bdf5; box-shadow: 0 8px 22px rgba(65,46,145,.07); }
+.ks-song-stat-list summary { display: grid; grid-template-columns: 42px minmax(220px,1.5fr) repeat(3,minmax(95px,.45fr)) 22px; gap: 13px; align-items: center; min-height: 72px; padding: 10px 14px; cursor: pointer; list-style: none; }
+.ks-song-stat-list summary::-webkit-details-marker { display: none; }
+.ks-song-stat-list summary:hover { background: #faf9ff; }
+.ks-song-stat-list summary > span:not(.ks-rank-pill) small, .ks-song-stat-list summary > span:not(.ks-rank-pill) strong { display: block; }
+.ks-song-stat-list summary > span:not(.ks-song-stat-title) small { margin-bottom: 4px; color: var(--ks-muted); font-size: 10px; font-weight: 750; }
+.ks-song-stat-list summary > b { color: var(--ks-violet-dark); font-size: 20px; transition: transform .15s ease; }
+.ks-song-stat-list details[open] summary > b { transform: rotate(180deg); }
+.ks-song-stat-title small { display: block; margin-top: 4px; color: var(--ks-muted); font-size: 12px; }
+.ks-song-stat-panel { padding: 18px; border-top: 1px solid var(--ks-line); background: #fbfcfe; }
+.ks-song-stat-metrics { display: grid; grid-template-columns: repeat(6,minmax(115px,1fr)); gap: 8px; }
+.ks-song-stat-metrics > span { min-height: 82px; padding: 12px; border: 1px solid #e4e9f0; border-radius: 9px; background: #fff; }
+.ks-song-stat-metrics small, .ks-song-stat-metrics strong { display: block; }
+.ks-song-stat-metrics small { min-height: 28px; color: var(--ks-muted); font-size: 10px; font-weight: 750; }
+.ks-song-stat-metrics strong { margin-top: 5px; font-size: 17px; }
+.ks-rating-distribution { display: grid; grid-template-columns: repeat(13,minmax(34px,1fr)); gap: 6px; align-items: end; margin-top: 18px; }
+.ks-rating-distribution > div { display: grid; grid-template-rows: 16px 72px 18px; gap: 5px; text-align: center; }
+.ks-rating-distribution span, .ks-rating-distribution strong { color: var(--ks-muted); font-size: 10px; }
+.ks-rating-distribution i { position: relative; display: flex; align-items: flex-end; justify-content: center; width: 100%; overflow: hidden; border-radius: 5px; background: #edf1f6; }
+.ks-rating-distribution i b { display: block; width: 70%; max-height: 100%; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, #8b73ef, var(--ks-violet)); }
+.ks-song-stat-note { margin: 14px 0 0; color: var(--ks-muted); font-size: 11px; line-height: 1.5; }
+
+.ks-history-search { display: grid; gap: 6px; min-width: min(330px,100%); }
+.ks-history-search span { color: var(--ks-muted); font-size: 11px; font-weight: 850; }
+.ks-history-search input { width: 100%; min-height: 42px; padding: 8px 11px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: var(--ks-text); font: inherit; font-size: 13px; }
+.ks-history-search input:focus { border-color: var(--ks-violet); outline: 3px solid rgba(109,78,232,.12); }
+.ks-history-table { min-width: 1120px; }
+.ks-history-title { display: block; color: var(--ks-text); }
+.ks-history-title:hover { color: var(--ks-violet-dark); }
+.ks-history-row-actions { display: flex; gap: 6px; }
+.ks-historical-exports { display: flex; align-items: center; justify-content: space-between; gap: 24px; scroll-margin-top: 24px; }
+.ks-historical-exports h2 { margin: 0; }
+.ks-historical-exports p { margin: 7px 0 0; color: var(--ks-muted); line-height: 1.5; }
+
 .ks-artist-picker { position: relative; max-width: 700px; margin-bottom: 18px; }
 .ks-artist-picker label { display: grid; gap: 7px; }
 .ks-artist-picker label > span { color: #526276; font-size: 12px; font-weight: 850; }
@@ -536,6 +579,10 @@
 @media (max-width: 900px) {
   .ks-artist-card-grid.count-3 { grid-template-columns: 1fr; }
   .ks-polarization-list > div { grid-template-columns: minmax(180px,1fr) minmax(160px,1fr) 35px; }
+  .ks-song-stat-list summary { grid-template-columns: 42px minmax(200px,1fr) repeat(2,minmax(85px,.4fr)) 22px; }
+  .ks-song-stat-list summary > span:nth-of-type(5) { display: none; }
+  .ks-song-stat-metrics { grid-template-columns: repeat(3,minmax(105px,1fr)); }
+  .ks-historical-exports { display: grid; }
 }
 
 @media (max-width: 620px) {
@@ -549,6 +596,13 @@
   .ks-artist-card-grid dl { grid-template-columns: 1fr; }
   .ks-artist-suggestions button { display: grid; gap: 3px; }
   .ks-round-statistics-picker { min-width: 0; }
+  .ks-round-view-nav { margin-top: 0; }
+  .ks-song-stat-list summary { grid-template-columns: 38px minmax(0,1fr) 20px; }
+  .ks-song-stat-list summary > span:not(.ks-rank-pill):not(.ks-song-stat-title) { display: none; }
+  .ks-song-stat-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .ks-rating-distribution { grid-template-columns: repeat(7,minmax(30px,1fr)); }
+  .ks-history-search { min-width: 0; }
+  .ks-historical-exports .ks-inline-actions, .ks-historical-exports .ks-button { width: 100%; }
 }
 
 @media print {
@@ -591,5 +645,13 @@
   .ks-statistics-report .ks-method-note > p { display: block; }
   .ks-artist-picker, .ks-artist-empty, #artist-history { display: none !important; }
   .ks-round-statistics-picker { display: none !important; }
+  .ks-song-stat-list > details { break-inside: avoid; }
+  .ks-song-stat-panel { display: none !important; }
+  .ks-history-load-status, .ks-history-table, .ks-historical-exports { display: none !important; }
+  .ks-combined-report .ks-card { break-inside: auto; }
+  .ks-combined-report .ks-highlight-card, .ks-combined-report .ks-stat-card, .ks-combined-report .ks-song-stat-list > details { break-inside: avoid; }
+  .ks-combined-report .ks-report-summary { break-after: avoid; }
+  .ks-combined-report #week-comparison { display: none; }
+  .ks-statistics-report #week-comparison, .ks-inline-load-status { display: none !important; }
   a { text-decoration: none !important; }
 }

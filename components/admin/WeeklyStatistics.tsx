@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { StatCard } from './AdminUi';
 import { buildWeekComparison, type ReleaseWeekStatistics, type WeekComparisonMetric } from '@/lib/releaseStatisticsCore';
 import { useHistoricalWeeks } from './useHistoricalWeeks';
+import SongStatisticsDetails from './SongStatisticsDetails';
 
 function oneDecimal(value: number | null, suffix = '') {
   return value === null ? '—' : `${value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${suffix}`;
@@ -28,19 +29,32 @@ export default function WeeklyStatistics({ stats }: { stats: ReleaseWeekStatisti
   const polarizing = [...stats.comparisonRows]
     .filter((row) => row.polarizationIndex !== null && (row.audienceMentions > 0 || row.juryPoints > 0))
     .sort((a, b) => (b.polarizationIndex || 0) - (a.polarizationIndex || 0));
+  const winners = stats.overallRows.filter((row) => row.rank === 1);
+  const winner = winners[0] || null;
 
   return <div className="ks-week-statistics" id="weekly-statistics">
-    <section className="ks-stats-grid weekly-kpis">
-      <StatCard label="Songs im Voting" value={stats.songsCount} />
-      <StatCard label="Publikums-Votings" value={stats.totalVotes} />
-      <StatCard label="Gültig / gewertet" value={stats.countedVotes} tone="success" />
-      <StatCard label="Einzelwertungen" value={stats.individualRatings} hint="Nennungen von Publikum und Jury" />
-      <StatCard label="Jury-Status" value={`${stats.submittedJurors}/${stats.activeJurors}`} hint="abgegeben / aktiv" tone={stats.submittedJurors === stats.activeJurors && stats.activeJurors > 0 ? 'success' : 'warning'} />
-      <StatCard label="Abstand Platz 1–2" value={stats.winnerGap === null ? '—' : stats.winnerGap} hint="Gesamtpunkte" tone={stats.winnerGap !== null && stats.winnerGap <= 2 ? 'warning' : 'neutral'} />
-      <StatCard label="Punkteanteil Top 3" value={oneDecimal(stats.top3Share, ' %')} />
-      <StatCard label="Punkteanteil Top 5" value={oneDecimal(stats.top5Share, ' %')} />
-      <StatCard label="Songs ohne Punkte" value={stats.songsWithoutPoints} tone={stats.songsWithoutPoints ? 'warning' : 'success'} />
-      <StatCard label="Songs ohne Nennung" value={stats.songsWithoutRatings} hint="weder Publikum noch Jury" tone={stats.songsWithoutRatings ? 'warning' : 'success'} />
+    <section className="ks-card ks-stat-section">
+      <div className="ks-section-heading"><div><span className="ks-section-kicker">Diese Umfrage</span><h2>Allgemeine Informationen</h2><p>Nur Daten der ausgewählten Voting-Woche.</p></div></div>
+      <div className="ks-stats-grid weekly-kpis inside-card">
+        <StatCard label="Songs im Voting" value={stats.songsCount} />
+        <StatCard label="Publikums-Votings" value={stats.totalVotes} />
+        <StatCard label="Gültig / gewertet" value={stats.countedVotes} tone="success" />
+        <StatCard label="Einzelwertungen" value={stats.individualRatings} hint="positive Nennungen Publikum + Jury" />
+        <StatCard label="Jury-Status" value={`${stats.submittedJurors}/${stats.activeJurors}`} hint="abgegeben / aktiv" tone={stats.submittedJurors === stats.activeJurors && stats.activeJurors > 0 ? 'success' : 'warning'} />
+      </div>
+    </section>
+
+    <section className="ks-card ks-stat-section">
+      <div className="ks-section-heading"><div><span className="ks-section-kicker">Ergebnis</span><h2>Ergebnis-Kennzahlen</h2><p>Gesamtwertung aus unveränderter Jury-plus-Publikum-Logik.</p></div></div>
+      <div className="ks-stats-grid weekly-kpis inside-card">
+        <StatCard label="Platz 1" value={winner?.song.title || '—'} hint={winner ? `${winners.length > 1 ? `${winners.length} geteilte Sieger · ` : ''}${winner.song.artist} · ${winner.total} Punkte` : undefined} tone="violet" />
+        <StatCard label="Abstand Platz 1–2" value={stats.winnerGap === null ? '—' : stats.winnerGap} hint="Gesamtpunkte" tone={stats.winnerGap !== null && stats.winnerGap <= 2 ? 'warning' : 'neutral'} />
+        <StatCard label="Relativer Abstand" value={oneDecimal(stats.winnerGapPercent, ' %')} hint="Vorsprung relativ zu Platz 1" />
+        <StatCard label="Punkteanteil Top 3" value={oneDecimal(stats.top3Share, ' %')} />
+        <StatCard label="Punkteanteil Top 5" value={oneDecimal(stats.top5Share, ' %')} />
+        <StatCard label="Songs ohne Punkte" value={stats.songsWithoutPoints} tone={stats.songsWithoutPoints ? 'warning' : 'success'} />
+        <StatCard label="Songs ohne Nennung" value={stats.songsWithoutRatings} hint="weder Publikum noch Jury" tone={stats.songsWithoutRatings ? 'warning' : 'success'} />
+      </div>
     </section>
 
     <section className="ks-card ks-stat-section" id="highlights">
@@ -52,6 +66,8 @@ export default function WeeklyStatistics({ stats }: { stats: ReleaseWeekStatisti
       <div className="ks-section-heading"><div><span className="ks-section-kicker">Rangvergleich</span><h2>Publikum vs. Jury</h2><p>Positive Differenz bedeutet: Der Song steht beim Publikum besser. Negative Differenz bedeutet: Die Jury setzt ihn höher.</p></div></div>
       <div className="ks-table-scroll"><table className="ks-table stats-comparison"><thead><tr><th>Gesamt</th><th>Song</th><th>Künstler</th><th>Publikum</th><th>Jury</th><th>Differenz</th><th>Publikumsnennungen</th></tr></thead><tbody>{stats.comparisonRows.map((row) => <tr key={row.song.id}><td><span className="ks-rank-pill">{row.overallRank ?? '—'}</span></td><td><strong>{row.song.title}</strong></td><td>{row.song.artist}</td><td>{row.audienceRank ?? '—'}</td><td>{row.juryRank ?? '—'}</td><td><span className={`ks-rank-difference ${(row.rankDifference || 0) > 0 ? 'audience' : (row.rankDifference || 0) < 0 ? 'jury' : ''}`}>{differenceLabel(row.rankDifference)}</span></td><td>{row.audienceMentions}</td></tr>)}</tbody></table></div>
     </section>
+
+    <SongStatisticsDetails rows={stats.comparisonRows} />
 
     <section className="ks-card ks-stat-section" id="polarization">
       <div className="ks-section-heading"><div><span className="ks-section-kicker">Einigkeit und Uneinigkeit</span><h2>Polarisierungsindex</h2><p>0 steht für vollständige Einigkeit, 100 für die maximal mögliche Streuung auf der 0-bis-12-Punkte-Skala.</p></div><div className="ks-polarization-summary"><span>Wochendurchschnitt</span><strong>{oneDecimal(stats.averagePolarization)}</strong></div></div>

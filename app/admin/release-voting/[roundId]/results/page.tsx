@@ -9,6 +9,7 @@ import ResultsPublicTable from '@/components/admin/ResultsPublicTable';
 import OverallResultsTable from '@/components/admin/OverallResultsTable';
 import ReportActions from '@/components/admin/ReportActions';
 import { buildReleaseWeekStatistics, buildReportGraphicData } from '@/lib/releaseStatisticsCore';
+import RoundViewNav from '@/components/admin/RoundViewNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,8 +33,9 @@ export default async function AdminResultsPage({
       eyebrow={<a href={`/admin/release-voting/${data.round.id}`}>← Zur Umfrage</a>}
       title={`Auswertung – ${data.round.title}`}
       description={formatRoundPeriod(data.round)}
-      actions={<><a className="ks-button primary no-print" href={`/admin/release-voting/${data.round.id}/statistics`}>Statistiken dieser Woche</a><a className="ks-button secondary no-print" href={`/admin/release-voting/${data.round.id}#top5`}>Top-5-Grafik</a></>}
+      actions={<a className="ks-button secondary no-print" href={`/admin/release-voting/${data.round.id}#top5`}>Top-5-Grafik</a>}
     />
+    <RoundViewNav roundId={data.round.id} active="results" />
     <ReportActions data={graphicData} view="results" autoPrint={query.print === '1'} />
     <section className="ks-stats-grid results-head">
       <StatCard label="Songs" value={data.songs.length} />

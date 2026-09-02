@@ -6,7 +6,9 @@ const RESULT_HEADERS = [
   'Umfrage-ID', 'Umfrage', 'Slug', 'Status', 'Start', 'Ende', 'Song-ID', 'Song', 'Künstler',
   'Gesamtplatz', 'Gesamtpunkte', 'Jury-Punkte Summe', 'Jury-Durchschnitt', 'Jury-Platz',
   'Publikum 12–1 Punkte', 'Publikumspunkte Rohwert', 'Publikumsnennungen', 'Publikumsplatz',
-  'Abweichung Publikum/Jury', 'Polarisierungsindex', 'Polarisierungsbeschreibung', 'ZONK-Stimmen',
+  'Abweichung Publikum/Jury', 'Polarisierungsindex', 'Polarisierungsbeschreibung',
+  'Ø Einzelbewertung', 'Höchste Einzelbewertung', 'Niedrigste Einzelbewertung',
+  '12-Punkte-Wertungen', 'Nullwertungen', 'Streuung Einzelbewertungen', 'Anzahl Einzelbewertungen', 'ZONK-Stimmen',
   'Publikumsstimmen gesamt', 'Publikumsstimmen gewertet', 'Juroren abgegeben', 'Juroren aktiv',
 ];
 
@@ -40,6 +42,13 @@ export function buildWeekResultRows(week: ReleaseWeekStatistics) {
       row.rankDifference,
       row.polarizationIndex,
       row.polarizationLabel,
+      nullableNumber(row.detail.averageRating),
+      row.detail.highestRating,
+      row.detail.lowestRating,
+      row.detail.topRatings,
+      row.detail.zeroRatings,
+      nullableNumber(row.detail.standardDeviation),
+      row.detail.ratingCount,
       zonkBySong.get(row.song.id) || 0,
       week.totalVotes,
       week.countedVotes,
@@ -57,7 +66,9 @@ function weekKpiRows(week: ReleaseWeekStatistics) {
     ['Publikumsstimmen gewertet', week.countedVotes, 'Bestätigt und aktuell gewertet'],
     ['Einzelwertungen/Nennungen', week.individualRatings, 'Publikumsnennungen plus positive Jurywertungen'],
     ['Jury abgegeben', week.submittedJurors, `von ${week.activeJurors} aktiven Juroren`],
+    ['Sieger', week.overallRows.find((row) => row.rank === 1)?.song.title || null, 'Platz 1 der Gesamtwertung'],
     ['Abstand Platz 1–2', week.winnerGap, 'Gesamtpunkte'],
+    ['Relativer Abstand Platz 1–2 (%)', nullableNumber(week.winnerGapPercent), 'Vorsprung relativ zu den Gesamtpunkten von Platz 1'],
     ['Punkteanteil Top 3 (%)', nullableNumber(week.top3Share), 'Anteil an allen Gesamtpunkten'],
     ['Punkteanteil Top 5 (%)', nullableNumber(week.top5Share), 'Anteil an allen Gesamtpunkten'],
     ['Songs ohne Gesamtpunkte', week.songsWithoutPoints, 'Keine Jury- oder Publikumspunkte in der Gesamtwertung'],
@@ -101,19 +112,24 @@ function artistRows(artists: ArtistHistory[]) {
 }
 
 export function buildArchiveExportSheets(archive: ReleaseStatisticsArchive): WorkbookSheet[] {
+  return buildHistoricalExportSheets(archive.weeks, archive.artists);
+}
+
+export function buildHistoricalExportSheets(weeks: ReleaseWeekStatistics[], artists: ArtistHistory[]): WorkbookSheet[] {
   return [
-    { name: 'Alle Ergebnisse', rows: [RESULT_HEADERS, ...archive.weeks.flatMap((week) => buildWeekResultRows(week).slice(1))] },
+    { name: 'Alle Ergebnisse', rows: [RESULT_HEADERS, ...weeks.flatMap((week) => buildWeekResultRows(week).slice(1))] },
     {
       name: 'Wochenübersicht',
       rows: [
-        ['Umfrage-ID', 'Umfrage', 'Status', 'Start', 'Songs', 'Publikum gesamt', 'Publikum gewertet', 'Jury abgegeben', 'Jury aktiv', 'Abstand Platz 1–2', 'Top-3-Anteil (%)', 'Top-5-Anteil (%)', 'Ø Polarisation'],
-        ...archive.weeks.map((week) => [
+        ['Umfrage-ID', 'Umfrage', 'Status', 'Start', 'Songs', 'Publikum gesamt', 'Publikum gewertet', 'Jury abgegeben', 'Jury aktiv', 'Sieger', 'Abstand Platz 1–2', 'Relativer Abstand (%)', 'Top-3-Anteil (%)', 'Top-5-Anteil (%)', 'Ø Polarisation'],
+        ...weeks.map((week) => [
           week.round.id, week.round.title, week.round.status, week.round.starts_at, week.songsCount,
-          week.totalVotes, week.countedVotes, week.submittedJurors, week.activeJurors, week.winnerGap,
+          week.totalVotes, week.countedVotes, week.submittedJurors, week.activeJurors,
+          week.overallRows.find((row) => row.rank === 1)?.song.title || null, week.winnerGap, nullableNumber(week.winnerGapPercent),
           nullableNumber(week.top3Share), nullableNumber(week.top5Share), nullableNumber(week.averagePolarization),
         ]),
       ],
     },
-    { name: 'Künstlerübersicht', rows: artistRows(archive.artists) },
+    { name: 'Künstlerübersicht', rows: artistRows(artists) },
   ];
 }

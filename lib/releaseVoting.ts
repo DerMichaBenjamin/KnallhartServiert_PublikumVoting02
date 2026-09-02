@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from './supabaseAdmin';
 import { getSetting, setSetting } from './settings';
 import {
   buildLeaderboard,
+  buildAudienceRatingStats,
   buildZonk,
   combineSongLine,
   type AdminParticipantRow,
@@ -305,6 +306,7 @@ export async function getAdminRoundDetailData(roundId: string, options: AdminRou
     : verifiedData?.items || [];
   const leaderboard = buildLeaderboard(songs, countedVoteRows, items);
   const zonk = buildZonk(songs, countedVoteRows);
+  const audienceRatingStatsBySong = buildAudienceRatingStats(songs, countedVoteRows.length, items);
   const songById = new Map(songs.map((song) => [song.id, song]));
   const sameIpCounts = new Map<string, number>();
 
@@ -357,6 +359,7 @@ export async function getAdminRoundDetailData(roundId: string, options: AdminRou
     leaderboard,
     zonk,
     participants,
+    audienceRatingStatsBySong,
   };
 
   return { round, songs, summary };

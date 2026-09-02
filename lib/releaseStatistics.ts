@@ -2,7 +2,7 @@ import 'server-only';
 
 import { unstable_noStore as noStore } from 'next/cache';
 import { getSupabaseAdminClient } from './supabaseAdmin';
-import { buildLeaderboard, buildZonk, type AdminRoundSummary, type Round, type Song, type VoteItem } from './releaseVotingShared';
+import { buildAudienceRatingStats, buildLeaderboard, buildZonk, type AdminRoundSummary, type Round, type Song, type VoteItem } from './releaseVotingShared';
 import type { AdminJuryRoundData, JuryRoundJuror, JuryVoteItem } from './juryVoting';
 import { getAdminJuryRoundData } from './juryVoting';
 import { getAdminRoundDetailData } from './releaseVoting';
@@ -202,6 +202,7 @@ export async function getReleaseStatisticsArchive(): Promise<ReleaseStatisticsAr
       leaderboard,
       zonk,
       participants: [],
+      audienceRatingStatsBySong: buildAudienceRatingStats(roundSongs, countedRows.length, roundItems),
     };
     const juryData: AdminJuryRoundData = {
       defaultProfiles: [],

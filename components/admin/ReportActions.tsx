@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ReportGraphicData } from '@/lib/releaseStatisticsCore';
 import PopoverMenu from './PopoverMenu';
 
-type ReportView = 'results' | 'statistics';
+type ReportView = 'overview' | 'results' | 'statistics' | 'combined';
 
 const COLORS = {
   navy: '#071a2d',
@@ -134,7 +134,23 @@ function drawResultsGraphic(data: ReportGraphicData) {
 function drawStatisticsGraphic(data: ReportGraphicData) {
   const width = 1600;
   const highlights = data.highlights.slice(0, 10);
-  const height = Math.max(2200, 1070 + Math.ceil(highlights.length / 2) * 245 + 150);
+  const metrics = [
+    ['Platz 1', data.winner],
+    ['Songs', String(data.songsCount)],
+    ['Publikums-Votings', String(data.totalVotes)],
+    ['Gewertete Stimmen', String(data.countedVotes)],
+    ['Einzelwertungen', String(data.individualRatings)],
+    ['Jury', data.juryStatus],
+    ['Abstand Platz 1–2', data.winnerGap === null ? '—' : `${data.winnerGap} Punkte${data.winnerGapPercent === null ? '' : ` · ${data.winnerGapPercent.toFixed(1)} %`}`],
+    ['Punkteanteil Top 3', data.top3Share === null ? '—' : `${data.top3Share.toFixed(1)} %`],
+    ['Punkteanteil Top 5', data.top5Share === null ? '—' : `${data.top5Share.toFixed(1)} %`],
+    ['Ø Polarisierung', data.averagePolarization === null ? '—' : `${data.averagePolarization.toFixed(1)} / 100`],
+    ['Ohne Punkte', String(data.songsWithoutPoints)],
+    ['Ohne Nennung', String(data.songsWithoutRatings)],
+  ];
+  const highlightHeadingY = 410 + Math.ceil(metrics.length / 3) * 190;
+  const highlightStartY = highlightHeadingY + 50;
+  const height = Math.max(2400, highlightStartY + Math.ceil(highlights.length / 2) * 245 + 150);
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -144,17 +160,6 @@ function drawStatisticsGraphic(data: ReportGraphicData) {
   context.fillRect(0, 0, width, height);
   drawHeader(context, data, 'STATISTIKEN', width);
 
-  const metrics = [
-    ['Songs', String(data.songsCount)],
-    ['Gewertete Stimmen', String(data.countedVotes)],
-    ['Jury', data.juryStatus],
-    ['Abstand Platz 1–2', data.winnerGap === null ? '—' : `${data.winnerGap} Punkte`],
-    ['Punkteanteil Top 3', data.top3Share === null ? '—' : `${data.top3Share.toFixed(1)} %`],
-    ['Punkteanteil Top 5', data.top5Share === null ? '—' : `${data.top5Share.toFixed(1)} %`],
-    ['Ø Polarisierung', data.averagePolarization === null ? '—' : `${data.averagePolarization.toFixed(1)} / 100`],
-    ['Ohne Punkte', String(data.songsWithoutPoints)],
-    ['Ohne Nennung', String(data.songsWithoutRatings)],
-  ];
   const margin = 70;
   const gap = 22;
   const cardWidth = (width - margin * 2 - gap * 2) / 3;
@@ -178,12 +183,12 @@ function drawStatisticsGraphic(data: ReportGraphicData) {
 
   context.fillStyle = COLORS.text;
   context.font = '900 38px Arial, sans-serif';
-  context.fillText('Besonderheiten dieser Woche', margin, 1020);
+  context.fillText('Besonderheiten dieser Woche', margin, highlightHeadingY);
   highlights.forEach((highlight, index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
     const x = margin + column * ((width - margin * 2 + gap) / 2);
-    const y = 1070 + row * 245;
+    const y = highlightStartY + row * 245;
     const cardW = (width - margin * 2 - gap) / 2;
     roundedRect(context, x, y, cardW, 220, 18);
     context.fillStyle = '#ffffff';
@@ -204,8 +209,128 @@ function drawStatisticsGraphic(data: ReportGraphicData) {
   return canvas;
 }
 
+function drawCombinedGraphic(data: ReportGraphicData) {
+  const width = 1600;
+  const rowHeight = 70;
+  const tableStart = 370;
+  const tableHeight = 72 + data.results.length * rowHeight;
+  const metricsHeading = tableStart + tableHeight + 95;
+  const metricsStart = metricsHeading + 45;
+  const highlights = data.highlights.slice(0, 8);
+  const highlightsHeading = metricsStart + 390;
+  const highlightsStart = highlightsHeading + 55;
+  const height = Math.max(2600, highlightsStart + Math.ceil(highlights.length / 2) * 220 + 170);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  context.fillStyle = COLORS.background;
+  context.fillRect(0, 0, width, height);
+  drawHeader(context, data, 'GESAMTAUSWERTUNG', width);
+
+  const margin = 70;
+  const tableWidth = width - margin * 2;
+  roundedRect(context, margin, tableStart, tableWidth, tableHeight + 15, 22);
+  context.fillStyle = '#ffffff';
+  context.fill();
+  context.fillStyle = '#eef1f6';
+  context.fillRect(margin, tableStart, tableWidth, 72);
+  context.fillStyle = COLORS.muted;
+  context.font = '800 19px Arial, sans-serif';
+  context.fillText('PLATZ', 95, tableStart + 45);
+  context.fillText('SONG / KÜNSTLER', 220, tableStart + 45);
+  context.fillText('JURY', 1160, tableStart + 45);
+  context.fillText('PUBLIKUM', 1280, tableStart + 45);
+  context.fillText('GESAMT', 1450, tableStart + 45);
+  data.results.forEach((row, index) => {
+    const rowY = tableStart + 72 + index * rowHeight;
+    if (index < 3) {
+      context.fillStyle = index === 0 ? '#fff3df' : '#fffaf1';
+      context.fillRect(margin, rowY, tableWidth, rowHeight);
+    }
+    context.strokeStyle = COLORS.line;
+    context.beginPath();
+    context.moveTo(margin + 20, rowY + rowHeight);
+    context.lineTo(width - margin - 20, rowY + rowHeight);
+    context.stroke();
+    context.fillStyle = index < 3 ? COLORS.orange : COLORS.violet;
+    context.font = '900 28px Arial, sans-serif';
+    context.fillText(String(row.rank ?? '—'), 110, rowY + 45);
+    context.fillStyle = COLORS.text;
+    context.font = '800 23px Arial, sans-serif';
+    context.fillText(fitText(context, row.title, 780), 220, rowY + 29);
+    context.fillStyle = COLORS.muted;
+    context.font = '500 18px Arial, sans-serif';
+    context.fillText(fitText(context, row.artist, 780), 220, rowY + 54);
+    context.fillStyle = COLORS.text;
+    context.font = '800 23px Arial, sans-serif';
+    context.fillText(String(row.juryPoints), 1180, rowY + 44);
+    context.fillText(String(row.audiencePoints), 1325, rowY + 44);
+    context.fillText(String(row.total), 1480, rowY + 44);
+  });
+
+  context.fillStyle = COLORS.text;
+  context.font = '900 38px Arial, sans-serif';
+  context.fillText('Zentrale Kennzahlen', margin, metricsHeading);
+  const metrics = [
+    ['Sieger', data.winner],
+    ['Publikums-Votings', String(data.totalVotes)],
+    ['Gewertete Stimmen', String(data.countedVotes)],
+    ['Jury', data.juryStatus],
+    ['Abstand Platz 1–2', data.winnerGap === null ? '—' : `${data.winnerGap} Punkte`],
+    ['Ø Polarisierung', data.averagePolarization === null ? '—' : `${data.averagePolarization.toFixed(1)} / 100`],
+  ];
+  const gap = 22;
+  const cardWidth = (width - margin * 2 - gap * 2) / 3;
+  metrics.forEach(([label, value], index) => {
+    const column = index % 3;
+    const row = Math.floor(index / 3);
+    const x = margin + column * (cardWidth + gap);
+    const y = metricsStart + row * 180;
+    roundedRect(context, x, y, cardWidth, 158, 18);
+    context.fillStyle = '#ffffff';
+    context.fill();
+    context.fillStyle = COLORS.violet;
+    context.fillRect(x, y, 8, 158);
+    context.fillStyle = COLORS.muted;
+    context.font = '700 19px Arial, sans-serif';
+    context.fillText(label, x + 32, y + 48);
+    context.fillStyle = COLORS.text;
+    context.font = '900 31px Arial, sans-serif';
+    context.fillText(fitText(context, value, cardWidth - 64), x + 32, y + 105);
+  });
+
+  context.fillStyle = COLORS.text;
+  context.font = '900 38px Arial, sans-serif';
+  context.fillText('Besonderheiten dieser Woche', margin, highlightsHeading);
+  highlights.forEach((highlight, index) => {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const x = margin + column * ((width - margin * 2 + gap) / 2);
+    const y = highlightsStart + row * 220;
+    const cardWidth = (width - margin * 2 - gap) / 2;
+    roundedRect(context, x, y, cardWidth, 198, 18);
+    context.fillStyle = '#ffffff';
+    context.fill();
+    context.fillStyle = highlight.tone === 'danger' ? COLORS.red : highlight.tone === 'warning' ? COLORS.orange : highlight.tone === 'success' ? COLORS.green : COLORS.violet;
+    context.fillRect(x, y, 8, 198);
+    context.fillStyle = COLORS.muted;
+    context.font = '800 17px Arial, sans-serif';
+    context.fillText(highlight.title.toUpperCase(), x + 32, y + 40);
+    context.fillStyle = COLORS.text;
+    context.font = '900 27px Arial, sans-serif';
+    context.fillText(fitText(context, highlight.value, cardWidth - 64), x + 32, y + 88);
+    context.fillStyle = COLORS.muted;
+    context.font = '500 18px Arial, sans-serif';
+    context.fillText(fitText(context, highlight.detail, cardWidth - 64), x + 32, y + 137);
+  });
+  drawFooter(context, width, height);
+  return canvas;
+}
+
 export default function ReportActions({ data, view, autoPrint = false }: { data: ReportGraphicData; view: ReportView; autoPrint?: boolean }) {
-  const [working, setWorking] = useState<'results' | 'statistics' | null>(null);
+  const [working, setWorking] = useState<'results' | 'statistics' | 'combined' | null>(null);
   const base = `/admin/release-voting/${data.roundId}`;
   const exportBase = `/api/admin/statistics/export?scope=round&roundId=${encodeURIComponent(data.roundId)}`;
 
@@ -215,32 +340,36 @@ export default function ReportActions({ data, view, autoPrint = false }: { data:
     return () => window.clearTimeout(timer);
   }, [autoPrint]);
 
-  function graphic(kind: 'results' | 'statistics') {
+  function graphic(kind: 'results' | 'statistics' | 'combined') {
     setWorking(kind);
     window.setTimeout(() => {
-      const canvas = kind === 'results' ? drawResultsGraphic(data) : drawStatisticsGraphic(data);
-      if (canvas) triggerDownload(canvas, `${safeFilename(data.title)}-${kind === 'results' ? 'ergebnisse' : 'statistiken'}.png`);
+      const canvas = kind === 'results' ? drawResultsGraphic(data) : kind === 'statistics' ? drawStatisticsGraphic(data) : drawCombinedGraphic(data);
+      const suffix = kind === 'results' ? 'ergebnisse' : kind === 'statistics' ? 'statistiken' : 'gesamtauswertung';
+      if (canvas) triggerDownload(canvas, `${safeFilename(data.title)}-${suffix}.png`);
       setWorking(null);
     }, 20);
   }
 
   return <div className="ks-report-actions no-print" aria-label="Druck und Export">
     {view === 'results'
-      ? <button className="ks-button secondary" type="button" onClick={() => window.print()}>Ergebnisse drucken / PDF</button>
-      : <a className="ks-button secondary" href={`${base}/results?print=1`} target="_blank" rel="noreferrer">Ergebnisse drucken / PDF</a>}
+      ? <button className="ks-button secondary" type="button" onClick={() => window.print()}>Ergebnisse drucken</button>
+      : <a className="ks-button secondary" href={`${base}/results?print=1`} target="_blank" rel="noreferrer">Ergebnisse drucken</a>}
     {view === 'statistics'
-      ? <button className="ks-button secondary" type="button" onClick={() => window.print()}>Statistiken drucken / PDF</button>
-      : <a className="ks-button secondary" href={`${base}/statistics?print=1`} target="_blank" rel="noreferrer">Statistiken drucken / PDF</a>}
+      ? <button className="ks-button secondary" type="button" onClick={() => window.print()}>Statistiken drucken</button>
+      : <a className="ks-button secondary" href={`${base}/statistics?print=1`} target="_blank" rel="noreferrer">Statistiken drucken</a>}
+    {view === 'combined'
+      ? <button className="ks-button secondary" type="button" onClick={() => window.print()}>Gesamtauswertung drucken</button>
+      : <a className="ks-button secondary" href={`${base}/report?print=1`} target="_blank" rel="noreferrer">Gesamtauswertung drucken</a>}
     <button className="ks-button secondary" type="button" disabled={working !== null} onClick={() => graphic('results')}>{working === 'results' ? 'Erstelle …' : 'Ergebnisgrafik PNG'}</button>
     <button className="ks-button secondary" type="button" disabled={working !== null} onClick={() => graphic('statistics')}>{working === 'statistics' ? 'Erstelle …' : 'Statistikgrafik PNG'}</button>
+    <button className="ks-button secondary" type="button" disabled={working !== null} onClick={() => graphic('combined')}>{working === 'combined' ? 'Erstelle …' : 'Gesamtauswertung PNG'}</button>
     <PopoverMenu label="Daten exportieren" trigger="Daten exportieren ▾" triggerClassName="ks-button primary" panelClassName="ks-export-menu">
       {(close) => <>
         <strong>Aktuelle Umfrage</strong>
         <a href={`${exportBase}&format=csv`} onClick={close}>CSV herunterladen</a>
         <a href={`${exportBase}&format=xlsx`} onClick={close}>XLSX herunterladen</a>
         <strong>Alle Umfragen</strong>
-        <a href="/api/admin/statistics/export?scope=all&format=csv" onClick={close}>Gesamtauswertung CSV</a>
-        <a href="/api/admin/statistics/export?scope=all&format=xlsx" onClick={close}>Gesamtauswertung XLSX</a>
+        <a href="/admin/statistics#historical-exports" onClick={close}>Gesamtexporte öffnen</a>
       </>}
     </PopoverMenu>
   </div>;
