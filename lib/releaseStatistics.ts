@@ -4,6 +4,8 @@ import { unstable_noStore as noStore } from 'next/cache';
 import { getSupabaseAdminClient } from './supabaseAdmin';
 import { buildLeaderboard, buildZonk, type AdminRoundSummary, type Round, type Song, type VoteItem } from './releaseVotingShared';
 import type { AdminJuryRoundData, JuryRoundJuror, JuryVoteItem } from './juryVoting';
+import { getAdminJuryRoundData } from './juryVoting';
+import { getAdminRoundDetailData } from './releaseVoting';
 import {
   buildArtistHistories,
   buildReleaseWeekStatistics,
@@ -53,6 +55,13 @@ export type ReleaseStatisticsArchive = {
   weeks: ReleaseWeekStatistics[];
   artists: ArtistHistory[];
   totals: StatisticsArchiveTotals;
+};
+
+export type StatisticsWeeksBatch = {
+  weeks: ReleaseWeekStatistics[];
+  total: number;
+  nextOffset: number | null;
+  warnings: string[];
 };
 
 async function fetchAllPages<T>(label: string, loadPage: (from: number, to: number) => Promise<PageResult<T>>) {
@@ -228,5 +237,50 @@ export async function getReleaseStatisticsArchive(): Promise<ReleaseStatisticsAr
       excludedVotes,
       unverifiedVotes: Math.max(0, votes.length - confirmedVotes),
     },
+  };
+}
+
+/**
+ * Lädt historische Auswertungen bewusst in kleinen Paketen. So blockiert die
+ * globale Statistikseite nicht durch sämtliche Vote-Items aller Jahre in einem
+ * einzigen Vercel-Request. Fehlerhafte Altrunden werden gemeldet und übersprungen,
+ * statt die komplette Statistikseite zum Absturz zu bringen.
+ */
+export async function getStatisticsWeeksBatch(offset = 0, limit = 2): Promise<StatisticsWeeksBatch> {
+  noStore();
+  const sb = getSupabaseAdminClient();
+  const safeOffset = Math.max(0, Math.floor(offset));
+  const safeLimit = Math.min(3, Math.max(1, Math.floor(limit)));
+  if (!sb) return { weeks: [], total: 0, nextOffset: null, warnings: ['Supabase ist nicht konfiguriert.'] };
+
+  const { data, count, error } = await sb
+    .from('release_voting_rounds')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(safeOffset, safeOffset + safeLimit - 1);
+  if (error) throw new Error(`Umfragen konnten nicht geladen werden: ${error.message}`);
+  const rounds = (data || []) as Round[];
+  const results = await Promise.all(rounds.map(async (round) => {
+    try {
+      const [detail, juryData] = await Promise.all([
+        getAdminRoundDetailData(round.id, { round }),
+        getAdminJuryRoundData(round.id),
+      ]);
+      if (!detail) throw new Error('Rundendaten fehlen.');
+      return { week: buildReleaseWeekStatistics(round, detail.songs, detail.summary, juryData), warning: null };
+    } catch (roundError) {
+      return {
+        week: null,
+        warning: `${round.title || round.id}: ${roundError instanceof Error ? roundError.message : 'Auswertung fehlgeschlagen.'}`,
+      };
+    }
+  }));
+  const total = count || 0;
+  const consumed = safeOffset + rounds.length;
+  return {
+    weeks: results.map((result) => result.week).filter((week): week is ReleaseWeekStatistics => Boolean(week)),
+    total,
+    nextOffset: rounds.length && consumed < total ? consumed : null,
+    warnings: results.map((result) => result.warning).filter((warning): warning is string => Boolean(warning)),
   };
 }

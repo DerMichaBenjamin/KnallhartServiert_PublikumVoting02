@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { isAdminLoggedIn } from '@/lib/adminAuth';
-import { getReleaseStatisticsArchive } from '@/lib/releaseStatistics';
-import { buildReportGraphicData, buildWeekComparison, formatReportPeriod } from '@/lib/releaseStatisticsCore';
+import { getAdminRoundDetailData } from '@/lib/releaseVoting';
+import { getAdminJuryRoundData } from '@/lib/juryVoting';
+import { buildReleaseWeekStatistics, buildReportGraphicData, formatReportPeriod } from '@/lib/releaseStatisticsCore';
 import { PageHeader } from '@/components/admin/AdminUi';
 import ReportActions from '@/components/admin/ReportActions';
 import WeeklyStatistics from '@/components/admin/WeeklyStatistics';
@@ -19,10 +20,12 @@ export default async function AdminRoundStatisticsPage({
 }) {
   if (!(await isAdminLoggedIn())) redirect('/admin/login');
   const [{ roundId }, query] = await Promise.all([params, searchParams]);
-  const archive = await getReleaseStatisticsArchive();
-  const stats = archive.weeks.find((week) => week.round.id === roundId);
-  if (!stats) notFound();
-  const comparison = buildWeekComparison(stats, archive.weeks);
+  const [detail, juryData] = await Promise.all([
+    getAdminRoundDetailData(roundId, { includeParticipants: false }),
+    getAdminJuryRoundData(roundId),
+  ]);
+  if (!detail) notFound();
+  const stats = buildReleaseWeekStatistics(detail.round, detail.songs, detail.summary, juryData);
   const graphicData = buildReportGraphicData(stats);
 
   return <main className="ks-print-report ks-statistics-report">
@@ -33,6 +36,6 @@ export default async function AdminRoundStatisticsPage({
       actions={<a className="ks-button secondary no-print" href={`/admin/release-voting/${roundId}`}>Umfrage verwalten</a>}
     />
     <ReportActions data={graphicData} view="statistics" autoPrint={query.print === '1'} />
-    <WeeklyStatistics stats={stats} comparison={comparison} />
+    <WeeklyStatistics stats={stats} />
   </main>;
 }

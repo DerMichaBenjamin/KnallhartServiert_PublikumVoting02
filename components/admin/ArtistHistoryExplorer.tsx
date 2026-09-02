@@ -10,7 +10,9 @@ function rank(value: number | null) {
 }
 
 function shortDate(value: string | null) {
-  return value ? new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(value)) : '—';
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(date);
 }
 
 function ArtistTimeline({ artists }: { artists: ArtistHistory[] }) {

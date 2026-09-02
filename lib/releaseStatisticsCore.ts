@@ -398,8 +398,13 @@ export function buildArtistHistories(weeks: ReleaseWeekStatistics[]): ArtistHist
 
 export function formatReportPeriod(round: Round) {
   const formatter = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const start = round.starts_at ? formatter.format(new Date(round.starts_at)) : null;
-  const end = round.ends_at ? formatter.format(new Date(round.ends_at)) : null;
+  const format = (value: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : formatter.format(date);
+  };
+  const start = format(round.starts_at);
+  const end = format(round.ends_at);
   return start && end ? `${start} – ${end}` : start || end || 'Zeitraum nicht festgelegt';
 }
 

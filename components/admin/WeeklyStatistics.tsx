@@ -1,5 +1,9 @@
+'use client';
+
+import { useMemo } from 'react';
 import { StatCard } from './AdminUi';
-import type { ReleaseWeekStatistics, WeekComparisonMetric } from '@/lib/releaseStatisticsCore';
+import { buildWeekComparison, type ReleaseWeekStatistics, type WeekComparisonMetric } from '@/lib/releaseStatisticsCore';
+import { useHistoricalWeeks } from './useHistoricalWeeks';
 
 function oneDecimal(value: number | null, suffix = '') {
   return value === null ? '—' : `${value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${suffix}`;
@@ -18,7 +22,9 @@ function differenceLabel(value: number | null) {
   return value > 0 ? `Publikum +${value}` : `Jury +${Math.abs(value)}`;
 }
 
-export default function WeeklyStatistics({ stats, comparison }: { stats: ReleaseWeekStatistics; comparison: WeekComparisonMetric[] }) {
+export default function WeeklyStatistics({ stats }: { stats: ReleaseWeekStatistics }) {
+  const history = useHistoricalWeeks();
+  const comparison = useMemo(() => buildWeekComparison(stats, history.weeks), [history.weeks, stats]);
   const polarizing = [...stats.comparisonRows]
     .filter((row) => row.polarizationIndex !== null && (row.audienceMentions > 0 || row.juryPoints > 0))
     .sort((a, b) => (b.polarizationIndex || 0) - (a.polarizationIndex || 0));
@@ -55,6 +61,9 @@ export default function WeeklyStatistics({ stats, comparison }: { stats: Release
 
     <section className="ks-card ks-stat-section" id="week-comparison">
       <div className="ks-section-heading"><div><span className="ks-section-kicker">Historischer Kontext</span><h2>Diese Woche im Vergleich</h2><p>Vergleich mit dem Durchschnitt aller anderen tatsächlich durchgeführten Voting-Wochen.</p></div></div>
+      {history.loading && <div className="ks-inline-load-status" role="status"><span>Historische Vergleichsdaten werden geladen</span><strong>{history.processed} von {history.total || '…'}</strong></div>}
+      {history.error && <div className="notice error"><strong>Der historische Vergleich ist derzeit nicht vollständig.</strong><br />{history.error}<div className="ks-inline-actions"><button className="ks-button small secondary" type="button" onClick={history.retry}>Erneut versuchen</button></div></div>}
+      {history.warnings.length > 0 && <details className="ks-method-note"><summary>{history.warnings.length} Altrunden wurden beim Vergleich übersprungen</summary><ul>{history.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul></details>}
       <div className="ks-week-comparison-grid">{comparison.map((item) => <article key={item.key}><span>{item.label}</span><strong>{compact(item.current, item.unit)}</strong><small>Historischer Ø: {compact(item.average, item.unit)}</small><b className={(item.delta || 0) > 0 ? 'positive' : (item.delta || 0) < 0 ? 'negative' : ''}>{item.delta === null ? 'Kein Vergleich' : `${item.delta > 0 ? '+' : ''}${compact(item.delta, item.unit)}`}</b></article>)}</div>
     </section>
   </div>;
