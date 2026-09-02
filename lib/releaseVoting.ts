@@ -44,6 +44,11 @@ export type RoundVoteCounts = {
   unverifiedVotes: number;
 };
 
+export type VotingCheckReviewVote = Pick<Vote,
+  'id' | 'juror_name' | 'juror_email' | 'created_at' | 'verified_at' |
+  'integrity_reasons' | 'email_domain' | 'ip_hash'
+>;
+
 type AdminRoundDetailOptions = {
   includeParticipants?: boolean;
   round?: Round;
@@ -240,6 +245,25 @@ export async function getRoundVoteCounts(roundId: string): Promise<RoundVoteCoun
     excludedVotes: exactCount(excluded, 'Ausgeschlossene Stimmen'),
     unverifiedVotes: Math.max(0, totalVotes - confirmedVotes),
   };
+}
+
+export async function getVotingCheckReviewVotes(roundId: string, limit = 200): Promise<VotingCheckReviewVote[]> {
+  noStore();
+  const sb = getSupabaseAdminClient();
+  if (!sb) return [];
+
+  const { data, error } = await sb
+    .from('release_voting_votes')
+    .select('id,juror_name,juror_email,created_at,verified_at,integrity_reasons,email_domain,ip_hash')
+    .eq('round_id', roundId)
+    .eq('is_verified', true)
+    .eq('is_counted', false)
+    .or('integrity_status.neq.excluded,integrity_status.is.null')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(500, Math.max(1, Math.floor(limit))));
+
+  if (error) throw error;
+  return (data || []) as VotingCheckReviewVote[];
 }
 
 export async function getRoundResults(roundId: string): Promise<RoundResults> {

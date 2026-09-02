@@ -75,7 +75,7 @@ export default function AdminDashboard({ currentRound, currentSongs, currentSumm
               <QuickAction href={`/admin/release-voting/${currentRound.id}#jury`} title="Jury-Voting aktuell" text={`${submittedJurors.length} von ${activeJurors.length} abgegeben`} />
               <QuickAction href={`/admin/release-voting/${currentRound.id}/votes`} title="Publikums-Voting aktuell" text={`${currentSummary.countedVotes} von ${currentSummary.totalVotes} gewertet`} />
               <QuickAction href={`/admin/release-voting/${currentRound.id}/results#public-results`} title="Statistikanalyse aktuelles Voting" text="Publikum, Jury und Gesamtwertung" />
-              <QuickAction href="#voting-check" title="Voting-Prüfung" text={securityAlerts === null ? (openCheckItems ? `${openCheckItems} bekannte Prüfpunkte` : 'Prüfstatus öffnen') : openCheckItems ? `${openCheckItems} offene Prüfpunkte` : 'Keine offenen Prüfpunkte'} accent={openCheckItems > 0} />
+              <QuickAction href={`/admin/release-voting/${currentRound.id}/checks`} title="Voting-Prüfung" text={securityAlerts === null ? (openCheckItems ? `${openCheckItems} bekannte Prüfpunkte` : 'Prüfstatus öffnen') : openCheckItems ? `${openCheckItems} offene Prüfpunkte` : 'Keine offenen Prüfpunkte'} accent={openCheckItems > 0} />
             </div>
           </section>
 

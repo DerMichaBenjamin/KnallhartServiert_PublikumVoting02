@@ -87,7 +87,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
     <section className="ks-quick-grid detail">
       <a className="ks-quick-action" href="#jury"><strong>Jury-Voting verwalten</strong><span>{submittedJurors.length}/{activeJurors.length} abgegeben</span><b>→</b></a>
       <a className="ks-quick-action" href={`/admin/release-voting/${round.id}/votes`}><strong>Publikums-Voting verwalten</strong><span>{summary.totalVotes} Stimmen</span><b>→</b></a>
-      <a className={`ks-quick-action ${openCheckItems ? 'accent' : ''}`} href="#voting-check"><strong>Voting-Prüfung</strong><span>{securityAlerts === null ? (openCheckItems ? `${openCheckItems} bekannte Prüfpunkte` : 'Prüfstatus öffnen') : openCheckItems ? `${openCheckItems} offene Prüfpunkte` : 'Keine offenen Prüfpunkte'}</span><b>→</b></a>
+      <a className={`ks-quick-action ${openCheckItems ? 'accent' : ''}`} href={`/admin/release-voting/${round.id}/checks`}><strong>Voting-Prüfung</strong><span>{securityAlerts === null ? (openCheckItems ? `${openCheckItems} bekannte Prüfpunkte` : 'Prüfstatus öffnen') : openCheckItems ? `${openCheckItems} offene Prüfpunkte` : 'Keine offenen Prüfpunkte'}</span><b>→</b></a>
       <a className="ks-quick-action" href={`/admin/release-voting/${round.id}/results`}><strong>Auswertung anzeigen</strong><span>Jury + Publikum</span><b>→</b></a>
       <a className="ks-quick-action" href="#songs"><strong>Song hinzufügen</strong><span>Songliste erweitern</span><b>→</b></a>
     </section>

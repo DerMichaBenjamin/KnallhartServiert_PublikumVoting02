@@ -112,6 +112,52 @@
 .ks-voting-check-list li a { color: #a9530b; font-size: 13px; font-weight: 850; text-align: right; }
 .ks-voting-check-list li.clear > span:last-child { color: var(--ks-green); font-weight: 900; text-align: right; }
 
+.ks-checks-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; align-items: start; }
+.ks-check-detail { position: relative; min-height: 280px; scroll-margin-top: 24px; }
+.ks-check-detail.warning { border-top: 3px solid var(--ks-orange); }
+.ks-check-detail.danger { border-top: 3px solid var(--ks-red); }
+.ks-check-detail.success { border-top: 3px solid var(--ks-green); }
+.ks-check-detail > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 15px; }
+.ks-check-detail > header > div { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.ks-check-detail h2 { font-size: 21px; }
+.ks-check-number { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; background: #eee9ff; color: var(--ks-violet-dark); font-size: 14px; font-weight: 900; }
+.ks-check-detail > p { margin: 0 0 18px; color: var(--ks-muted); line-height: 1.55; }
+.ks-check-preview-list { display: grid; gap: 0; margin: 0 0 18px; padding: 0; list-style: none; }
+.ks-check-preview-list li { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid #e8edf2; }
+.ks-check-preview-list li:first-child { border-top: 0; padding-top: 0; }
+.ks-check-preview-list li > div { min-width: 0; }
+.ks-check-preview-list strong, .ks-check-preview-list span { display: block; }
+.ks-check-preview-list span { margin-top: 4px; color: var(--ks-muted); font-size: 13px; line-height: 1.45; }
+.ks-check-preview-list.compact li { padding: 9px 0; }
+.ks-inline-notice { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.45; }
+.ks-inline-notice.warning { background: #fff5e9; color: #9f5414; }
+.ks-inline-notice.danger { background: #fff0f0; color: #b52e2e; }
+.ks-check-bulk { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; padding: 10px 12px; border-radius: 9px; background: #f5f7fa; }
+.ks-check-bulk label, .ks-check-bulk > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ks-check-bulk label { color: #485a70; font-size: 13px; font-weight: 800; }
+.ks-direct-review-list { max-height: 470px; margin-bottom: 15px; overflow: auto; border: 1px solid var(--ks-line); border-radius: 10px; }
+.ks-direct-review-list > div { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 11px 12px; border-bottom: 1px solid #e8edf2; }
+.ks-direct-review-list > div:last-child { border-bottom: 0; }
+.ks-direct-review-list a, .ks-direct-review-list small { display: block; margin-top: 3px; color: var(--ks-muted); font-size: 12px; }
+.ks-direct-review-list > div > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.ks-check-limit-note { margin: -3px 0 14px !important; font-size: 12px; }
+.ks-security-check-list { display: grid; gap: 12px; margin-bottom: 16px; }
+.ks-security-check-list > section { padding: 14px; border: 1px solid #efc3c3; border-radius: 10px; background: #fff8f8; }
+.ks-security-check-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.ks-security-check-head p { margin: 5px 0 0; color: var(--ks-muted); font-size: 13px; line-height: 1.45; }
+.ks-security-check-list ul { display: grid; margin: 12px 0; padding: 0; list-style: none; }
+.ks-security-check-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid #f1dada; }
+.ks-security-check-list li span, .ks-security-check-list li small { display: block; }
+.ks-security-check-list li small { margin-top: 2px; color: var(--ks-muted); font-size: 11px; }
+.ks-direct-duplicates { display: grid; gap: 12px; margin-bottom: 16px; }
+.ks-direct-duplicates form { display: grid; gap: 12px; padding: 14px; border: 1px solid #efc28d; border-radius: 10px; background: #fffaf3; }
+.ks-direct-duplicates label { display: grid; gap: 6px; color: #5c6877; font-size: 12px; font-weight: 800; }
+.ks-direct-duplicates select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #ccd6e2; border-radius: 8px; background: #fff; color: var(--ks-text); font: inherit; font-size: 13px; }
+.ks-direct-jury-list { display: grid; gap: 9px; margin-bottom: 16px; }
+.ks-direct-jury-list > div { display: grid; grid-template-columns: minmax(150px,1fr) auto; gap: 14px; align-items: center; padding: 12px; border: 1px solid var(--ks-line); border-radius: 9px; background: #fafbfc; }
+.ks-direct-jury-list span { display: block; margin-top: 4px; color: var(--ks-muted); font-size: 12px; }
+.ks-direct-jury-list > div > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+
 .ks-table-scroll, .ks-admin-app .admin-table-wrap { width: 100%; overflow-x: auto; }
 .ks-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
 .ks-table th, .ks-table td { padding: 14px 13px; border-bottom: 1px solid #e6ebf1; text-align: left; vertical-align: middle; }
@@ -348,6 +394,7 @@
   .ks-results-split, .ks-admin-app .top5-graphic-layout { grid-template-columns: 1fr; }
   .ks-admin-app .top5-graphic-preview-wrap { max-width: 360px; }
   .ks-stat-bar-row { grid-template-columns: 1fr; gap: 8px; }
+  .ks-checks-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -365,4 +412,8 @@
   .ks-round-link-items > div { justify-content: space-between; }
   .ks-voting-check-list li { grid-template-columns: minmax(0,1fr) 34px 60px; }
   .ks-card, .ks-admin-app .admin-card { padding: 18px; }
+  .ks-check-bulk, .ks-security-check-head { display: grid; }
+  .ks-direct-review-list > div, .ks-direct-jury-list > div { grid-template-columns: 1fr; }
+  .ks-direct-review-list > div > input { justify-self: start; }
+  .ks-direct-review-list > div > div:last-child, .ks-direct-jury-list > div > div:last-child { justify-content: flex-start; }
 }

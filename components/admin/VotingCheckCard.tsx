@@ -24,6 +24,7 @@ export default function VotingCheckCard({
 }) {
   const [securityAlerts, setSecurityAlerts] = useState<number | null>(initialSecurityAlerts);
   const [securityFailed, setSecurityFailed] = useState(false);
+  const checksPath = `/admin/release-voting/${roundId}/checks`;
 
   useEffect(() => {
     if (initialSecurityAlerts !== null) {
@@ -46,12 +47,11 @@ export default function VotingCheckCard({
   }, [initialSecurityAlerts, roundId]);
 
   const rows: CheckRow[] = [
-    { label: 'Stimmen noch nicht gewertet', count: reviewVotes, href: `/admin/release-voting/${roundId}/votes?filter=review`, action: 'Prüfen' },
-    { label: 'Security-Auffälligkeiten', count: securityAlerts, href: `/admin/release-voting/${roundId}/security`, action: 'Prüfen' },
-    { label: 'Mögliche Doppler', count: duplicateGroups, href: `/admin/release-voting/${roundId}#duplicate-check`, action: 'Prüfen' },
-    { label: 'Jury-Mitglieder noch offen', count: openJurors, href: `/admin/release-voting/${roundId}#jury`, action: 'Ansehen' },
+    { label: 'Stimmen noch nicht gewertet', count: reviewVotes, href: `${checksPath}#review-votes`, action: 'Ansehen' },
+    { label: 'Security-Auffälligkeiten', count: securityAlerts, href: `${checksPath}#security-alerts`, action: 'Ansehen' },
+    { label: 'Mögliche Doppler', count: duplicateGroups, href: `${checksPath}#duplicate-songs`, action: 'Ansehen' },
+    { label: 'Jury-Mitglieder noch offen', count: openJurors, href: `${checksPath}#open-jury`, action: 'Ansehen' },
   ];
-  const openRows = rows.filter((row) => (row.count || 0) > 0);
   const total = rows.reduce((sum, row) => sum + (row.count || 0), 0);
   const securityPending = securityAlerts === null && !securityFailed;
 
@@ -69,7 +69,7 @@ export default function VotingCheckCard({
           </li>)}
         </ul> : <p>Security-Prüfung, Stimmenstatus, Songliste und Jury-Fortschritt zeigen aktuell keine offenen Punkte.</p>}
       </div>
-      {!securityPending && !securityFailed && openRows.length === 1 && <a className="ks-button warning" href={openRows[0].href}>{openRows[0].action}</a>}
+      <a className={`ks-button ${total || securityPending || securityFailed ? 'warning' : 'secondary'}`} href={checksPath}>Prüfübersicht öffnen</a>
     </section>
   );
 }

@@ -547,7 +547,7 @@ export default function AdminVotingSecurity({ round, report }: Props) {
           <p>
             Noch nicht vollständig aktiv.
             {!report.ipColumnAvailable ? ' Die Supabase-Spalte ip_hash fehlt.' : ''}
-            {!report.trackingConfigured ? ' Die Vercel-Variable VOTING_IP_HASH_SECRET fehlt.' : ''}
+            {!report.trackingConfigured ? ' VOTING_IP_HASH_SECRET ist in diesem laufenden Deployment nicht verfügbar. Prüfe in Vercel die Zuordnung zu Production/Preview und führe anschließend einen Redeploy aus.' : ''}
           </p>
         )}
       </section>
