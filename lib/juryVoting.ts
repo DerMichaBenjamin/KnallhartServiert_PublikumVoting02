@@ -18,6 +18,7 @@ export type JuryRoundJuror = {
   profile_id: string | null;
   display_name: string;
   access_token: string;
+  voting_role: 'jury' | 'dj';
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -75,14 +76,17 @@ export function getJuryOpenState(round: Round) {
   return { isOpen: true, closeReason: null };
 }
 
-export async function getAdminJuryRoundData(roundId: string): Promise<AdminJuryRoundData> {
+export async function getAdminJuryRoundData(
+  roundId: string,
+  options: { role?: 'jury' | 'dj' } = {},
+): Promise<AdminJuryRoundData> {
   noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return { defaultProfiles: [], jurors: [] };
 
   const [{ data: profiles }, { data: jurors }] = await Promise.all([
     sb.from('release_voting_jury_profiles').select('id,name,is_default').eq('is_default', true).order('name'),
-    sb.from('release_voting_round_jurors').select('*').eq('round_id', roundId).order('created_at', { ascending: true }),
+    sb.from('release_voting_round_jurors').select('*').eq('round_id', roundId).eq('voting_role', options.role || 'jury').order('created_at', { ascending: true }),
   ]);
 
   const jurorRows = (jurors || []) as JuryRoundJuror[];
@@ -141,6 +145,7 @@ export async function getJuryAccessData(accessToken: string): Promise<JuryAccess
     .from('release_voting_round_jurors')
     .select('*')
     .eq('access_token', token)
+    .eq('voting_role', 'jury')
     .eq('is_active', true)
     .maybeSingle();
 

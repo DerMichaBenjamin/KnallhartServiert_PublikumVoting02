@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
-import { buildHistoricalJuryImportPlan, importHistoricalJuryVotes } from '@/lib/historicalJuryImport';
+import { buildHistoricalJuryImportPlan, importHistoricalJuryVotes, saveHistoricalImportMapping } from '@/lib/historicalJuryImport';
 
 function message(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: 401 });
 
   try {
-    const body = await request.json().catch(() => ({})) as { action?: unknown };
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const action = String(body.action || 'dry-run');
     if (action === 'dry-run') {
       const { report } = await buildHistoricalJuryImportPlan();
@@ -25,6 +25,26 @@ export async function POST(request: NextRequest) {
     if (action === 'apply') {
       const result = await importHistoricalJuryVotes();
       return NextResponse.json({ ok: true, ...result });
+    }
+    if (action === 'save-mapping') {
+      const mappingType = String(body.mappingType || '');
+      if (!['round', 'song', 'juror', 'ranking'].includes(mappingType)) {
+        return NextResponse.json({ ok: false, error: 'Unbekannter Zuordnungstyp.' }, { status: 400 });
+      }
+      const { report } = await saveHistoricalImportMapping({
+        type: mappingType as 'round' | 'song' | 'juror' | 'ranking',
+        sheet: String(body.sheet || ''),
+        sourceName: body.sourceName == null ? undefined : String(body.sourceName),
+        sourceSong: body.sourceSong == null ? undefined : String(body.sourceSong),
+        value: body.value == null ? undefined : String(body.value),
+        ranking: Array.isArray(body.ranking)
+          ? body.ranking.map((item) => {
+            const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+            return { songLabel: String(row.songLabel || ''), points: Number(row.points) };
+          })
+          : undefined,
+      });
+      return NextResponse.json({ ok: true, report });
     }
     return NextResponse.json({ ok: false, error: 'Unbekannte Importaktion.' }, { status: 400 });
   } catch (error) {

@@ -148,6 +148,7 @@ function uniqueReasons(reasons: string[]) {
 
 export async function assessVoteIntegrity(input: {
   roundId: string;
+  votingChannel?: 'audience' | 'dj';
   email: string;
   clientIp?: string | null;
   ipHash?: string | null;
@@ -158,6 +159,7 @@ export async function assessVoteIntegrity(input: {
   const emailDomain = emailDomainFromAddress(input.email);
   const ipHash = input.ipHash ?? hashClientIp(input.clientIp || '');
   const rankingHash = buildRankingHash(input.ranking);
+  const votingChannel = input.votingChannel || 'audience';
   const reasons: string[] = [];
 
   if (await isDisposableDomain(emailDomain)) {
@@ -169,6 +171,7 @@ export async function assessVoteIntegrity(input: {
       .from('release_voting_votes')
       .select('id,ranking_hash,is_verified,is_counted,integrity_status')
       .eq('round_id', input.roundId)
+      .eq('voting_channel', votingChannel)
       .eq('ip_hash', ipHash)
       .eq('is_verified', true);
 
@@ -189,6 +192,7 @@ export async function assessVoteIntegrity(input: {
       .from('release_voting_votes')
       .select('id', { count: 'exact', head: true })
       .eq('round_id', input.roundId)
+      .eq('voting_channel', votingChannel)
       .eq('ip_hash', ipHash)
       .gte('created_at', oneHourAgo);
 
@@ -219,7 +223,7 @@ export async function recheckVoteIntegrityAfterVerification(voteId: string) {
 
   const { data: vote, error: voteError } = await sb
     .from('release_voting_votes')
-    .select('id,round_id,juror_email,ip_hash,ranking_hash,integrity_status')
+    .select('id,round_id,voting_channel,juror_email,ip_hash,ranking_hash,integrity_status')
     .eq('id', voteId)
     .maybeSingle();
 
@@ -240,6 +244,7 @@ export async function recheckVoteIntegrityAfterVerification(voteId: string) {
 
   const assessment = await assessVoteIntegrity({
     roundId: String(vote.round_id || ''),
+    votingChannel: vote.voting_channel === 'dj' ? 'dj' : 'audience',
     email: String(vote.juror_email || ''),
     ipHash: vote.ip_hash || null,
     ranking,

@@ -70,6 +70,7 @@ async function addDefaultJuryMembers(sb: NonNullable<ReturnType<typeof getSupaba
       profile_id: profile.id,
       display_name: profile.name,
       access_token: randomBytes(24).toString('base64url'),
+      voting_role: 'jury',
     }))
   );
 }

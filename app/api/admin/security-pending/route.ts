@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       .from('release_voting_votes')
       .select('id,juror_name,juror_email,created_at,verified_at,is_verified,is_excluded,ip_hash')
       .eq('round_id', roundId)
+      .eq('voting_channel', 'audience')
       .eq('is_verified', false)
       .order('created_at', { ascending: true });
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
         .from('release_voting_votes')
         .select('id,juror_name,juror_email,created_at,verified_at,is_verified,is_excluded')
         .eq('round_id', roundId)
+        .eq('voting_channel', 'audience')
         .eq('is_verified', false)
         .order('created_at', { ascending: true });
 

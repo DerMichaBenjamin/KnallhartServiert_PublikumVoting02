@@ -15,8 +15,8 @@ export default async function HistoricalJuryImportPage() {
       description="Sicherer, wiederholbarer Import aus der geprüften Excel-Rangliste. Vor dem Speichern werden Runden, Songs, Juroren und vorhandene Wertungen vollständig abgeglichen."
     />
     <div className="notice warning">
-      <strong>Es werden keine vorhandenen Wertungen überschrieben.</strong>
-      <span>Der erste Aufruf ist immer nur ein Dry-Run. Fehlerhafte Excel-Spalten und nicht eindeutige Songzuordnungen bleiben unangetastet.</span>
+      <strong>Vor dem ersten Aufruf: DJ-Trennung in Supabase aktivieren.</strong>
+      <span>Führe einmal <code>sql_dj_voting_separation.sql</code> im Supabase SQL Editor aus. Danach können Jury- und DJ-Spalten sicher getrennt importiert werden; vorhandene Wertungen werden nicht überschrieben.</span>
     </div>
     <HistoricalJuryImportPanel />
   </main>;

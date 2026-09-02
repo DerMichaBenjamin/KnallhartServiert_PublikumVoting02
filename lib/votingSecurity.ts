@@ -275,6 +275,7 @@ export async function getVotingSecurityReport(roundId: string): Promise<VotingSe
     .from('release_voting_votes')
     .select('id,juror_name,juror_email,is_verified,is_excluded,created_at,verified_at,ip_hash')
     .eq('round_id', roundId)
+    .eq('voting_channel', 'audience')
     .eq('is_verified', true)
     .order('created_at', { ascending: true });
 
@@ -284,6 +285,7 @@ export async function getVotingSecurityReport(roundId: string): Promise<VotingSe
       .from('release_voting_votes')
       .select('id,juror_name,juror_email,is_verified,is_excluded,created_at,verified_at')
       .eq('round_id', roundId)
+      .eq('voting_channel', 'audience')
       .eq('is_verified', true)
       .order('created_at', { ascending: true });
 

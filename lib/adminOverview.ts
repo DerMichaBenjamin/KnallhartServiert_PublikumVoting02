@@ -65,7 +65,7 @@ async function getAdminRoundOverview(round: Round): Promise<AdminRoundOverview> 
   const [voteCounts, songsResult, jurorsResult] = await Promise.all([
     getRoundVoteCounts(round.id),
     sb.from('release_voting_songs').select('id', { count: 'exact', head: true }).eq('round_id', round.id),
-    sb.from('release_voting_round_jurors').select('id').eq('round_id', round.id).or('is_active.eq.true,is_active.is.null'),
+    sb.from('release_voting_round_jurors').select('id').eq('round_id', round.id).eq('voting_role', 'jury').or('is_active.eq.true,is_active.is.null'),
   ]);
 
   if (jurorsResult.error) throw jurorsResult.error;
@@ -136,11 +136,11 @@ export async function getAdminOverviewTotals(roundsInput?: Round[]): Promise<Adm
   const [roundsCount, songs, total, confirmed, counted, review, excluded] = await Promise.all([
     sb.from('release_voting_rounds').select('id', { count: 'exact', head: true }),
     sb.from('release_voting_songs').select('id', { count: 'exact', head: true }),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('is_verified', true),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('is_verified', true).or('is_counted.eq.true,is_counted.is.null'),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('is_verified', true).eq('is_counted', false).or('integrity_status.neq.excluded,integrity_status.is.null'),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('is_verified', true).eq('integrity_status', 'excluded'),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience'),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).or('is_counted.eq.true,is_counted.is.null'),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).eq('is_counted', false).or('integrity_status.neq.excluded,integrity_status.is.null'),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('voting_channel', 'audience').eq('is_verified', true).eq('integrity_status', 'excluded'),
   ]);
 
   let roundIds = roundsInput?.map((round) => round.id) || [];
@@ -160,10 +160,15 @@ export async function getAdminOverviewTotals(roundsInput?: Round[]): Promise<Adm
 
   const activityCounts = await Promise.all(
     roundIds.map(async (roundId) => {
-      const [audience, jury] = await Promise.all([
-        sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId),
-        sb.from('release_voting_jury_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).not('submitted_at', 'is', null),
+      const [audience, juryJurors] = await Promise.all([
+        sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('voting_channel', 'audience'),
+        sb.from('release_voting_round_jurors').select('id').eq('round_id', roundId).eq('voting_role', 'jury'),
       ]);
+      if (juryJurors.error) throw juryJurors.error;
+      const juryIds = (juryJurors.data || []).map((juror) => String(juror.id));
+      const jury = juryIds.length
+        ? await sb.from('release_voting_jury_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).in('round_juror_id', juryIds).not('submitted_at', 'is', null)
+        : { count: 0, error: null };
       return countValue(audience, 'Publikumsaktivität') > 0 || countValue(jury, 'Juryaktivität') > 0;
     })
   );

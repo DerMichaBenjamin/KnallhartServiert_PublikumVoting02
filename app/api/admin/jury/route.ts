@@ -66,7 +66,8 @@ export async function POST(req: NextRequest) {
       const { data: existing, error: existingError } = await sb
         .from('release_voting_round_jurors')
         .select('display_name')
-        .eq('round_id', roundId);
+        .eq('round_id', roundId)
+        .eq('voting_role', 'jury');
       if (existingError) throw existingError;
 
       const existingNames = new Set((existing || []).map((row) => String(row.display_name || '').trim().toLowerCase()));
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
           profile_id: profile.id,
           display_name: profile.name,
           access_token: token(),
+          voting_role: 'jury',
         }));
 
       if (rows.length) {
@@ -95,6 +97,7 @@ export async function POST(req: NextRequest) {
         round_id: roundId,
         display_name: name,
         access_token: token(),
+        voting_role: 'jury',
       });
       if (error) {
         if (String(error.code || '') === '23505') throw new Error('Dieser Juror ist für diese Runde bereits angelegt.');
@@ -110,7 +113,8 @@ export async function POST(req: NextRequest) {
         .from('release_voting_round_jurors')
         .delete()
         .eq('id', jurorId)
-        .eq('round_id', roundId);
+        .eq('round_id', roundId)
+        .eq('voting_role', 'jury');
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }
@@ -122,7 +126,8 @@ export async function POST(req: NextRequest) {
         .from('release_voting_round_jurors')
         .update({ access_token: token(), updated_at: new Date().toISOString() })
         .eq('id', jurorId)
-        .eq('round_id', roundId);
+        .eq('round_id', roundId)
+        .eq('voting_role', 'jury');
       if (error) throw error;
       return NextResponse.json({ ok: true });
     }

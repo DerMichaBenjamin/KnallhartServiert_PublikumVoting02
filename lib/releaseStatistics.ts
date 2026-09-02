@@ -20,6 +20,7 @@ const ID_CHUNK_SIZE = 75;
 type StatisticsVoteRow = {
   id: string;
   round_id: string;
+  voting_channel: 'audience' | 'dj';
   is_verified: boolean;
   is_counted: boolean | null;
   integrity_status: 'clear' | 'review' | 'approved' | 'excluded' | null;
@@ -144,11 +145,11 @@ export async function getReleaseStatisticsArchive(): Promise<ReleaseStatisticsAr
       return { data: (data || []) as Song[], error };
     }),
     fetchAllPages<StatisticsVoteRow>('Publikumsstimmen', async (from, to) => {
-      const { data, error } = await sb.from('release_voting_votes').select('id,round_id,is_verified,is_counted,integrity_status,zonk_song_id').order('created_at', { ascending: true }).range(from, to);
+      const { data, error } = await sb.from('release_voting_votes').select('id,round_id,voting_channel,is_verified,is_counted,integrity_status,zonk_song_id').eq('voting_channel', 'audience').order('created_at', { ascending: true }).range(from, to);
       return { data: (data || []) as StatisticsVoteRow[], error };
     }),
     fetchAllPages<JuryRoundJuror>('Jury-Mitglieder', async (from, to) => {
-      const { data, error } = await sb.from('release_voting_round_jurors').select('*').order('created_at', { ascending: true }).range(from, to);
+      const { data, error } = await sb.from('release_voting_round_jurors').select('*').eq('voting_role', 'jury').order('created_at', { ascending: true }).range(from, to);
       return { data: (data || []) as JuryRoundJuror[], error };
     }),
     fetchAllPages<StatisticsJuryVoteRow>('Jury-Votings', async (from, to) => {

@@ -79,7 +79,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
     <ReportActions data={graphicData} view="overview" />
     {message && <div className={`notice ${message.type === 'ok' ? 'success' : 'error'}`}>{message.text}</div>}
     {busy && <div className="notice">Speichert…</div>}
-    <RoundLinksBar round={round} isCurrentDj={isCurrentDj} copyUrl={copyUrl} />
+    <RoundLinksBar round={round} copyUrl={copyUrl} />
     <section className="ks-stats-grid dashboard">
       <StatCard label="Songs" value={songs.length} />
       <StatCard label="Jury-Mitglieder" value={activeJurors.length} />

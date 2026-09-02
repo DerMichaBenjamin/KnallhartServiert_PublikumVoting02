@@ -25,7 +25,7 @@ export default async function VotingRoundView({ round, variant = 'public' }: Vot
 
   const shouldShowResults = !isLive && round.is_public_results;
   const songs = shouldShowResults ? [] : await getSongs(round.id);
-  const results = shouldShowResults ? await getRoundResults(round.id) : null;
+  const results = shouldShowResults ? await getRoundResults(round.id, isDj ? 'dj' : 'audience') : null;
   const publicSongs = shouldShowResults ? results!.songs : songs;
   const board = shouldShowResults ? results!.leaderboard : [];
   const zonk = shouldShowResults ? results!.zonk.filter((entry) => entry.count > 0) : [];
@@ -53,7 +53,7 @@ export default async function VotingRoundView({ round, variant = 'public' }: Vot
         </div>
 
         {isLive ? (
-          <PublicVotingForm roundId={round.id} roundTitle={round.title} placesCount={round.places_count} songs={publicSongs} />
+          <PublicVotingForm roundId={round.id} roundTitle={round.title} placesCount={round.places_count} songs={publicSongs} votingChannel={isDj ? 'dj' : 'audience'} />
         ) : shouldShowResults ? (
           <section className="card">
             <h2>{resultLabel}</h2>

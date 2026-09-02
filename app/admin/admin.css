@@ -609,6 +609,33 @@
 .ks-import-source-errors { margin-top: 14px; padding: 13px 14px; border: 1px solid #f2d09b; border-radius: 9px; background: #fffaf0; }
 .ks-import-source-errors h3 { margin: 0 0 7px; color: #8a4b05; font-size: 13px; }
 .ks-import-source-errors p { margin: 5px 0 0; color: #765022; font-size: 11px; line-height: 1.45; }
+.ks-import-round-mapping { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 14px; padding: 13px; border: 1px solid #d8deea; border-radius: 10px; background: #fff; }
+.ks-import-round-mapping label { display: grid; gap: 6px; width: min(100%,700px); }
+.ks-import-round-mapping label > span, .ks-import-compact-select > span, .ks-import-missing label > span { color: #526276; font-size: 11px; font-weight: 800; }
+.ks-import-round-mapping select, .ks-import-compact-select select, .ks-import-missing select, .ks-import-ranking-grid select, .ks-dj-round-picker select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #cdd5e0; border-radius: 8px; background: #fff; color: var(--ks-text); font: inherit; }
+.ks-import-jurors header > span, .ks-import-source-errors article > header > span { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.ks-import-category { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 7px; border-radius: 999px; background: #edf1f6; color: #526276; font-size: 9px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.ks-import-category.dj { background: #eee9ff; color: #5c35b2; }
+.ks-import-compact-select { display: grid; gap: 5px; margin-top: 12px; }
+.ks-import-missing label { display: grid; gap: 5px; margin-top: 8px; }
+.ks-import-source-errors { display: grid; gap: 10px; }
+.ks-import-source-errors > article { padding: 12px; border: 1px solid #efc47e; border-radius: 9px; background: #fff; }
+.ks-import-source-errors > article.resolved { border-color: #a9ddc5; background: #f6fffa; }
+.ks-import-source-errors > article.ignored { border-color: #d9dee6; background: #f7f8fa; opacity: .8; }
+.ks-import-source-errors article > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ks-import-correction { display: grid; gap: 10px; margin: 12px 0; padding: 12px; border: 1px solid #e7d5b7; border-radius: 8px; background: #fffcf6; }
+.ks-import-ranking-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px 12px; }
+.ks-import-ranking-grid label { display: grid; grid-template-columns: minmax(0,1fr) 128px; align-items: center; gap: 8px; }
+.ks-import-ranking-grid label > span { overflow: hidden; color: #37475a; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.ks-import-ranking-grid select { min-height: 34px; padding: 5px 7px; font-size: 11px; }
+.ks-import-validation { color: var(--ks-red); font-size: 11px; font-weight: 800; }
+.ks-import-validation.valid { color: var(--ks-green); }
+.ks-button.small { min-height: 34px; padding: 7px 10px; font-size: 11px; }
+.ks-dj-round-picker { margin-bottom: 18px; }
+.ks-dj-round-picker form { display: flex; align-items: flex-end; gap: 10px; }
+.ks-dj-round-picker label { display: grid; gap: 6px; width: min(100%,650px); }
+.ks-dj-round-picker label span { color: var(--ks-muted); font-size: 12px; font-weight: 800; }
+.ks-dj-round-picker > small { display: block; margin-top: 8px; color: var(--ks-muted); }
 
 @media (max-width: 1250px) {
   .ks-stats-grid.weekly-kpis { grid-template-columns: repeat(3,minmax(140px,1fr)); }
@@ -625,6 +652,7 @@
   .ks-song-stat-metrics { grid-template-columns: repeat(3,minmax(105px,1fr)); }
   .ks-historical-exports { display: grid; }
   .ks-import-jurors { grid-template-columns: 1fr; }
+  .ks-import-ranking-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -648,6 +676,8 @@
   .ks-import-rounds > details > summary { align-items: flex-start; }
   .ks-import-review li { grid-template-columns: 1fr; }
   .ks-import-review li b { text-align: left; }
+  .ks-import-round-mapping, .ks-dj-round-picker form { align-items: stretch; flex-direction: column; }
+  .ks-import-ranking-grid label { grid-template-columns: 1fr; }
 }
 
 @media print {

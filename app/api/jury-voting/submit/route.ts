@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       .from('release_voting_round_jurors')
       .select('*')
       .eq('access_token', accessToken)
+      .eq('voting_role', 'jury')
       .eq('is_active', true)
       .maybeSingle();
     if (jurorError) throw jurorError;

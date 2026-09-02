@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceFile": "Song-Ranking-Tabelle Knallhart serviert(7).xlsx",
   "rounds": [
     {
@@ -11,6 +11,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Mallemodus - Milla Pink, Marry",
@@ -65,6 +66,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Mallemodus - Milla Pink, Marry",
@@ -119,6 +121,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Mallemodus - Milla Pink, Marry",
@@ -173,6 +176,7 @@
         {
           "sourceName": "Gäste",
           "displayName": "Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Mallemodus - Milla Pink, Marry",
@@ -227,6 +231,7 @@
         {
           "sourceName": "Meiki",
           "displayName": "Meiki Cruise",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Mallemodus - Milla Pink, Marry",
@@ -282,6 +287,8 @@
       "skippedColumns": [
         {
           "sourceName": "Attila",
+          "displayName": "Attila",
+          "category": "jury",
           "reason": "Keine abgegebene Top-12-Wertung",
           "rankingCount": 0,
           "sum": 0,
@@ -300,7 +307,8 @@
             12
           ],
           "duplicatePoints": [],
-          "nonRankingNumbers": []
+          "nonRankingNumbers": [],
+          "ranking": []
         }
       ]
     },
@@ -313,6 +321,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Saufidol - DJ Robin",
@@ -367,6 +376,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Saufidol - DJ Robin",
@@ -421,6 +431,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Saufidol - DJ Robin",
@@ -475,6 +486,7 @@
         {
           "sourceName": "Gäste",
           "displayName": "Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Saufidol - DJ Robin",
@@ -529,6 +541,7 @@
         {
           "sourceName": "Fabi",
           "displayName": "Fabi",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Saufidol - DJ Robin",
@@ -583,6 +596,7 @@
         {
           "sourceName": "Pepi",
           "displayName": "Pepi",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Saufidol - DJ Robin",
@@ -646,6 +660,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Malle in mein’ Kopf – Isi Glück",
@@ -700,6 +715,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Malle in mein’ Kopf – Isi Glück",
@@ -754,6 +770,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Malle in mein’ Kopf – Isi Glück",
@@ -808,6 +825,7 @@
         {
           "sourceName": "Gäste/Meiki",
           "displayName": "Gäste/Meiki",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Malle in mein’ Kopf – Isi Glück",
@@ -862,6 +880,7 @@
         {
           "sourceName": "Torsten",
           "displayName": "Torsten",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Malle in mein’ Kopf – Isi Glück",
@@ -925,6 +944,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Klopf Klopf - Tommy Fieber, FRAMAX",
@@ -979,6 +999,7 @@
         {
           "sourceName": "Beccy",
           "displayName": "Beccy",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Klopf Klopf - Tommy Fieber, FRAMAX",
@@ -1033,6 +1054,7 @@
         {
           "sourceName": "Max",
           "displayName": "Max",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Klopf Klopf - Tommy Fieber, FRAMAX",
@@ -1087,6 +1109,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Klopf Klopf - Tommy Fieber, FRAMAX",
@@ -1141,6 +1164,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Klopf Klopf - Tommy Fieber, FRAMAX",
@@ -1195,6 +1219,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Klopf Klopf - Tommy Fieber, FRAMAX",
@@ -1258,6 +1283,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "3 x KO - Julian Sommer, Frenzy, Calvin Kleinen",
@@ -1312,6 +1338,7 @@
         {
           "sourceName": "Thorsten",
           "displayName": "Thorsten",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "3 x KO - Julian Sommer, Frenzy, Calvin Kleinen",
@@ -1366,6 +1393,7 @@
         {
           "sourceName": "Christian",
           "displayName": "Christian",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "3 x KO - Julian Sommer, Frenzy, Calvin Kleinen",
@@ -1420,6 +1448,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "3 x KO - Julian Sommer, Frenzy, Calvin Kleinen",
@@ -1474,6 +1503,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "3 x KO - Julian Sommer, Frenzy, Calvin Kleinen",
@@ -1529,6 +1559,8 @@
       "skippedColumns": [
         {
           "sourceName": "Marcus",
+          "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "reason": "Punkte sind keine eindeutige Folge von 12 bis 1",
           "rankingCount": 12,
           "sum": 79,
@@ -1541,7 +1573,57 @@
               "count": 2
             }
           ],
-          "nonRankingNumbers": []
+          "nonRankingNumbers": [],
+          "ranking": [
+            {
+              "songLabel": "3 x KO - Julian Sommer, Frenzy, Calvin Kleinen",
+              "points": 10
+            },
+            {
+              "songLabel": "Schlechter Einfluss - LEZA",
+              "points": 11
+            },
+            {
+              "songLabel": "Erstes Mal - Jenny Wendelberger, Timo Feiert, Die Zipfelbuben",
+              "points": 3
+            },
+            {
+              "songLabel": "Lass Mal knutschen - Küchenmeister",
+              "points": 6
+            },
+            {
+              "songLabel": "Schatz, geh mir nicht auf'n Sack! - Buddy Ogün, Maveric",
+              "points": 9
+            },
+            {
+              "songLabel": "Bälleparadies - Sabbotage",
+              "points": 7
+            },
+            {
+              "songLabel": "BIER OHNE ALKOHOL - Blocki, Playaton",
+              "points": 12
+            },
+            {
+              "songLabel": "Amsterdam - Mountain Crew",
+              "points": 8
+            },
+            {
+              "songLabel": "Schenk mir diesen Tanz - Marko P",
+              "points": 4
+            },
+            {
+              "songLabel": "Santé & Vive l'amour - Robin Leon",
+              "points": 5
+            },
+            {
+              "songLabel": "Ein Kuss ohne Liebe - Pia Sophie",
+              "points": 3
+            },
+            {
+              "songLabel": "Lass die Sau raus - Koma Oma",
+              "points": 1
+            }
+          ]
         }
       ]
     },
@@ -1554,6 +1636,7 @@
         {
           "sourceName": "Sebastian",
           "displayName": "Sebastian",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Wir sind zuhause - Mia Julia, Maxwell",
@@ -1608,6 +1691,7 @@
         {
           "sourceName": "Johannes",
           "displayName": "Johannes",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Wir sind zuhause - Mia Julia, Maxwell",
@@ -1662,6 +1746,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Wir sind zuhause - Mia Julia, Maxwell",
@@ -1716,6 +1801,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Wir sind zuhause - Mia Julia, Maxwell",
@@ -1770,6 +1856,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Wir sind zuhause - Mia Julia, Maxwell",
@@ -1833,6 +1920,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "CEO - 2 Engel & Charlie",
@@ -1887,6 +1975,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "CEO - 2 Engel & Charlie",
@@ -1941,6 +2030,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "CEO - 2 Engel & Charlie",
@@ -1995,6 +2085,7 @@
         {
           "sourceName": "Chrismen",
           "displayName": "Chrismen",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "CEO - 2 Engel & Charlie",
@@ -2049,6 +2140,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "CEO - 2 Engel & Charlie",
@@ -2112,6 +2204,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Checkst du (Malle ist mein Leben) - Paulina Wagner",
@@ -2166,6 +2259,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Checkst du (Malle ist mein Leben) - Paulina Wagner",
@@ -2220,6 +2314,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Checkst du (Malle ist mein Leben) - Paulina Wagner",
@@ -2274,6 +2369,7 @@
         {
           "sourceName": "Jan Eric",
           "displayName": "Jan Eric",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Checkst du (Malle ist mein Leben) - Paulina Wagner",
@@ -2328,6 +2424,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Checkst du (Malle ist mein Leben) - Paulina Wagner",
@@ -2391,6 +2488,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Bierchen holen - Johnny Cap",
@@ -2445,6 +2543,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Bierchen holen - Johnny Cap",
@@ -2499,6 +2598,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Bierchen holen - Johnny Cap",
@@ -2553,6 +2653,7 @@
         {
           "sourceName": "Timm",
           "displayName": "Timm",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Bierchen holen - Johnny Cap",
@@ -2607,6 +2708,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Bierchen holen - Johnny Cap",
@@ -2670,6 +2772,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich bleib auf Malle - Peter Wackel",
@@ -2724,6 +2827,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Dorfregel - Micha von der Rampe",
@@ -2778,6 +2882,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich bleib auf Malle - Peter Wackel",
@@ -2832,6 +2937,7 @@
         {
           "sourceName": "Timm",
           "displayName": "Timm",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich bleib auf Malle - Peter Wackel",
@@ -2886,6 +2992,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich bleib auf Malle - Peter Wackel",
@@ -2941,6 +3048,8 @@
       "skippedColumns": [
         {
           "sourceName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "reason": "Punkte sind keine eindeutige Folge von 12 bis 1",
           "rankingCount": 12,
           "sum": 78,
@@ -2968,7 +3077,57 @@
               "count": 2
             }
           ],
-          "nonRankingNumbers": []
+          "nonRankingNumbers": [],
+          "ranking": [
+            {
+              "songLabel": "Ich bleib auf Malle - Peter Wackel",
+              "points": 5.5
+            },
+            {
+              "songLabel": "Dorfregel - Micha von der Rampe",
+              "points": 8.5
+            },
+            {
+              "songLabel": "Satisfier - Andi schiebt anders, DJ Chris Caramello, DJ Cashi",
+              "points": 5.5
+            },
+            {
+              "songLabel": "Aber dich gibt’s nur einmal für mich - Markus Becker, DJ Xaver",
+              "points": 11
+            },
+            {
+              "songLabel": "Hocke - DJ Düse, Fabio Gandolfo, MalleBros",
+              "points": 8.5
+            },
+            {
+              "songLabel": "Hey Señorita - TurboHirsch, Inseljung",
+              "points": 2.5
+            },
+            {
+              "songLabel": "Malle tut mir gut - Keya, Timo Scheppert, Domy Berger",
+              "points": 12
+            },
+            {
+              "songLabel": "Halb 4 - Baumi",
+              "points": 1
+            },
+            {
+              "songLabel": "Männer - Dj Aaron, MXM, Marlon Falter",
+              "points": 8.5
+            },
+            {
+              "songLabel": "Aber kein Italien - CUPSTADT",
+              "points": 8.5
+            },
+            {
+              "songLabel": "UN-Dav - Moses C",
+              "points": 4
+            },
+            {
+              "songLabel": "Breitner - Babalou aus Bottrop",
+              "points": 2.5
+            }
+          ]
         }
       ]
     },
@@ -2981,6 +3140,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Yes Sir, I Can Boogie - Partymix - Tobee",
@@ -3035,6 +3195,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Yes Sir, I Can Boogie - Partymix - Tobee",
@@ -3089,6 +3250,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Yes Sir, I Can Boogie - Partymix - Tobee",
@@ -3143,6 +3305,7 @@
         {
           "sourceName": "Rene",
           "displayName": "Rene",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Yes Sir, I Can Boogie - Partymix - Tobee",
@@ -3197,6 +3360,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Yes Sir, I Can Boogie - Partymix - Tobee",
@@ -3250,7 +3414,8 @@
         },
         {
           "sourceName": "DJs",
-          "displayName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "ranking": [
             {
               "songLabel": "Yes Sir, I Can Boogie - Partymix - Tobee",
@@ -3314,6 +3479,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Iker Casillas (Deine Augen) - Isi Glück, Julian Benz",
@@ -3368,6 +3534,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Iker Casillas (Deine Augen) - Isi Glück, Julian Benz",
@@ -3422,6 +3589,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Iker Casillas (Deine Augen) - Isi Glück, Julian Benz",
@@ -3476,6 +3644,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Iker Casillas (Deine Augen) - Isi Glück, Julian Benz",
@@ -3530,6 +3699,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Iker Casillas (Deine Augen) - Isi Glück, Julian Benz",
@@ -3583,7 +3753,8 @@
         },
         {
           "sourceName": "DJs",
-          "displayName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "ranking": [
             {
               "songLabel": "Iker Casillas (Deine Augen) - Isi Glück, Julian Benz",
@@ -3647,6 +3818,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Emily — Kings of Günter",
@@ -3701,6 +3873,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Emily — Kings of Günter",
@@ -3755,6 +3928,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Emily — Kings of Günter",
@@ -3809,6 +3983,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Emily — Kings of Günter",
@@ -3863,6 +4038,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Emily — Kings of Günter",
@@ -3916,7 +4092,8 @@
         },
         {
           "sourceName": "DJs",
-          "displayName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "ranking": [
             {
               "songLabel": "Emily — Kings of Günter",
@@ -3980,6 +4157,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Immer viel trinken - Lorenz Büffel, Micha Schue",
@@ -4034,6 +4212,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Immer viel trinken - Lorenz Büffel, Micha Schue",
@@ -4088,6 +4267,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Immer viel trinken - Lorenz Büffel, Micha Schue",
@@ -4142,6 +4322,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Immer viel trinken - Lorenz Büffel, Micha Schue",
@@ -4196,6 +4377,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Immer viel trinken - Lorenz Büffel, Micha Schue",
@@ -4249,7 +4431,8 @@
         },
         {
           "sourceName": "DJs",
-          "displayName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "ranking": [
             {
               "songLabel": "Immer viel trinken - Lorenz Büffel, Micha Schue",
@@ -4313,6 +4496,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich mach mein Ding - Mickie Krause",
@@ -4367,6 +4551,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich mach mein Ding - Mickie Krause",
@@ -4421,6 +4606,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich mach mein Ding - Mickie Krause",
@@ -4475,6 +4661,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich mach mein Ding - Mickie Krause",
@@ -4529,6 +4716,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Ich mach mein Ding - Mickie Krause",
@@ -4582,7 +4770,8 @@
         },
         {
           "sourceName": "DJs",
-          "displayName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "ranking": [
             {
               "songLabel": "Ich mach mein Ding - Mickie Krause",
@@ -4646,6 +4835,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Barbara - Justin Flieger, Buddy Ogün",
@@ -4700,6 +4890,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Barbara - Justin Flieger, Buddy Ogün",
@@ -4754,6 +4945,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Barbara - Justin Flieger, Buddy Ogün",
@@ -4808,6 +5000,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Barbara - Justin Flieger, Buddy Ogün",
@@ -4862,6 +5055,7 @@
         {
           "sourceName": "Andy Bar",
           "displayName": "Andy Bar",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Barbara - Justin Flieger, Buddy Ogün",
@@ -4916,6 +5110,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Barbara - Justin Flieger, Buddy Ogün",
@@ -4969,7 +5164,8 @@
         },
         {
           "sourceName": "DJs",
-          "displayName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "ranking": [
             {
               "songLabel": "Barbara - Justin Flieger, Buddy Ogün",
@@ -5033,6 +5229,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Nicht ohne mein Team (Inselliebe) - Nina Reh, Pietro Lombardi",
@@ -5087,6 +5284,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Nicht ohne mein Team (Inselliebe) - Nina Reh, Pietro Lombardi",
@@ -5141,6 +5339,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Nicht ohne mein Team (Inselliebe) - Nina Reh, Pietro Lombardi",
@@ -5195,6 +5394,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Nicht ohne mein Team (Inselliebe) - Nina Reh, Pietro Lombardi",
@@ -5249,6 +5449,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Nicht ohne mein Team (Inselliebe) - Nina Reh, Pietro Lombardi",
@@ -5304,6 +5505,8 @@
       "skippedColumns": [
         {
           "sourceName": "DJs",
+          "displayName": "DJ-Gesamtwertung",
+          "category": "dj",
           "reason": "Punkte sind keine eindeutige Folge von 12 bis 1",
           "rankingCount": 12,
           "sum": 79,
@@ -5316,7 +5519,57 @@
               "count": 2
             }
           ],
-          "nonRankingNumbers": []
+          "nonRankingNumbers": [],
+          "ranking": [
+            {
+              "songLabel": "Nicht ohne mein Team (Inselliebe) - Nina Reh, Pietro Lombardi",
+              "points": 4
+            },
+            {
+              "songLabel": "MALLEMELODIE - Andy Luxx, Pepe Palme, Mike Nüchtern",
+              "points": 7
+            },
+            {
+              "songLabel": "Popopo - Breitner",
+              "points": 11
+            },
+            {
+              "songLabel": "Guardia Civil - Asphalt Anton",
+              "points": 10
+            },
+            {
+              "songLabel": "Streiten - HBz, KATI K, ichbinsonny, AHM",
+              "points": 9
+            },
+            {
+              "songLabel": "Malle nicht Ibiza (Fikka) - E Die Tünnesse, Malle Türke, DJ Marci",
+              "points": 12
+            },
+            {
+              "songLabel": "Alkoholfrei Verbot - Timm Rock",
+              "points": 2
+            },
+            {
+              "songLabel": "3 Promille auf dem Fussballplatz - Milla Pink, Remmi Demmi Boys",
+              "points": 9
+            },
+            {
+              "songLabel": "Keine Lösung - Pazoo, LEZA",
+              "points": 1
+            },
+            {
+              "songLabel": "Eine Woche Arenal - Posches",
+              "points": 6
+            },
+            {
+              "songLabel": "Highlightmensch - Fäaschtbänkler, Revelle",
+              "points": 5
+            },
+            {
+              "songLabel": "HALLI GALLI - Die Atzen",
+              "points": 3
+            }
+          ]
         }
       ]
     },
@@ -5329,6 +5582,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sonne, Mond & Playa - Isi Glück",
@@ -5383,6 +5637,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sonne, Mond & Playa - Isi Glück",
@@ -5437,6 +5692,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sonne, Mond & Playa - Isi Glück",
@@ -5491,6 +5747,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sonne, Mond & Playa - Isi Glück",
@@ -5545,6 +5802,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sonne, Mond & Playa - Isi Glück",
@@ -5608,6 +5866,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Malle ist ne 10 von 10 - Timo Scheppert, DJ Cashi",
@@ -5662,6 +5921,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Welcome Home - Pietro Lombardi",
@@ -5716,6 +5976,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Welcome Home - Pietro Lombardi",
@@ -5770,6 +6031,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Welcome Home - Pietro Lombardi",
@@ -5824,6 +6086,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Malle ist ne 10 von 10 - Timo Scheppert, DJ Cashi",
@@ -5887,6 +6150,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Geile Sau (Tattoo) - Malin Brown, Lukas Ballert",
@@ -5941,6 +6205,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Geile Sau (Tattoo) - Malin Brown, Lukas Ballert",
@@ -5995,6 +6260,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Geile Leute - Mountain Crew",
@@ -6049,6 +6315,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Geile Sau (Tattoo) - Malin Brown, Lukas Ballert",
@@ -6104,6 +6371,8 @@
       "skippedColumns": [
         {
           "sourceName": "Meiki/Gäste",
+          "displayName": "Meiki/Gäste",
+          "category": "jury",
           "reason": "Punkte sind keine eindeutige Folge von 12 bis 1",
           "rankingCount": 13,
           "sum": 80,
@@ -6120,7 +6389,61 @@
               "count": 2
             }
           ],
-          "nonRankingNumbers": []
+          "nonRankingNumbers": [],
+          "ranking": [
+            {
+              "songLabel": "Geile Sau (Tattoo) - Malin Brown, Lukas Ballert",
+              "points": 9
+            },
+            {
+              "songLabel": "Willst du - Caro Winter, Justin Flieger",
+              "points": 12
+            },
+            {
+              "songLabel": "Endlich normale Leute - Julian Sommer, Chris Tall",
+              "points": 10
+            },
+            {
+              "songLabel": "Bierbaum - Andi schiebt anders",
+              "points": 4
+            },
+            {
+              "songLabel": "Himmelblau - Jon Bon Reim, Meiki Cruise, Anne Theke",
+              "points": 5
+            },
+            {
+              "songLabel": "Thekendienst - Honk!, Lambo Luki, Malle Marc",
+              "points": 6
+            },
+            {
+              "songLabel": "Überdosis - Partyversion - Saint Skye, Der Partycrasher",
+              "points": 8
+            },
+            {
+              "songLabel": "10 von 10 - Julian Benz",
+              "points": 11
+            },
+            {
+              "songLabel": "STIMMUNG! - Bierkapitän",
+              "points": 4
+            },
+            {
+              "songLabel": "Betrunkene am Meer - Johnny Cap, DJ Chris Caramello",
+              "points": 1
+            },
+            {
+              "songLabel": "Dinosaurier - Ingo ohne Flamingo, NoooN",
+              "points": 2
+            },
+            {
+              "songLabel": "Ungesund - EMEX",
+              "points": 7
+            },
+            {
+              "songLabel": "Lieber Schinken - Dorfrocker",
+              "points": 1
+            }
+          ]
         }
       ]
     },
@@ -6133,6 +6456,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Blaulicht – Kati Zucker",
@@ -6187,6 +6511,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "K2 – Tream, Blümchen",
@@ -6241,6 +6566,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "PARTY TRANSFORMER – Die Atzen",
@@ -6295,6 +6621,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Scheißegal – Frenzy, Isi Glück",
@@ -6349,6 +6676,7 @@
         {
           "sourceName": "Meiki/Gäste",
           "displayName": "Meiki/Gäste",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Scheißegal – Frenzy, Isi Glück",
@@ -6412,6 +6740,7 @@
         {
           "sourceName": "Banjee",
           "displayName": "Banjee",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sie ist 18 – Kreisligalegende, Keya",
@@ -6466,6 +6795,7 @@
         {
           "sourceName": "Marcus",
           "displayName": "DJ Marcus Aurelius",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sie ist 18 – Kreisligalegende, Keya",
@@ -6520,6 +6850,7 @@
         {
           "sourceName": "Timo",
           "displayName": "Timo",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sie ist 18 – Kreisligalegende, Keya",
@@ -6574,6 +6905,7 @@
         {
           "sourceName": "Micha",
           "displayName": "Micha Benjamin",
+          "category": "jury",
           "ranking": [
             {
               "songLabel": "Sie ist 18 – Kreisligalegende, Keya",

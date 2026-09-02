@@ -28,6 +28,7 @@ export type Song = {
 export type Vote = {
   id: string;
   round_id: string;
+  voting_channel: 'audience' | 'dj';
   juror_name: string;
   juror_email: string;
   juror_instagram: string | null;

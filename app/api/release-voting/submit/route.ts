@@ -55,6 +55,7 @@ export async function POST(req: Request) {
     }
 
     const roundId = clean(body.roundId);
+    const votingChannel = body.votingChannel === 'dj' ? 'dj' : 'audience';
     const jurorName = clean(body.jurorName);
     const jurorEmail = clean(body.jurorEmail).toLowerCase();
     const jurorInstagram = clean(body.jurorInstagram) || null;
@@ -72,12 +73,12 @@ export async function POST(req: Request) {
     if (!ranking.length) throw new Error('Bitte wähle deine Songs aus.');
 
     const clientIp = clientIpFromRequest(req);
-    const ipLimit = checkRateLimit(`vote-submit:ip:${roundId}:${clientIp}`, 10, 60 * 60 * 1000);
+    const ipLimit = checkRateLimit(`vote-submit:${votingChannel}:ip:${roundId}:${clientIp}`, 10, 60 * 60 * 1000);
     if (!ipLimit.ok) {
       throw new Error(`Zu viele Voting-Versuche von diesem Anschluss. Bitte in ca. ${minutesUntil(ipLimit.resetAt)} Minuten erneut probieren.`);
     }
 
-    const emailLimit = checkRateLimit(`vote-submit:email:${roundId}:${jurorEmail}`, 3, 60 * 60 * 1000);
+    const emailLimit = checkRateLimit(`vote-submit:${votingChannel}:email:${roundId}:${jurorEmail}`, 3, 60 * 60 * 1000);
     if (!emailLimit.ok) {
       throw new Error(`Zu viele Voting-Versuche mit dieser E-Mail-Adresse. Bitte in ca. ${minutesUntil(emailLimit.resetAt)} Minuten erneut probieren.`);
     }
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
       .from('release_voting_votes')
       .select('id', { count: 'exact', head: true })
       .eq('round_id', roundId)
+      .eq('voting_channel', votingChannel)
       .eq('juror_email', jurorEmail)
       .gte('created_at', oneHourAgo);
 
@@ -119,6 +121,7 @@ export async function POST(req: Request) {
       .from('release_voting_votes')
       .select('id')
       .eq('round_id', roundId)
+      .eq('voting_channel', votingChannel)
       .eq('juror_email', jurorEmail)
       .eq('is_verified', true)
       .limit(1)
@@ -180,6 +183,7 @@ export async function POST(req: Request) {
     // können bestätigt werden, fließen aber zunächst NICHT in die Auswertung ein.
     const integrity = await assessVoteIntegrity({
       roundId,
+      votingChannel,
       email: jurorEmail,
       clientIp,
       ranking: normalizedRanking,
@@ -192,6 +196,7 @@ export async function POST(req: Request) {
       .from('release_voting_votes')
       .insert({
         round_id: roundId,
+        voting_channel: votingChannel,
         juror_name: jurorName,
         juror_email: jurorEmail,
         juror_instagram: jurorInstagram,

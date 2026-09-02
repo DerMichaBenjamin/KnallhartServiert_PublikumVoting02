@@ -42,7 +42,9 @@ export function buildCombinedResults(
   publicVerifiedVotes: number,
   juryData: AdminJuryRoundData,
 ) {
-  const activeJurors = juryData.jurors.filter((juror) => juror.is_active);
+  // DJ-Rankings sind eine eigene redaktionelle Kategorie und dürfen niemals
+  // in die normale Jury-plus-Publikum-Gesamtwertung einfließen.
+  const activeJurors = juryData.jurors.filter((juror) => juror.is_active && (!juror.voting_role || juror.voting_role === 'jury'));
   const submittedJurors = activeJurors.filter((juror) => Boolean(juror.submitted_at));
   const audienceResults = buildAudienceResults(publicLeaderboard, publicVerifiedVotes);
   const audiencePoints = new Map(audienceResults.map((row) => [row.song.id, row.audiencePoints]));

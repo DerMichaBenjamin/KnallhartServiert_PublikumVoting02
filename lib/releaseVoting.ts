@@ -45,6 +45,8 @@ export type RoundVoteCounts = {
   unverifiedVotes: number;
 };
 
+export type VotingChannel = 'audience' | 'dj';
+
 export type VotingCheckReviewVote = Pick<Vote,
   'id' | 'juror_name' | 'juror_email' | 'created_at' | 'verified_at' |
   'integrity_reasons' | 'email_domain' | 'ip_hash'
@@ -53,6 +55,7 @@ export type VotingCheckReviewVote = Pick<Vote,
 type AdminRoundDetailOptions = {
   includeParticipants?: boolean;
   round?: Round;
+  channel?: VotingChannel;
 };
 
 const DATABASE_PAGE_SIZE = 1000;
@@ -145,7 +148,7 @@ export async function getSongs(roundId: string) {
   return (data || []) as Song[];
 }
 
-export async function getVerifiedVotes(roundId: string) {
+export async function getVerifiedVotes(roundId: string, channel: VotingChannel = 'audience') {
   noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return { votes: [] as Vote[], items: [] as VoteItem[] };
@@ -156,6 +159,7 @@ export async function getVerifiedVotes(roundId: string) {
       .from('release_voting_votes')
       .select('*')
       .eq('round_id', roundId)
+      .eq('voting_channel', channel)
       .eq('is_verified', true)
       .eq('is_counted', true)
       .order('verified_at', { ascending: true })
@@ -171,7 +175,7 @@ export async function getVerifiedVotes(roundId: string) {
   return { votes, items };
 }
 
-export async function getAllVotes(roundId: string) {
+export async function getAllVotes(roundId: string, channel: VotingChannel = 'audience') {
   noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return [] as Vote[];
@@ -182,6 +186,7 @@ export async function getAllVotes(roundId: string) {
       .from('release_voting_votes')
       .select('*')
       .eq('round_id', roundId)
+      .eq('voting_channel', channel)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .range(from, from + DATABASE_PAGE_SIZE - 1);
@@ -193,7 +198,7 @@ export async function getAllVotes(roundId: string) {
   return votes;
 }
 
-async function getVoteItemsForVoteIds(voteIds: string[]) {
+export async function getVoteItemsForVoteIds(voteIds: string[]) {
   const sb = getSupabaseAdminClient();
   if (!sb || !voteIds.length) return [] as VoteItem[];
 
@@ -223,17 +228,17 @@ function exactCount(result: { count: number | null; error: unknown }, label: str
   return result.count || 0;
 }
 
-export async function getRoundVoteCounts(roundId: string): Promise<RoundVoteCounts> {
+export async function getRoundVoteCounts(roundId: string, channel: VotingChannel = 'audience'): Promise<RoundVoteCounts> {
   noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return { totalVotes: 0, confirmedVotes: 0, countedVotes: 0, reviewVotes: 0, excludedVotes: 0, unverifiedVotes: 0 };
 
   const [total, confirmed, counted, review, excluded] = await Promise.all([
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('is_verified', true),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('is_verified', true).or('is_counted.eq.true,is_counted.is.null'),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('is_verified', true).eq('is_counted', false).or('integrity_status.neq.excluded,integrity_status.is.null'),
-    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('is_verified', true).eq('integrity_status', 'excluded'),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('voting_channel', channel),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('voting_channel', channel).eq('is_verified', true),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('voting_channel', channel).eq('is_verified', true).or('is_counted.eq.true,is_counted.is.null'),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('voting_channel', channel).eq('is_verified', true).eq('is_counted', false).or('integrity_status.neq.excluded,integrity_status.is.null'),
+    sb.from('release_voting_votes').select('id', { count: 'exact', head: true }).eq('round_id', roundId).eq('voting_channel', channel).eq('is_verified', true).eq('integrity_status', 'excluded'),
   ]);
 
   const totalVotes = exactCount(total, 'Publikumsstimmen');
@@ -257,6 +262,7 @@ export async function getVotingCheckReviewVotes(roundId: string, limit = 200): P
     .from('release_voting_votes')
     .select('id,juror_name,juror_email,created_at,verified_at,integrity_reasons,email_domain,ip_hash')
     .eq('round_id', roundId)
+    .eq('voting_channel', 'audience')
     .eq('is_verified', true)
     .eq('is_counted', false)
     .or('integrity_status.neq.excluded,integrity_status.is.null')
@@ -267,11 +273,11 @@ export async function getVotingCheckReviewVotes(roundId: string, limit = 200): P
   return (data || []) as VotingCheckReviewVote[];
 }
 
-export async function getRoundResults(roundId: string): Promise<RoundResults> {
+export async function getRoundResults(roundId: string, channel: VotingChannel = 'audience'): Promise<RoundResults> {
   noStore();
 
   const songs = await getSongs(roundId);
-  const { votes, items } = await getVerifiedVotes(roundId);
+  const { votes, items } = await getVerifiedVotes(roundId, channel);
   const leaderboard = buildLeaderboard(songs, votes, items);
   const zonk = buildZonk(songs, votes);
 
@@ -292,10 +298,12 @@ export async function getAdminRoundDetailData(roundId: string, options: AdminRou
   const round = options.round || await getRoundById(roundId);
   if (!round) return null;
 
+  const channel = options.channel || 'audience';
+
   const songsPromise = getSongs(round.id);
-  const votesPromise = options.includeParticipants ? getAllVotes(round.id) : Promise.resolve(null);
-  const verifiedPromise = options.includeParticipants ? Promise.resolve(null) : getVerifiedVotes(round.id);
-  const countsPromise = options.includeParticipants ? Promise.resolve(null) : getRoundVoteCounts(round.id);
+  const votesPromise = options.includeParticipants ? getAllVotes(round.id, channel) : Promise.resolve(null);
+  const verifiedPromise = options.includeParticipants ? Promise.resolve(null) : getVerifiedVotes(round.id, channel);
+  const countsPromise = options.includeParticipants ? Promise.resolve(null) : getRoundVoteCounts(round.id, channel);
   const [songs, allVotes, verifiedData, exactCounts] = await Promise.all([songsPromise, votesPromise, verifiedPromise, countsPromise]);
 
   const countedVoteRows = allVotes
