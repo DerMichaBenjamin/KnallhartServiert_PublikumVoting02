@@ -243,7 +243,11 @@ export function spotifyIdFromInput(input?: string | null) {
   return value.split('?')[0].trim();
 }
 
-export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]): LeaderboardRow[] {
+export function buildLeaderboard(
+  songs: Song[],
+  votes: Array<{ id: string; is_verified: boolean; is_counted: boolean | null | undefined }>,
+  items: VoteItem[],
+): LeaderboardRow[] {
   const validVoteIds = new Set(votes.filter((vote) => vote.is_verified && vote.is_counted !== false).map((vote) => vote.id));
   const validVotesCount = validVoteIds.size;
   const songIds = new Set(songs.map((song) => song.id));
@@ -292,7 +296,10 @@ export function buildLeaderboard(songs: Song[], votes: Vote[], items: VoteItem[]
   return rows;
 }
 
-export function buildZonk(songs: Song[], votes: Vote[]): ZonkRow[] {
+export function buildZonk(
+  songs: Song[],
+  votes: Array<{ is_verified: boolean; is_counted: boolean | null | undefined; zonk_song_id: string | null }>,
+): ZonkRow[] {
   const counts = new Map<string, number>();
   const songIds = new Set(songs.map((song) => song.id));
 

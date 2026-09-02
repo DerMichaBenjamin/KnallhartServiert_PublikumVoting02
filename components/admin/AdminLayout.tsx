@@ -25,9 +25,9 @@ function isActive(pathname: string, href: string) {
   if (href === '/admin/release-voting') return pathname === href;
   if (href === '/admin/rounds') {
     return pathname.startsWith('/admin/rounds')
-      || (pathname.startsWith('/admin/release-voting/') && !pathname.endsWith('/results'));
+      || (pathname.startsWith('/admin/release-voting/') && !pathname.includes('/results') && !pathname.includes('/statistics'));
   }
-  if (href === '/admin/statistics' && pathname.endsWith('/results')) return true;
+  if (href === '/admin/statistics' && (pathname.includes('/results') || pathname.includes('/statistics'))) return true;
   return pathname.startsWith(href);
 }
 

@@ -68,6 +68,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       actions={<>
         <StatusBadge status={getAdminRoundStatus(round)}>{adminRoundStatusLabel(getAdminRoundStatus(round))}</StatusBadge>
         <button className="ks-button secondary" type="button" onClick={() => setScheduleOpen(true)}>Zeitraum bearbeiten</button>
+        <a className="ks-button secondary" href={`/admin/release-voting/${round.id}/statistics`}>Statistiken</a>
         <a className="ks-button primary" href={`/admin/release-voting/${round.id}/results`}>Zur Auswertung</a>
       </>}
     />
