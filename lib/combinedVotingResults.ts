@@ -10,6 +10,7 @@ export type CombinedResultRow = {
   song: Song;
   juryPointsByJuror: Record<string, number>;
   juryPoints: number;
+  juryAverage: number | null;
   audiencePoints: number;
   total: number;
   rank: number | null;
@@ -68,7 +69,8 @@ export function buildCombinedResults(
       juryPoints += points;
     }
     const publicPoints = audiencePoints.get(song.id) || 0;
-    return { song, juryPointsByJuror: perJuror, juryPoints, audiencePoints: publicPoints, total: juryPoints + publicPoints };
+    const juryAverage = submittedJurors.length ? juryPoints / submittedJurors.length : null;
+    return { song, juryPointsByJuror: perJuror, juryPoints, juryAverage, audiencePoints: publicPoints, total: juryPoints + publicPoints };
   });
 
   unranked.sort((a, b) => b.total - a.total || compareResultSongs(a.song, b.song));

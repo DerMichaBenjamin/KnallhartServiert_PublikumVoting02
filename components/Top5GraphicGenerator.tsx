@@ -5,7 +5,8 @@ import type { LeaderboardRow, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { buildCombinedResults } from '@/lib/combinedVotingResults';
 
-const DEFAULT_TEMPLATE_SRC = '/release-check-top5-template.png';
+const FIXED_TEMPLATE_SRC = '/release-check-top5-template-clean.png';
+const VARIABLE_TEMPLATE_SRC = '/release-check-top5-template-variable.png';
 const OUTPUT_WIDTH = 1080;
 const OUTPUT_HEIGHT = 1920;
 
@@ -15,7 +16,6 @@ type Props = {
   publicLeaderboard: LeaderboardRow[];
   publicVerifiedVotes: number;
   juryData: AdminJuryRoundData;
-  initialTemplateDataUrl?: string;
   variant?: 'full' | 'compact';
 };
 
@@ -186,14 +186,18 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, publicVerifiedVotes, juryData, initialTemplateDataUrl = '', variant = 'full' }: Props) {
+export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, publicVerifiedVotes, juryData, variant = 'full' }: Props) {
+  const sectionRef = useRef<HTMLElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const templateImageRef = useRef<HTMLImageElement | null>(null);
+  const previewObjectUrlRef = useRef('');
+  const savedTemplateLoadedRef = useRef(false);
+  const [shouldRender, setShouldRender] = useState(false);
   const [templateReady, setTemplateReady] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [notice, setNotice] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
-  const [templateSource, setTemplateSource] = useState(initialTemplateDataUrl || DEFAULT_TEMPLATE_SRC);
+  const [customTemplateSource, setCustomTemplateSource] = useState('');
   const [pendingTemplateDataUrl, setPendingTemplateDataUrl] = useState('');
   const [uploadBusy, setUploadBusy] = useState(false);
   const [templateChanged, setTemplateChanged] = useState(false);
@@ -248,7 +252,44 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     return lines.join('\n');
   }, [graphicRows, shortDateLabel]);
 
+  const requiresDynamicRows = graphicRows.length !== 5
+    || graphicRows.some((row, index) => row.rank !== index + 1);
+  const templateSource = requiresDynamicRows
+    ? VARIABLE_TEMPLATE_SRC
+    : customTemplateSource || FIXED_TEMPLATE_SRC;
+
   useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || shouldRender) return;
+    if (!('IntersectionObserver' in window)) {
+      setShouldRender(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setShouldRender(true);
+      observer.disconnect();
+    }, { rootMargin: '600px 0px' });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [shouldRender]);
+
+  useEffect(() => {
+    if (!shouldRender || savedTemplateLoadedRef.current || requiresDynamicRows) return;
+    savedTemplateLoadedRef.current = true;
+    void fetch('/api/admin/settings?key=top5-template')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data?.ok && typeof data.dataUrl === 'string' && data.dataUrl.startsWith('data:image/')) {
+          setCustomTemplateSource(data.dataUrl);
+        }
+      })
+      .catch(() => undefined);
+  }, [requiresDynamicRows, shouldRender]);
+
+  useEffect(() => {
+    if (!shouldRender) return;
+    setTemplateReady(false);
     const image = new window.Image();
     image.onload = () => {
       templateImageRef.current = image;
@@ -258,13 +299,13 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       setTemplateReady(false);
       setNotice({ type: 'error', text: 'Die Hintergrundgrafik konnte nicht geladen werden.' });
     };
-    image.src = templateSource || DEFAULT_TEMPLATE_SRC;
-  }, [templateSource]);
+    image.src = templateSource;
+  }, [shouldRender, templateSource]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const templateImage = templateImageRef.current;
-    if (!canvas || !templateReady || !templateImage) return;
+    if (!shouldRender || !canvas || !templateReady || !templateImage) return;
 
     canvas.width = OUTPUT_WIDTH;
     canvas.height = OUTPUT_HEIGHT;
@@ -275,17 +316,24 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     ctx.clearRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
     ctx.drawImage(templateImage, 0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
 
-    if (!graphicRows.length) {
-      setPreviewUrl(canvas.toDataURL('image/png'));
-      return;
-    }
+    const updatePreview = () => canvas.toBlob((blob) => {
+      if (!blob) return;
+      if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
+      const nextUrl = URL.createObjectURL(blob);
+      previewObjectUrlRef.current = nextUrl;
+      setPreviewUrl(nextUrl);
+    }, 'image/png');
+
+    if (!graphicRows.length) return updatePreview();
 
     const rowsCount = graphicRows.length;
     const groupTop = 875;
     const groupBottom = 1845;
-    const gap = rowsCount <= 5 ? 24 : rowsCount <= 6 ? 18 : 14;
+    const gap = requiresDynamicRows
+      ? rowsCount <= 5 ? 24 : rowsCount <= 8 ? 14 : rowsCount <= 12 ? 8 : 4
+      : 24;
     const rowHeight = (groupBottom - groupTop - gap * (rowsCount - 1)) / rowsCount;
-    const circleSize = Math.min(150, rowHeight - 4);
+    const circleSize = Math.max(18, Math.min(150, rowHeight - 4));
     const circleX = 84;
     const barX = 183;
     const barWidth = 810;
@@ -296,57 +344,62 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       const barY = y + 2;
       const barHeight = rowHeight - 4;
 
-      ctx.save();
-      ctx.shadowColor = 'rgba(255, 213, 0, 0.55)';
-      ctx.shadowBlur = 24;
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = '#ffcf0d';
-      ctx.fillStyle = 'rgba(5, 5, 5, 0.96)';
-      drawRoundedRect(ctx, barX, barY, barWidth, barHeight, 22);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
+      if (requiresDynamicRows) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 213, 0, 0.55)';
+        ctx.shadowBlur = Math.min(24, rowHeight * 0.14);
+        ctx.lineWidth = Math.max(2, Math.min(4, rowHeight * 0.04));
+        ctx.strokeStyle = '#ffcf0d';
+        ctx.fillStyle = 'rgba(5, 5, 5, 0.96)';
+        drawRoundedRect(ctx, barX, barY, barWidth, barHeight, Math.min(22, rowHeight * 0.16));
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
 
-      const circleGradient = ctx.createRadialGradient(circleX + circleSize * 0.35, circleY + circleSize * 0.28, circleSize * 0.12, circleX + circleSize / 2, circleY + circleSize / 2, circleSize / 2);
-      circleGradient.addColorStop(0, '#ffe680');
-      circleGradient.addColorStop(0.55, '#ffd31a');
-      circleGradient.addColorStop(1, '#ecb700');
+        const circleGradient = ctx.createRadialGradient(circleX + circleSize * 0.35, circleY + circleSize * 0.28, circleSize * 0.12, circleX + circleSize / 2, circleY + circleSize / 2, circleSize / 2);
+        circleGradient.addColorStop(0, '#ffe680');
+        circleGradient.addColorStop(0.55, '#ffd31a');
+        circleGradient.addColorStop(1, '#ecb700');
 
-      ctx.save();
-      ctx.shadowColor = 'rgba(255, 213, 0, 0.45)';
-      ctx.shadowBlur = 24;
-      ctx.fillStyle = circleGradient;
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(circleX + circleSize / 2, circleY + circleSize / 2, circleSize / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 213, 0, 0.45)';
+        ctx.shadowBlur = Math.min(24, rowHeight * 0.14);
+        ctx.fillStyle = circleGradient;
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = Math.max(1, Math.min(3, rowHeight * 0.025));
+        ctx.beginPath();
+        ctx.arc(circleX + circleSize / 2, circleY + circleSize / 2, circleSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
 
-      const platzFont = Math.max(18, Math.min(24, rowHeight * 0.18));
-      const rankFont = Math.max(46, Math.min(84, rowHeight * 0.6));
-
-      ctx.save();
-      ctx.textAlign = 'center';
-      drawTextLine(ctx, 'PLATZ', circleX + circleSize / 2, circleY + circleSize * 0.36, '#111111', platzFont, 'Arial Black, Arial, sans-serif');
-      drawTextLine(ctx, String(row.rank), circleX + circleSize / 2, circleY + circleSize * 0.82, '#111111', rankFont, 'Arial Black, Arial, sans-serif');
-      ctx.restore();
+        const platzFont = Math.max(7, Math.min(24, rowHeight * 0.18));
+        const rankFont = Math.max(11, Math.min(84, rowHeight * 0.52));
+        ctx.save();
+        ctx.textAlign = 'center';
+        drawTextLine(ctx, 'PLATZ', circleX + circleSize / 2, circleY + circleSize * 0.36, '#111111', platzFont, 'Arial Black, Arial, sans-serif');
+        drawTextLine(ctx, String(row.rank), circleX + circleSize / 2, circleY + circleSize * 0.82, '#111111', rankFont, 'Arial Black, Arial, sans-serif');
+        ctx.restore();
+      }
 
       const textX = barX + 104;
       const textMaxWidth = barWidth - 156;
       const titleText = row.title.toUpperCase();
       const artistText = row.artist.toUpperCase();
 
-      let titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, Math.max(24, Math.min(56, rowHeight * 0.29)), 18, 'Arial Black, Arial, sans-serif');
-      let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, Math.max(17, Math.min(33, rowHeight * 0.19)), 14, 'Arial Black, Arial, sans-serif');
+      const maxLines = rowHeight < 82 ? 1 : 2;
+      const titleMin = Math.max(8, Math.min(18, rowHeight * 0.22));
+      const artistMin = Math.max(7, Math.min(14, rowHeight * 0.17));
+      let titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, maxLines, Math.max(titleMin, Math.min(56, rowHeight * 0.29)), titleMin, 'Arial Black, Arial, sans-serif');
+      let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, maxLines, Math.max(artistMin, Math.min(33, rowHeight * 0.19)), artistMin, 'Arial Black, Arial, sans-serif');
 
       const availableTextHeight = rowHeight * 0.76;
-      let totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + 8;
-      while (totalTextHeight > availableTextHeight && (titleWrap.fontSize > 18 || artistWrap.fontSize > 14)) {
-        titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, titleWrap.fontSize - 1, 18, 'Arial Black, Arial, sans-serif');
-        artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, artistWrap.fontSize - 1, 14, 'Arial Black, Arial, sans-serif');
-        totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + 8;
+      const textGap = Math.max(2, Math.min(8, rowHeight * 0.04));
+      let totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
+      while (totalTextHeight > availableTextHeight && (titleWrap.fontSize > titleMin || artistWrap.fontSize > artistMin)) {
+        titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, maxLines, titleWrap.fontSize - 1, titleMin, 'Arial Black, Arial, sans-serif');
+        artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, maxLines, artistWrap.fontSize - 1, artistMin, 'Arial Black, Arial, sans-serif');
+        totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
       }
 
       const textBlockTop = barY + (barHeight - totalTextHeight) / 2 + titleWrap.fontSize;
@@ -354,14 +407,18 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         drawTextLine(ctx, line, textX, textBlockTop + titleIndex * titleWrap.lineHeight, '#f0f0f0', titleWrap.fontSize, 'Arial Black, Arial, sans-serif');
       });
 
-      const artistStartY = textBlockTop + titleWrap.lines.length * titleWrap.lineHeight + 8;
+      const artistStartY = textBlockTop + titleWrap.lines.length * titleWrap.lineHeight + textGap;
       artistWrap.lines.forEach((line, artistIndex) => {
         drawTextLine(ctx, line, textX, artistStartY + artistIndex * artistWrap.lineHeight, '#ffd117', artistWrap.fontSize, 'Arial Black, Arial, sans-serif');
       });
     });
 
-    setPreviewUrl(canvas.toDataURL('image/png'));
-  }, [templateReady, graphicRows, templateSource]);
+    updatePreview();
+  }, [graphicRows, requiresDynamicRows, shouldRender, templateReady, templateSource]);
+
+  useEffect(() => () => {
+    if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
+  }, []);
 
   async function saveTemplate(dataUrl: string) {
     setUploadBusy(true);
@@ -370,7 +427,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       const response = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ top5GraphicTemplateDataUrl: dataUrl }),
+        body: JSON.stringify({ top5GraphicTemplateDataUrl: dataUrl, top5GraphicTemplateVersion: dataUrl ? 'clean-v2' : '' }),
       });
       const data = await response.json().catch(() => null);
 
@@ -394,7 +451,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
 
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      setTemplateSource(dataUrl);
+      setCustomTemplateSource(dataUrl);
       setPendingTemplateDataUrl(dataUrl);
       setTemplateChanged(true);
       setNotice({ type: 'ok', text: 'Neue Hintergrundgrafik geladen. Speichere sie, wenn sie künftig dauerhaft verwendet werden soll.' });
@@ -409,7 +466,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     const ok = window.confirm('Die gespeicherte Hintergrundgrafik wirklich zurücksetzen und wieder die Standardvorlage verwenden?');
     if (!ok) return;
 
-    setTemplateSource(DEFAULT_TEMPLATE_SRC);
+    setCustomTemplateSource('');
     setPendingTemplateDataUrl('');
     setTemplateChanged(true);
     await saveTemplate('');
@@ -455,7 +512,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   }
 
   return (
-    <section id="top5" className={`admin-card top5-graphic-card ${variant === 'compact' ? 'top5-compact' : ''}`}>
+    <section ref={sectionRef} id="top5" className={`admin-card top5-graphic-card ${variant === 'compact' ? 'top5-compact' : ''}`}>
       <div className="top5-graphic-header">
         <div>
           <h2>Top-5-Grafik</h2>
@@ -480,7 +537,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       {variant === 'full' && <div className="top5-graphic-template-card">
         <div>
           <h3>Hintergrundgrafik</h3>
-          <p className="admin-help-text">Du kannst eine neue Hintergrundgrafik hochladen. Sie wird dann dauerhaft als Vorlage für die automatische Top-5-Grafik verwendet.</p>
+          <p className="admin-help-text">Du kannst eine saubere Vorlage mit festen Rahmen und Platzmarkierungen hochladen. Alte, noch gespeicherte Vorlagen ohne die neue Versionskennung überschreiben die bereinigte Standarddatei nicht mehr.</p>
         </div>
         <div className="top5-template-actions">
           <label className="top5-template-upload">
@@ -498,8 +555,8 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
 
       <div className="top5-graphic-layout">
         <div className="top5-graphic-preview-wrap">
-          <canvas ref={canvasRef} className="top5-graphic-canvas" />
-          {!templateReady && <div className="notice">Vorlage wird geladen…</div>}
+          <canvas ref={canvasRef} className="top5-graphic-canvas" width={OUTPUT_WIDTH} height={OUTPUT_HEIGHT} />
+          {!templateReady && <div className="notice">{shouldRender ? 'Vorlage wird geladen…' : 'Vorschau wird vorbereitet…'}</div>}
         </div>
 
         <div className="top5-graphic-sidepanel">

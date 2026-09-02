@@ -14,18 +14,21 @@ type Props = {
   currentSongs: Song[];
   currentSummary: AdminRoundSummary | null;
   currentJuryData: AdminJuryRoundData;
-  top5TemplateDataUrl: string;
+  securityAlerts: number | null;
 };
 
 function QuickAction({ href, title, text, accent = false }: { href: string; title: string; text: string; accent?: boolean }) {
   return <a className={`ks-quick-action ${accent ? 'accent' : ''}`} href={href}><strong>{title}</strong><span>{text}</span><b aria-hidden="true">→</b></a>;
 }
 
-export default function AdminDashboard({ currentRound, currentSongs, currentSummary, currentJuryData, top5TemplateDataUrl }: Props) {
+export default function AdminDashboard({ currentRound, currentSongs, currentSummary, currentJuryData, securityAlerts }: Props) {
   const activeJurors = useMemo(() => currentJuryData.jurors.filter((juror) => juror.is_active), [currentJuryData]);
   const submittedJurors = activeJurors.filter((juror) => Boolean(juror.submitted_at));
   const duplicateGroups = useMemo(() => findSongDuplicateGroups(currentSongs), [currentSongs]);
   const openJurors = activeJurors.length - submittedJurors.length;
+  const openCheckItems = currentSummary
+    ? currentSummary.reviewVotes + (securityAlerts || 0) + duplicateGroups.length + openJurors
+    : 0;
 
   return (
     <main>
@@ -72,13 +75,13 @@ export default function AdminDashboard({ currentRound, currentSongs, currentSumm
               <QuickAction href={`/admin/release-voting/${currentRound.id}#jury`} title="Jury-Voting aktuell" text={`${submittedJurors.length} von ${activeJurors.length} abgegeben`} />
               <QuickAction href={`/admin/release-voting/${currentRound.id}/votes`} title="Publikums-Voting aktuell" text={`${currentSummary.countedVotes} von ${currentSummary.totalVotes} gewertet`} />
               <QuickAction href={`/admin/release-voting/${currentRound.id}/results#public-results`} title="Statistikanalyse aktuelles Voting" text="Publikum, Jury und Gesamtwertung" />
-              <QuickAction href={`/admin/release-voting/${currentRound.id}/security`} title="Voting-Prüfung" text="Auffällige Stimmen und Integrität prüfen" accent={currentSummary.reviewVotes > 0} />
+              <QuickAction href="#voting-check" title="Voting-Prüfung" text={securityAlerts === null ? (openCheckItems ? `${openCheckItems} bekannte Prüfpunkte` : 'Prüfstatus öffnen') : openCheckItems ? `${openCheckItems} offene Prüfpunkte` : 'Keine offenen Prüfpunkte'} accent={openCheckItems > 0} />
             </div>
           </section>
 
-          <VotingCheckCard roundId={currentRound.id} reviewVotes={currentSummary.reviewVotes} duplicateGroups={duplicateGroups.length} openJurors={openJurors} />
+          <VotingCheckCard roundId={currentRound.id} reviewVotes={currentSummary.reviewVotes} securityAlerts={securityAlerts} duplicateGroups={duplicateGroups.length} openJurors={openJurors} />
 
-          <Top5GraphicGenerator round={currentRound} songs={currentSongs} publicLeaderboard={currentSummary.leaderboard} publicVerifiedVotes={currentSummary.countedVotes} juryData={currentJuryData} initialTemplateDataUrl={top5TemplateDataUrl} variant="compact" />
+          <Top5GraphicGenerator round={currentRound} songs={currentSongs} publicLeaderboard={currentSummary.leaderboard} publicVerifiedVotes={currentSummary.countedVotes} juryData={currentJuryData} variant="compact" />
         </>
       )}
     </main>

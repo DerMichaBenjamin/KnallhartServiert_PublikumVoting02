@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { AdminRoundSummary, Round } from '@/lib/releaseVotingShared';
 import { formatAdminDateTime } from '@/lib/adminUi';
 import { PageHeader, StatCard } from './AdminUi';
@@ -17,13 +18,14 @@ function status(participant: Participant) {
 
 function shortHash(value?: string | null) { return value ? `${value.slice(0, 8)}…` : '—'; }
 
-export default function PublicVotesManager({ round, summary }: { round: Round; summary: AdminRoundSummary }) {
-  const [filter, setFilter] = useState<Filter>('all'); const [selected, setSelected] = useState<Set<string>>(() => new Set()); const [busy, setBusy] = useState(false); const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+export default function PublicVotesManager({ round, summary, initialFilter = 'all' }: { round: Round; summary: AdminRoundSummary; initialFilter?: Filter }) {
+  const router = useRouter();
+  const [filter, setFilter] = useState<Filter>(initialFilter); const [selected, setSelected] = useState<Set<string>>(() => new Set()); const [busy, setBusy] = useState(false); const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const filtered = useMemo(() => filter === 'all' ? summary.participants : summary.participants.filter((participant) => status(participant).key === filter), [filter, summary.participants]);
   const selectable = filtered.filter((participant) => participant.isVerified).map((participant) => participant.voteId); const allVisibleSelected = selectable.length > 0 && selectable.every((id) => selected.has(id));
   function setMany(ids: string[], checked: boolean) { setSelected((current) => { const next = new Set(current); ids.forEach((id) => checked ? next.add(id) : next.delete(id)); return next; }); }
   function toggle(id: string, checked: boolean) { setMany([id], checked); }
-  async function mutate(action: 'count' | 'exclude', voteIds: string[]) { if (!voteIds.length) return; const verb = action === 'count' ? 'werten' : 'ausschließen'; if (!window.confirm(`${voteIds.length} ${voteIds.length === 1 ? 'Stimme' : 'Stimmen'} wirklich ${verb}?`)) return; setBusy(true); setMessage(null); try { const response = await fetch('/api/admin/vote-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voteIds, action }) }); const data = await response.json().catch(() => null); if (!response.ok || !data?.ok) throw new Error(data?.error || 'Status konnte nicht geändert werden.'); window.location.reload(); } catch (error) { setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Unbekannter Fehler.' }); } finally { setBusy(false); } }
+  async function mutate(action: 'count' | 'exclude', voteIds: string[]) { if (!voteIds.length) return; const verb = action === 'count' ? 'werten' : 'ausschließen'; if (!window.confirm(`${voteIds.length} ${voteIds.length === 1 ? 'Stimme' : 'Stimmen'} wirklich ${verb}?`)) return; setBusy(true); setMessage(null); try { const response = await fetch('/api/admin/vote-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voteIds, action }) }); const data = await response.json().catch(() => null); if (!response.ok || !data?.ok) throw new Error(data?.error || 'Status konnte nicht geändert werden.'); setSelected(new Set()); setMessage({ type: 'ok', text: `${voteIds.length} ${voteIds.length === 1 ? 'Stimme wurde' : 'Stimmen wurden'} aktualisiert.` }); router.refresh(); } catch (error) { setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Unbekannter Fehler.' }); } finally { setBusy(false); } }
   function copyEmails(verifiedOnly: boolean) { const emails = summary.participants.filter((participant) => !verifiedOnly || participant.isVerified).map((participant) => participant.email.trim()).filter(Boolean).filter((email, index, list) => list.indexOf(email) === index); if (!emails.length) { setMessage({ type: 'error', text: 'Keine passenden E-Mail-Adressen gefunden.' }); return; } void navigator.clipboard?.writeText(emails.join('\n')); setMessage({ type: 'ok', text: verifiedOnly ? 'Bestätigte E-Mail-Adressen kopiert.' : 'Alle E-Mail-Adressen kopiert.' }); }
 
   return <main>

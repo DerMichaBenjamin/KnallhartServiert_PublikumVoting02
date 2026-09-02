@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Round } from '@/lib/releaseVotingShared';
 import type { VotingSecurityAlert, VotingSecurityReport } from '@/lib/votingSecurityShared';
 import { PageHeader } from '@/components/admin/AdminUi';
@@ -85,6 +86,7 @@ function pendingMatchesAlert(vote: PendingVote, alert: VotingSecurityAlert) {
 }
 
 export default function AdminVotingSecurity({ round, report }: Props) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [selectedVoteIds, setSelectedVoteIds] = useState<string[]>([]);
@@ -285,7 +287,8 @@ export default function AdminVotingSecurity({ round, report }: Props) {
       await changeMany(voteIds, excluded, reason);
       setMessage({ type: 'ok', text: `${voteIds.length} Stimmen wurden geändert.` });
       clearSelected();
-      window.location.reload();
+      setPendingVotes((current) => current.map((vote) => voteIds.includes(vote.voteId) ? { ...vote, isExcluded: excluded } : vote));
+      router.refresh();
     } catch (error) {
       setMessage({
         type: 'error',
@@ -324,7 +327,8 @@ export default function AdminVotingSecurity({ round, report }: Props) {
     try {
       await changeMany(voteIds, excluded, reason);
       setMessage({ type: 'ok', text: 'Änderung gespeichert.' });
-      window.location.reload();
+      setPendingVotes((current) => current.map((vote) => voteIds.includes(vote.voteId) ? { ...vote, isExcluded: excluded } : vote));
+      router.refresh();
     } catch (error) {
       setMessage({
         type: 'error',
@@ -351,7 +355,8 @@ export default function AdminVotingSecurity({ round, report }: Props) {
     try {
       await setVoteExcluded(participant.voteId, excluded, reason);
       setMessage({ type: 'ok', text: 'Änderung gespeichert.' });
-      window.location.reload();
+      setPendingVotes((current) => current.map((vote) => vote.voteId === participant.voteId ? { ...vote, isExcluded: excluded } : vote));
+      router.refresh();
     } catch (error) {
       setMessage({
         type: 'error',

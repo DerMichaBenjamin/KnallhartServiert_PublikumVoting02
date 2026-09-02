@@ -3,7 +3,6 @@ import { isAdminLoggedIn } from '@/lib/adminAuth';
 import AdminRoundDetail from '@/components/AdminRoundDetail';
 import { getAdminRoundDetailData, getCurrentDjRoundId } from '@/lib/releaseVoting';
 import { getAdminJuryRoundData } from '@/lib/juryVoting';
-import { getSetting } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,21 +16,20 @@ export default async function AdminRoundPage({ params }: PageProps) {
   if (!(await isAdminLoggedIn())) redirect('/admin/login');
 
   const { roundId } = await params;
-  const data = await getAdminRoundDetailData(roundId);
-  const currentDjRoundId = await getCurrentDjRoundId();
-  const juryData = await getAdminJuryRoundData(roundId);
-  const top5TemplateDataUrl = await getSetting('top5_graphic_template_data_url', '');
+  const [data, currentDjRoundId, juryData] = await Promise.all([
+    getAdminRoundDetailData(roundId),
+    getCurrentDjRoundId(),
+    getAdminJuryRoundData(roundId),
+  ]);
 
   if (!data) notFound();
 
-  return (
-    <AdminRoundDetail
-      round={data.round}
-      songs={data.songs}
-      summary={data.summary}
-      isCurrentDj={currentDjRoundId === data.round.id}
-      juryData={juryData}
-      top5TemplateDataUrl={top5TemplateDataUrl}
-    />
-  );
+  return <AdminRoundDetail
+    round={data.round}
+    songs={data.songs}
+    summary={data.summary}
+    isCurrentDj={currentDjRoundId === data.round.id}
+    juryData={juryData}
+    securityAlerts={null}
+  />;
 }
