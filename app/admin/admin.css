@@ -618,6 +618,12 @@
 .ks-import-category.dj { background: #eee9ff; color: #5c35b2; }
 .ks-import-compact-select { display: grid; gap: 5px; margin-top: 12px; }
 .ks-import-missing label { display: grid; gap: 5px; margin-top: 8px; }
+.ks-import-suggestions { display: grid; gap: 6px; margin-top: 8px; }
+.ks-import-suggestions > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px; border: 1px solid #dfd7ff; border-radius: 8px; background: #f8f6ff; }
+.ks-import-suggestions span { min-width: 0; }
+.ks-import-suggestions small { margin: 0 0 2px; color: var(--ks-violet); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.ks-import-suggestions b { display: block; color: var(--ks-text); font-size: 12px; overflow-wrap: anywhere; }
+.ks-import-suggestions .ks-button { flex: 0 0 auto; }
 .ks-import-source-errors { display: grid; gap: 10px; }
 .ks-import-source-errors > article { padding: 12px; border: 1px solid #efc47e; border-radius: 9px; background: #fff; }
 .ks-import-source-errors > article.resolved { border-color: #a9ddc5; background: #f6fffa; }

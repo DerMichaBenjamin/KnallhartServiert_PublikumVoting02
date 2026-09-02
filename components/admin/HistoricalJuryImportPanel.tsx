@@ -12,7 +12,11 @@ type JurorReport = {
   message: string;
   matchedSongs: number;
   matchReviews: MatchReview[];
-  missingSongs: Array<{ sourceSong: string; suggestions: string[]; mappingValue: string }>;
+  missingSongs: Array<{
+    sourceSong: string;
+    suggestions: Array<{ id: string | null; label: string; confidence: number | null }>;
+    mappingValue: string;
+  }>;
   jurorMappingValue: string;
 };
 type RankingItem = { songLabel: string; points: number };
@@ -267,7 +271,8 @@ export default function HistoricalJuryImportPanel() {
                   {juror.matchReviews.length > 0 && <details className="ks-import-review"><summary>{juror.matchReviews.length} automatisch zugeordnete Songnamen</summary><ul>{juror.matchReviews.map((match) => <li key={`${match.sourceSong}-${match.matchedSong}`}><span>{match.sourceSong}</span><b>→</b><span>{match.matchedSong} <small>({match.strategy === 'manual' ? 'manuell' : `${match.confidence} %`})</small></span></li>)}</ul></details>}
                   {juror.missingSongs.length > 0 && <ul className="ks-import-missing">{juror.missingSongs.map((song) => {
                     const songKey = `${round.sheet}:${song.sourceSong}:song`;
-                    return <li key={song.sourceSong}><strong>{song.sourceSong}</strong>{song.suggestions.length > 0 && <small>Vorschlag/Hinweis: {song.suggestions.join(' · ')}</small>}
+                    const suggestion = song.suggestions.find((entry) => Boolean(entry.id)) || song.suggestions[0];
+                    return <li key={song.sourceSong}><strong>{song.sourceSong}</strong>{suggestion && <div className="ks-import-suggestions" aria-label="Automatischer Songvorschlag"><div><span><small>{suggestion.id ? 'Vorgeschlagene Zuordnung' : 'Hinweis'}</small><b>{suggestion.label}</b></span>{suggestion.id && <button className="ks-button secondary small" type="button" disabled={Boolean(savingKey)} onClick={() => void saveMapping({ mappingType: 'song', sheet: round.sheet, sourceSong: song.sourceSong, value: suggestion.id }, songKey)}>{savingKey === songKey ? 'Wird übernommen …' : 'Ja, diesen Song nehmen'}</button>}</div></div>}
                       <label><span>Zuordnen zu</span><select value={song.mappingValue} disabled={Boolean(savingKey)} onChange={(event) => void saveMapping({ mappingType: 'song', sheet: round.sheet, sourceSong: song.sourceSong, value: event.target.value }, songKey)}>
                         <option value="">Bitte Song auswählen …</option>{round.songOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
                       </select></label>{savingKey === songKey && <small>Wird gespeichert …</small>}</li>;

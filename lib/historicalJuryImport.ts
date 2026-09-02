@@ -75,7 +75,11 @@ export type HistoricalJuryJurorReport = {
   message: string;
   matchedSongs: number;
   matchReviews: HistoricalJuryMatchReview[];
-  missingSongs: Array<{ sourceSong: string; suggestions: string[]; mappingValue: string }>;
+  missingSongs: Array<{
+    sourceSong: string;
+    suggestions: Array<{ id: string | null; label: string; confidence: number | null }>;
+    mappingValue: string;
+  }>;
   jurorMappingValue: string;
 };
 
@@ -259,7 +263,7 @@ type SongMatch = {
   song: DatabaseSong | null;
   strategy: 'exact' | 'ellipsis' | 'reversed' | 'fuzzy' | 'manual' | 'missing';
   confidence: number;
-  suggestions: string[];
+  suggestions: Array<{ id: string | null; label: string; confidence: number | null }>;
 };
 
 function matchSong(sourceLabel: string, songs: DatabaseSong[], manualSongId?: string): SongMatch {
@@ -267,7 +271,7 @@ function matchSong(sourceLabel: string, songs: DatabaseSong[], manualSongId?: st
     const manual = songs.find((song) => song.id === manualSongId) || null;
     return manual
       ? { song: manual, strategy: 'manual', confidence: 1, suggestions: [] }
-      : { song: null, strategy: 'missing', confidence: 0, suggestions: ['Gespeicherte Zuordnung gehört nicht mehr zu dieser Umfrage.'] };
+      : { song: null, strategy: 'missing', confidence: 0, suggestions: [{ id: null, label: 'Gespeicherte Zuordnung gehört nicht mehr zu dieser Umfrage.', confidence: null }] };
   }
   const source = normalize(sourceLabel);
   const rows = songs.map((song) => {
@@ -289,7 +293,11 @@ function matchSong(sourceLabel: string, songs: DatabaseSong[], manualSongId?: st
   }
   return {
     song: null, strategy: 'missing', confidence: best?.score || 0,
-    suggestions: sorted.slice(0, 3).filter((entry) => entry.score >= 0.45).map((entry) => `${entry.song.title} – ${entry.song.artist}`),
+    suggestions: sorted.slice(0, 3).filter((entry) => entry.score >= 0.45).map((entry) => ({
+      id: entry.song.id,
+      label: `${entry.song.title} – ${entry.song.artist}`,
+      confidence: Math.round(entry.score * 100),
+    })),
   };
 }
 
@@ -470,7 +478,9 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
         const collision = match?.song ? (collisions.get(match.song.id)?.length || 0) > 1 : false;
         if (!match?.song || collision) {
           missingSongs.push({ sourceSong: item.songLabel,
-            suggestions: collision ? ['Mehrere Excel-Zeilen würden demselben Datenbank-Song zugeordnet.'] : (match?.suggestions || []),
+            suggestions: collision
+              ? [{ id: null, label: 'Mehrere Excel-Zeilen würden demselben Datenbank-Song zugeordnet.', confidence: null }]
+              : (match?.suggestions || []),
             mappingValue: overrides.songMappings[sourceRound.sheet]?.[item.songLabel] || '' });
           continue;
         }
