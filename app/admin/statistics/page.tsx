@@ -22,7 +22,7 @@ export default async function AdminStatisticsPage() {
   ].filter((warning): warning is string => Boolean(warning));
 
   return <main>
-    <PageHeader title="Statistiken" description="Aktuelle Woche, historische Vergleiche und Künstlerhistorie auf Basis der vorhandenen Votingdaten." actions={<a className="ks-button primary" href="#historical-exports">CSV-/XLSX-Gesamtexporte</a>} />
+    <PageHeader title="Statistiken" description="Aktuelle Woche, historische Vergleiche und Künstlerhistorie auf Basis der vorhandenen Votingdaten." actions={<span className="ks-inline-actions"><a className="ks-button secondary" href="/admin/statistics/import-jury">Historische Jurywerte importieren</a><a className="ks-button primary" href="#historical-exports">CSV-/XLSX-Gesamtexporte</a></span>} />
     {loadWarnings.length > 0 && <div className="notice error"><strong>Ein Teil der Statistikdaten ist derzeit nicht erreichbar.</strong><ul>{loadWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul><span>Die historischen Detaildaten werden unabhängig davon weiter unten gestaffelt geladen.</span></div>}
     {totals && <section className="ks-stats-grid dashboard">
       <StatCard label="Umfragen/Datenbankeinträge" value={totals.databaseRounds} hint="Durchgeführte Wochen werden unten ermittelt" tone="violet" />
