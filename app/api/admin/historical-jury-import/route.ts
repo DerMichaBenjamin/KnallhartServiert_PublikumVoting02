@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
-import { buildHistoricalJuryImportPlan, importHistoricalJuryVotes, saveHistoricalImportMapping } from '@/lib/historicalJuryImport';
+import { buildHistoricalJuryImportPlan, importHistoricalJuryVotes, importSingleHistoricalJuryVote, saveHistoricalImportMapping } from '@/lib/historicalJuryImport';
 
 function message(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -26,6 +26,10 @@ export async function POST(request: NextRequest) {
       const result = await importHistoricalJuryVotes();
       return NextResponse.json({ ok: true, ...result });
     }
+    if (action === 'apply-one') {
+      const result = await importSingleHistoricalJuryVote(String(body.sheet || ''), String(body.sourceName || ''));
+      return NextResponse.json({ ok: true, ...result });
+    }
     if (action === 'save-mapping') {
       const mappingType = String(body.mappingType || '');
       if (!['round', 'song', 'juror', 'ranking'].includes(mappingType)) {
@@ -37,6 +41,7 @@ export async function POST(request: NextRequest) {
         sourceName: body.sourceName == null ? undefined : String(body.sourceName),
         sourceSong: body.sourceSong == null ? undefined : String(body.sourceSong),
         value: body.value == null ? undefined : String(body.value),
+        reason: body.reason == null ? undefined : String(body.reason),
         ranking: Array.isArray(body.ranking)
           ? body.ranking.map((item) => {
             const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};

@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import manifestJson from '@/data/historical-jury-votes-2026.json';
 import { getSetting, setSetting } from './settings';
 import { getSupabaseAdminClient } from './supabaseAdmin';
+import type { Round, Song } from './releaseVotingShared';
 
 const PAGE_SIZE = 1000;
 const ITEM_CHUNK_SIZE = 500;
@@ -53,11 +54,12 @@ type DatabaseVote = { id: string; round_id: string; round_juror_id: string; subm
 type DatabaseVoteItem = { vote_id: string; song_id: string; points: number };
 
 export type HistoricalImportOverrides = {
-  version: 2;
+  version: 3;
   roundMappings: Record<string, string>;
   songMappings: Record<string, Record<string, string>>;
   jurorMappings: Record<string, Record<string, string>>;
   rankingCorrections: Record<string, Record<string, ManifestRankingItem[]>>;
+  ignoredReasons: Record<string, string>;
 };
 
 export type HistoricalJuryMatchReview = {
@@ -81,11 +83,15 @@ export type HistoricalJuryJurorReport = {
     mappingValue: string;
   }>;
   jurorMappingValue: string;
+  suggestedJuror: { id: string; displayName: string; confidence: number } | null;
+  ignoredReason: string;
 };
 
 export type HistoricalSkippedColumnReport = ManifestSkippedColumn & {
+  kind: 'empty' | 'ranking-error' | 'dj-aggregate';
   corrected: boolean;
   ignored: boolean;
+  ignoredReason: string;
   currentRanking: ManifestRankingItem[];
 };
 
@@ -93,7 +99,8 @@ export type HistoricalJuryRoundReport = {
   sheet: string;
   votingDate: string;
   sourceSongs: number;
-  targetRound: { id: string; title: string } | null;
+  targetRound: { id: string; title: string; slug: string; songsCount: number; audienceVotes: number } | null;
+  suggestedRound: { id: string; title: string; slug: string; songsCount: number; audienceVotes: number; confidence: number } | null;
   roundMappingValue: string;
   status: 'ready' | 'partial' | 'blocked' | 'complete';
   jurors: HistoricalJuryJurorReport[];
@@ -106,8 +113,13 @@ export type HistoricalJuryRoundReport = {
 export type HistoricalJuryImportReport = {
   sourceFile: string;
   generatedAt: string;
-  roundOptions: Array<{ id: string; title: string; period: string }>;
+  roundOptions: Array<{ id: string; title: string; slug: string; period: string; songsCount: number; audienceVotes: number }>;
   summary: {
+    foundVotes: number;
+    safeVotes: number;
+    reviewVotes: number;
+    errorVotes: number;
+    openProblems: number;
     sourceRounds: number;
     matchedRounds: number;
     validSourceVotes: number;
@@ -125,6 +137,7 @@ export type HistoricalJuryImportReport = {
     emptySourceColumns: number;
     zonkEntriesNotImported: number;
     reviewedSongMatches: number;
+    aggregateDjColumns: number;
   };
   rounds: HistoricalJuryRoundReport[];
 };
@@ -144,7 +157,7 @@ type ImportPlan = { report: HistoricalJuryImportReport; prepared: PreparedJuror[
 const manifest = manifestJson as Manifest;
 
 function emptyOverrides(): HistoricalImportOverrides {
-  return { version: 2, roundMappings: {}, songMappings: {}, jurorMappings: {}, rankingCorrections: {} };
+  return { version: 3, roundMappings: {}, songMappings: {}, jurorMappings: {}, rankingCorrections: {}, ignoredReasons: {} };
 }
 
 async function loadOverrides(): Promise<HistoricalImportOverrides> {
@@ -153,11 +166,12 @@ async function loadOverrides(): Promise<HistoricalImportOverrides> {
   try {
     const parsed = JSON.parse(raw) as Partial<HistoricalImportOverrides>;
     return {
-      version: 2,
+      version: 3,
       roundMappings: parsed.roundMappings && typeof parsed.roundMappings === 'object' ? parsed.roundMappings : {},
       songMappings: parsed.songMappings && typeof parsed.songMappings === 'object' ? parsed.songMappings : {},
       jurorMappings: parsed.jurorMappings && typeof parsed.jurorMappings === 'object' ? parsed.jurorMappings : {},
       rankingCorrections: parsed.rankingCorrections && typeof parsed.rankingCorrections === 'object' ? parsed.rankingCorrections : {},
+      ignoredReasons: parsed.ignoredReasons && typeof parsed.ignoredReasons === 'object' ? parsed.ignoredReasons : {},
     };
   } catch {
     throw new Error('Die gespeicherten Import-Zuordnungen sind beschädigt. Bitte app_settings prüfen.');
@@ -218,12 +232,87 @@ function roundMatchScore(round: DatabaseRound, votingDate: string) {
   return score;
 }
 
-function matchRound(rounds: DatabaseRound[], source: ManifestRound) {
-  const candidates = rounds.map((round) => ({ round, score: roundMatchScore(round, source.votingDate) }))
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score || a.round.title.localeCompare(b.round.title, 'de'));
-  if (!candidates.length || (candidates[1] && candidates[0].score === candidates[1].score)) return null;
+function sourceSongLabels(source: ManifestRound) {
+  return [...new Set([...source.jurors, ...source.skippedColumns]
+    .flatMap((column) => column.ranking)
+    .filter((item) => Number(item.points) > 0)
+    .map((item) => item.songLabel))];
+}
+
+function matchedSourceSongs(source: ManifestRound, songs: DatabaseSong[]) {
+  const matchedIds = new Set<string>();
+  for (const label of sourceSongLabels(source)) {
+    const match = matchSong(label, songs);
+    if (match.song) matchedIds.add(match.song.id);
+  }
+  return matchedIds.size;
+}
+
+type RoundCandidate = {
+  round: DatabaseRound;
+  dateScore: number;
+  songScore: number;
+  audienceVotes: number;
+  unsuitable: boolean;
+};
+
+function rankRoundCandidates(
+  rounds: DatabaseRound[],
+  source: ManifestRound,
+  songsByRound: Map<string, DatabaseSong[]>,
+  audienceVotesByRound: Map<string, number>,
+): RoundCandidate[] {
+  return rounds.map((round) => ({
+    round,
+    dateScore: roundMatchScore(round, source.votingDate),
+    songScore: matchedSourceSongs(source, songsByRound.get(round.id) || []),
+    audienceVotes: audienceVotesByRound.get(round.id) || 0,
+    unsuitable: /(^|\W)(test|dj)(\W|$)/i.test(`${round.title} ${round.slug}`),
+  }))
+    .filter((entry) => entry.dateScore > 0)
+    .sort((a, b) => Number(a.unsuitable) - Number(b.unsuitable)
+      || b.songScore - a.songScore
+      || b.audienceVotes - a.audienceVotes
+      || b.dateScore - a.dateScore
+      || a.round.title.localeCompare(b.round.title, 'de'));
+}
+
+function matchRound(
+  rounds: DatabaseRound[],
+  source: ManifestRound,
+  songsByRound: Map<string, DatabaseSong[]>,
+  audienceVotesByRound: Map<string, number>,
+) {
+  const candidates = rankRoundCandidates(rounds, source, songsByRound, audienceVotesByRound);
+  if (!candidates.length) return null;
+  if (candidates[1]
+    && candidates[0].unsuitable === candidates[1].unsuitable
+    && candidates[0].songScore === candidates[1].songScore
+    && candidates[0].audienceVotes === candidates[1].audienceVotes
+    && candidates[0].dateScore === candidates[1].dateScore) return null;
   return candidates[0].round;
+}
+
+function roundSuggestion(
+  rounds: DatabaseRound[],
+  source: ManifestRound,
+  songsByRound: Map<string, DatabaseSong[]>,
+  audienceVotesByRound: Map<string, number>,
+) {
+  const best = rankRoundCandidates(rounds, source, songsByRound, audienceVotesByRound)[0];
+  if (!best) return null;
+  const confidence = Math.min(99, 55 + best.dateScore * 2 + Math.min(20, best.songScore));
+  return { ...best, confidence };
+}
+
+function skippedColumnKind(column: ManifestSkippedColumn): HistoricalSkippedColumnReport['kind'] {
+  if (column.rankingCount === 0) return 'empty';
+  if (column.category === 'dj' && canonicalJurorKey(column.displayName || column.sourceName) === 'djgesamtwertung') return 'dj-aggregate';
+  return 'ranking-error';
+}
+
+function ignoredReasonKey(sheet: string, sourceName: string) {
+  return `${sheet}::${sourceName}`;
 }
 
 function ngrams(value: string, size = 3) {
@@ -261,13 +350,16 @@ function ellipsisMatches(source: string, candidate: string) {
 
 type SongMatch = {
   song: DatabaseSong | null;
-  strategy: 'exact' | 'ellipsis' | 'reversed' | 'fuzzy' | 'manual' | 'missing';
+  strategy: 'exact' | 'ellipsis' | 'reversed' | 'fuzzy' | 'manual' | 'ignored' | 'missing';
   confidence: number;
   suggestions: Array<{ id: string | null; label: string; confidence: number | null }>;
 };
 
 function matchSong(sourceLabel: string, songs: DatabaseSong[], manualSongId?: string): SongMatch {
   if (manualSongId) {
+    if (manualSongId === HISTORICAL_MAPPING_IGNORE) {
+      return { song: null, strategy: 'ignored', confidence: 1, suggestions: [{ id: null, label: 'Dieser Excel-Eintrag wurde bewusst auf „Nicht übernehmen“ gesetzt.', confidence: null }] };
+    }
     const manual = songs.find((song) => song.id === manualSongId) || null;
     return manual
       ? { song: manual, strategy: 'manual', confidence: 1, suggestions: [] }
@@ -345,6 +437,25 @@ async function fetchVoteItems(voteIds: string[]) {
   return rows;
 }
 
+async function fetchAudienceVoteCounts(roundIds: string[]) {
+  const sb = getSupabaseAdminClient();
+  const counts = new Map<string, number>();
+  if (!sb) return counts;
+  for (const ids of chunks(roundIds, 10)) {
+    const results = await Promise.all(ids.map(async (roundId) => {
+      const { count, error } = await sb
+        .from('release_voting_votes')
+        .select('id', { count: 'exact', head: true })
+        .eq('round_id', roundId)
+        .eq('voting_channel', 'audience');
+      if (error) throw error;
+      return { roundId, count: count || 0 };
+    }));
+    for (const result of results) counts.set(result.roundId, result.count);
+  }
+  return counts;
+}
+
 function validateCorrection(ranking: ManifestRankingItem[]) {
   const active = ranking.filter((item) => Number(item.points) > 0);
   const points = active.map((item) => Number(item.points));
@@ -361,6 +472,7 @@ export async function saveHistoricalImportMapping(input: {
   sourceSong?: string;
   value?: string;
   ranking?: ManifestRankingItem[];
+  reason?: string;
 }) {
   const sourceRound = manifest.rounds.find((round) => round.sheet === input.sheet);
   if (!sourceRound) throw new Error('Diese Excel-Woche ist unbekannt.');
@@ -382,10 +494,16 @@ export async function saveHistoricalImportMapping(input: {
     overrides.jurorMappings[input.sheet] ||= {};
     if (input.value && input.value !== HISTORICAL_MAPPING_AUTO) overrides.jurorMappings[input.sheet][sourceName] = input.value;
     else delete overrides.jurorMappings[input.sheet][sourceName];
+    const reasonKey = ignoredReasonKey(input.sheet, sourceName);
+    if (input.value === HISTORICAL_MAPPING_IGNORE) overrides.ignoredReasons[reasonKey] = String(input.reason || '').trim();
+    else delete overrides.ignoredReasons[reasonKey];
   } else {
     const sourceName = String(input.sourceName || '').trim();
     const skipped = sourceRound.skippedColumns.find((column) => column.sourceName === sourceName);
     if (!skipped || !skipped.rankingCount) throw new Error('Für diese Spalte gibt es keine korrigierbare Rangliste.');
+    if (skippedColumnKind(skipped) === 'dj-aggregate') {
+      throw new Error('Diese DJ-Gesamtwertung ist eine aggregierte Auswertung mit möglichen Dezimalwerten und darf nicht in eine einzelne 12-bis-1-Stimme umgeschrieben werden.');
+    }
     overrides.rankingCorrections[input.sheet] ||= {};
     if (!input.ranking) {
       delete overrides.rankingCorrections[input.sheet][sourceName];
@@ -407,13 +525,25 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
   const sb = getSupabaseAdminClient();
   if (!sb) throw new Error('Supabase ist nicht konfiguriert.');
   const [databaseRounds, overrides] = await Promise.all([fetchAllRounds(), loadOverrides()]);
+  const databaseRoundIds = databaseRounds.map((round) => round.id);
+  const [songs, audienceVotesByRound] = await Promise.all([
+    fetchRoundScopedRows<DatabaseSong>('release_voting_songs', 'id,round_id,title,artist,sort_order', databaseRoundIds),
+    fetchAudienceVoteCounts(databaseRoundIds),
+  ]);
+  const allSongsByRound = new Map<string, DatabaseSong[]>();
+  for (const song of songs) allSongsByRound.set(song.round_id, [...(allSongsByRound.get(song.round_id) || []), song]);
   const roundMatches = new Map(manifest.rounds.map((source) => {
     const manualId = overrides.roundMappings[source.sheet];
-    return [source.sheet, manualId ? databaseRounds.find((round) => round.id === manualId) || null : matchRound(databaseRounds, source)] as const;
+    return [source.sheet, manualId
+      ? databaseRounds.find((round) => round.id === manualId) || null
+      : matchRound(databaseRounds, source, allSongsByRound, audienceVotesByRound)] as const;
   }));
+  const roundSuggestions = new Map(manifest.rounds.map((source) => [
+    source.sheet,
+    roundSuggestion(databaseRounds, source, allSongsByRound, audienceVotesByRound),
+  ] as const));
   const roundIds = [...new Set([...roundMatches.values()].filter((round): round is DatabaseRound => Boolean(round)).map((round) => round.id))];
-  const [songs, jurors, votes, profileResult] = await Promise.all([
-    fetchRoundScopedRows<DatabaseSong>('release_voting_songs', 'id,round_id,title,artist,sort_order', roundIds),
+  const [jurors, votes, profileResult] = await Promise.all([
     fetchRoundScopedRows<DatabaseJuror>('release_voting_round_jurors', 'id,round_id,profile_id,display_name,voting_role,is_active', roundIds),
     fetchRoundScopedRows<DatabaseVote>('release_voting_jury_votes', 'id,round_id,round_juror_id,submitted_at', roundIds),
     sb.from('release_voting_jury_profiles').select('id,name'),
@@ -422,11 +552,10 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
   const profiles = (profileResult.data || []) as DatabaseProfile[];
   const voteItems = await fetchVoteItems(votes.map((vote) => vote.id));
 
-  const songsByRound = new Map<string, DatabaseSong[]>();
+  const songsByRound = allSongsByRound;
   const jurorsByRound = new Map<string, DatabaseJuror[]>();
   const voteByJuror = new Map(votes.map((vote) => [vote.round_juror_id, vote]));
   const itemsByVote = new Map<string, DatabaseVoteItem[]>();
-  for (const song of songs) songsByRound.set(song.round_id, [...(songsByRound.get(song.round_id) || []), song]);
   for (const juror of jurors) jurorsByRound.set(juror.round_id, [...(jurorsByRound.get(juror.round_id) || []), juror]);
   for (const item of voteItems) itemsByVote.set(item.vote_id, [...(itemsByVote.get(item.vote_id) || []), item]);
   const profilesByKey = new Map(profiles.map((profile) => [canonicalJurorKey(profile.name), profile]));
@@ -438,7 +567,7 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
     const corrections = overrides.rankingCorrections[sourceRound.sheet] || {};
     const sourceJurors: ManifestJuror[] = [
       ...sourceRound.jurors,
-      ...sourceRound.skippedColumns.filter((column) => Boolean(corrections[column.sourceName])).map((column) => ({
+      ...sourceRound.skippedColumns.filter((column) => skippedColumnKind(column) === 'ranking-error' && Boolean(corrections[column.sourceName])).map((column) => ({
         sourceName: column.sourceName,
         displayName: column.displayName,
         category: column.category,
@@ -457,16 +586,17 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
 
     for (const sourceJuror of sourceJurors) {
       const jurorMappingValue = overrides.jurorMappings[sourceRound.sheet]?.[sourceJuror.sourceName] || HISTORICAL_MAPPING_AUTO;
+      const ignoredReason = overrides.ignoredReasons[ignoredReasonKey(sourceRound.sheet, sourceJuror.sourceName)] || '';
       if (jurorMappingValue === HISTORICAL_MAPPING_IGNORE) {
         jurorReports.push({ sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category,
           status: 'ignored', message: 'Diese Wertung wurde bewusst vom Import ausgeschlossen.', matchedSongs: 0,
-          matchReviews: [], missingSongs: [], jurorMappingValue });
+          matchReviews: [], missingSongs: [], jurorMappingValue, suggestedJuror: null, ignoredReason });
         continue;
       }
       if (!targetRound) {
         jurorReports.push({ sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category,
           status: 'blocked', message: `Keine eindeutige Umfrage für den ${germanDate(sourceRound.votingDate)} gefunden.`,
-          matchedSongs: 0, matchReviews: [], missingSongs: [], jurorMappingValue });
+          matchedSongs: 0, matchReviews: [], missingSongs: [], jurorMappingValue, suggestedJuror: null, ignoredReason });
         continue;
       }
 
@@ -476,16 +606,21 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
       for (const item of sourceJuror.ranking.filter((entry) => Number(entry.points) > 0)) {
         const match = songMatches.get(item.songLabel);
         const collision = match?.song ? (collisions.get(match.song.id)?.length || 0) > 1 : false;
-        if (!match?.song || collision) {
+        const needsConfirmation = Boolean(match?.song)
+          && match?.strategy !== 'exact'
+          && match?.strategy !== 'manual';
+        if (!match?.song || collision || needsConfirmation) {
           missingSongs.push({ sourceSong: item.songLabel,
             suggestions: collision
               ? [{ id: null, label: 'Mehrere Excel-Zeilen würden demselben Datenbank-Song zugeordnet.', confidence: null }]
-              : (match?.suggestions || []),
+              : needsConfirmation && match?.song
+                ? [{ id: match.song.id, label: `${match.song.title} – ${match.song.artist}`, confidence: Math.round(match.confidence * 100) }]
+                : (match?.suggestions || []),
             mappingValue: overrides.songMappings[sourceRound.sheet]?.[item.songLabel] || '' });
           continue;
         }
         items.push({ song_id: match.song.id, points: Number(item.points) });
-        if (match.strategy !== 'exact' && match.strategy !== 'missing') {
+        if (match.strategy === 'manual') {
           matchReviews.push({ sourceSong: item.songLabel, matchedSong: `${match.song.title} – ${match.song.artist}`,
             strategy: match.strategy, confidence: Math.round(match.confidence * 100) });
         }
@@ -494,6 +629,14 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
       const key = canonicalJurorKey(sourceJuror.displayName);
       const sameRoleJurors = roundJurors.filter((juror) => (juror.voting_role || 'jury') === sourceJuror.category);
       const automaticMatches = sameRoleJurors.filter((juror) => canonicalJurorKey(juror.display_name) === key);
+      const rankedJurorSuggestions = sameRoleJurors
+        .map((juror) => ({ juror, score: similarity(key, canonicalJurorKey(juror.display_name)) }))
+        .sort((a, b) => b.score - a.score);
+      const bestJurorSuggestion = rankedJurorSuggestions[0]
+        && rankedJurorSuggestions[0].score >= 0.75
+        && (!rankedJurorSuggestions[1] || rankedJurorSuggestions[0].score - rankedJurorSuggestions[1].score >= 0.1)
+        ? { id: rankedJurorSuggestions[0].juror.id, displayName: rankedJurorSuggestions[0].juror.display_name, confidence: Math.round(rankedJurorSuggestions[0].score * 100) }
+        : null;
       let existingJuror: DatabaseJuror | null = null;
       let invalidManualJuror = false;
       if (jurorMappingValue === HISTORICAL_MAPPING_NEW) existingJuror = null;
@@ -506,25 +649,30 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
       if (missingSongs.length || items.length !== 12 || new Set(items.map((item) => item.song_id)).size !== 12) {
         report = { sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category, status: 'blocked',
           message: `${missingSongs.length || Math.max(0, 12 - items.length)} Song-Zuordnungen sind nicht eindeutig.`,
-          matchedSongs: items.length, matchReviews, missingSongs, jurorMappingValue };
+          matchedSongs: items.length, matchReviews, missingSongs, jurorMappingValue, suggestedJuror: null, ignoredReason };
       } else if (invalidManualJuror) {
         report = { sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category, status: 'conflict',
           message: 'Die gespeicherte Zuordnung gehört nicht mehr zu dieser Umfrage oder Kategorie.',
-          matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue };
+          matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue, suggestedJuror: null, ignoredReason };
       } else if (jurorMappingValue === HISTORICAL_MAPPING_AUTO && automaticMatches.length > 1) {
         report = { sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category, status: 'conflict',
-          message: 'Mehrere vorhandene Zuordnungen passen zu diesem Namen.', matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue };
+          message: 'Mehrere vorhandene Zuordnungen passen zu diesem Namen.', matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue,
+          suggestedJuror: null, ignoredReason };
+      } else if (jurorMappingValue === HISTORICAL_MAPPING_AUTO && automaticMatches.length === 0 && bestJurorSuggestion) {
+        report = { sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category, status: 'blocked',
+          message: 'Der Jurorname ist ähnlich, aber nicht identisch. Bitte den Vorschlag einmal bestätigen.', matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue,
+          suggestedJuror: bestJurorSuggestion, ignoredReason };
       } else if (existingVote) {
         const identical = itemsEqual(itemsByVote.get(existingVote.id) || [], items);
         report = { sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category,
           status: identical ? 'already-imported' : 'conflict',
           message: identical ? 'Diese Wertung ist bereits identisch vorhanden.' : 'Es existiert bereits eine abweichende oder unvollständige Wertung; sie wird nicht überschrieben.',
-          matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue };
+          matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue, suggestedJuror: null, ignoredReason };
       } else {
         report = { sourceName: sourceJuror.sourceName, displayName: sourceJuror.displayName, category: sourceJuror.category,
           status: existingJuror ? 'ready-existing' : 'ready-new',
           message: existingJuror ? 'Vorhandene Zuordnung ohne Wertung wird ergänzt.' : `${sourceJuror.category === 'dj' ? 'DJ-Kategorie' : 'Juror'} und Wertung können neu angelegt werden.`,
-          matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue };
+          matchedSongs: 12, matchReviews, missingSongs: [], jurorMappingValue, suggestedJuror: null, ignoredReason };
       }
       jurorReports.push(report);
       prepared.push({ sourceRound, targetRound, sourceJuror, report,
@@ -534,18 +682,36 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
 
     const skippedColumns: HistoricalSkippedColumnReport[] = sourceRound.skippedColumns.map((column) => ({
       ...column,
-      corrected: Boolean(corrections[column.sourceName]),
+      kind: skippedColumnKind(column),
+      corrected: skippedColumnKind(column) === 'ranking-error' && Boolean(corrections[column.sourceName]),
       ignored: overrides.jurorMappings[sourceRound.sheet]?.[column.sourceName] === HISTORICAL_MAPPING_IGNORE,
+      ignoredReason: overrides.ignoredReasons[ignoredReasonKey(sourceRound.sheet, column.sourceName)] || '',
       currentRanking: corrections[column.sourceName] || column.ranking,
     }));
     const ready = jurorReports.filter((juror) => juror.status === 'ready-new' || juror.status === 'ready-existing').length;
     const actionable = jurorReports.filter((juror) => juror.status !== 'ignored');
-    const complete = actionable.length > 0 && actionable.every((juror) => juror.status === 'already-imported');
+    const openSourceErrors = skippedColumns.filter((column) => column.kind === 'ranking-error' && !column.corrected && !column.ignored);
+    const complete = actionable.length > 0 && actionable.every((juror) => juror.status === 'already-imported') && openSourceErrors.length === 0;
     const blocked = actionable.filter((juror) => juror.status === 'blocked' || juror.status === 'conflict').length
-      + skippedColumns.filter((column) => !column.corrected && !column.ignored && column.rankingCount > 0).length;
+      + openSourceErrors.length;
+    const suggested = roundSuggestions.get(sourceRound.sheet);
     roundReports.push({
       sheet: sourceRound.sheet, votingDate: sourceRound.votingDate, sourceSongs: sourceRound.songsInSheet,
-      targetRound: targetRound ? { id: targetRound.id, title: targetRound.title } : null,
+      targetRound: targetRound ? {
+        id: targetRound.id,
+        title: targetRound.title,
+        slug: targetRound.slug,
+        songsCount: roundSongs.length,
+        audienceVotes: audienceVotesByRound.get(targetRound.id) || 0,
+      } : null,
+      suggestedRound: !targetRound && suggested ? {
+        id: suggested.round.id,
+        title: suggested.round.title,
+        slug: suggested.round.slug,
+        songsCount: (allSongsByRound.get(suggested.round.id) || []).length,
+        audienceVotes: suggested.audienceVotes,
+        confidence: suggested.confidence,
+      } : null,
       roundMappingValue: overrides.roundMappings[sourceRound.sheet] || '',
       status: complete ? 'complete' : ready > 0 && blocked > 0 ? 'partial' : ready > 0 ? 'ready' : blocked > 0 ? 'blocked' : 'complete',
       jurors: jurorReports, skippedColumns, zonkEntries: sourceRound.zonkEntries,
@@ -559,15 +725,32 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
   const allSkipped = roundReports.flatMap((round) => round.skippedColumns);
   const valid = allJurors.filter((juror) => juror.status !== 'ignored');
   const ready = valid.filter((juror) => juror.status === 'ready-new' || juror.status === 'ready-existing');
+  const reviewVotes = valid.filter((juror) => juror.status === 'blocked').length;
+  const rankingErrors = allSkipped.filter((column) => column.kind === 'ranking-error' && !column.corrected && !column.ignored);
+  const conflictingVotes = valid.filter((juror) => juror.status === 'conflict').length;
+  const errorVotes = conflictingVotes + rankingErrors.length;
+  const aggregateDjColumns = allSkipped.filter((column) => column.kind === 'dj-aggregate').length;
+  const foundVotes = manifest.rounds.reduce((sum, round) => sum + round.jurors.length + round.skippedColumns.filter((column) => column.rankingCount > 0).length, 0);
   return {
     prepared,
     report: {
       sourceFile: manifest.sourceFile,
       generatedAt: new Date().toISOString(),
       roundOptions: [...databaseRounds].sort((a, b) => String(b.ends_at || b.created_at).localeCompare(String(a.ends_at || a.created_at)))
-        .map((round) => ({ id: round.id, title: round.title,
-          period: round.ends_at?.slice(0, 10) || round.starts_at?.slice(0, 10) || round.created_at.slice(0, 10) })),
+        .map((round) => ({
+          id: round.id,
+          title: round.title,
+          slug: round.slug,
+          period: round.ends_at?.slice(0, 10) || round.starts_at?.slice(0, 10) || round.created_at.slice(0, 10),
+          songsCount: (allSongsByRound.get(round.id) || []).length,
+          audienceVotes: audienceVotesByRound.get(round.id) || 0,
+        })),
       summary: {
+        foundVotes,
+        safeVotes: ready.length,
+        reviewVotes,
+        errorVotes,
+        openProblems: reviewVotes + errorVotes,
         sourceRounds: manifest.rounds.length,
         matchedRounds: roundReports.filter((round) => Boolean(round.targetRound)).length,
         validSourceVotes: valid.length,
@@ -577,14 +760,15 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
         readyJuryVotes: ready.filter((juror) => juror.category === 'jury').length,
         readyDjVotes: ready.filter((juror) => juror.category === 'dj').length,
         alreadyImportedVotes: valid.filter((juror) => juror.status === 'already-imported').length,
-        blockedVotes: valid.filter((juror) => juror.status === 'blocked').length,
-        conflictingVotes: valid.filter((juror) => juror.status === 'conflict').length,
+        blockedVotes: reviewVotes,
+        conflictingVotes,
         ignoredVotes: allJurors.filter((juror) => juror.status === 'ignored').length + allSkipped.filter((column) => column.ignored && !column.corrected).length,
-        skippedSourceColumns: allSkipped.filter((column) => !column.corrected && !column.ignored).length,
-        invalidSourceVotes: allSkipped.filter((column) => column.rankingCount > 0 && !column.corrected && !column.ignored).length,
+        skippedSourceColumns: allSkipped.filter((column) => column.kind !== 'dj-aggregate' && !column.corrected && !column.ignored).length,
+        invalidSourceVotes: rankingErrors.length,
         emptySourceColumns: allSkipped.filter((column) => column.rankingCount === 0 && !column.ignored).length,
         zonkEntriesNotImported: manifest.rounds.reduce((sum, round) => sum + round.zonkEntries, 0),
         reviewedSongMatches: valid.reduce((sum, juror) => sum + juror.matchReviews.length, 0),
+        aggregateDjColumns,
       },
       rounds: roundReports,
     },
@@ -595,13 +779,14 @@ function importedTimestamp(round: DatabaseRound, source: ManifestRound) {
   return round.ends_at || `${source.votingDate}T20:00:00.000Z`;
 }
 
-export async function importHistoricalJuryVotes() {
+async function performHistoricalJuryImport(only?: { sheet: string; sourceName: string }) {
   const sb = getSupabaseAdminClient();
   if (!sb) throw new Error('Supabase ist nicht konfiguriert.');
   const plan = await buildHistoricalJuryImportPlan();
-  const ready = plan.prepared.filter((entry) => entry.report.status === 'ready-new' || entry.report.status === 'ready-existing');
+  const scoped = plan.prepared.filter((entry) => !only || (entry.sourceRound.sheet === only.sheet && entry.sourceJuror.sourceName === only.sourceName));
+  const ready = scoped.filter((entry) => entry.report.status === 'ready-new' || entry.report.status === 'ready-existing');
   const now = new Date().toISOString();
-  const activateIds = [...new Set(plan.prepared
+  const activateIds = [...new Set(scoped
     .filter((entry) => entry.existingJuror && !entry.existingJuror.is_active && (entry.report.status === 'already-imported' || entry.report.status === 'ready-existing'))
     .map((entry) => entry.existingJuror!.id))];
   if (!ready.length) {
@@ -659,4 +844,93 @@ export async function importHistoricalJuryVotes() {
     importedDjVotes: staged.filter((row) => row.entry.sourceJuror.category === 'dj').length,
     activatedJurors: activateIds.length,
   };
+}
+
+export async function importHistoricalJuryVotes() {
+  return performHistoricalJuryImport();
+}
+
+export async function importSingleHistoricalJuryVote(sheet: string, sourceName: string) {
+  const result = await performHistoricalJuryImport({ sheet, sourceName });
+  if (result.importedVotes === 0) {
+    const round = result.report.rounds.find((entry) => entry.sheet === sheet);
+    const juror = round?.jurors.find((entry) => entry.sourceName === sourceName);
+    if (juror?.status === 'already-imported') return result;
+    throw new Error(juror?.message || 'Diese Wertung ist noch nicht vollständig und kann noch nicht importiert werden.');
+  }
+  return result;
+}
+
+export type HistoricalDjAggregate = {
+  sheet: string;
+  votingDate: string;
+  displayName: string;
+  rows: Array<{
+    rank: number;
+    sourceSong: string;
+    songId: string | null;
+    title: string;
+    artist: string;
+    score: number;
+    matched: boolean;
+  }>;
+  unmatchedSongs: number;
+};
+
+function splitSourceSong(label: string) {
+  const separator = label.indexOf(' - ');
+  if (separator < 0) return { title: label, artist: '' };
+  return { title: label.slice(0, separator), artist: label.slice(separator + 3) };
+}
+
+/**
+ * Liest zusammengefasste historische DJ-Spalten unverändert aus dem Importmanifest.
+ * Diese Werte dürfen Dezimalstellen und Gleichstände enthalten und werden deshalb
+ * bewusst nicht in release_voting_jury_vote_items (Ganzzahl 1–12) geschrieben.
+ */
+export async function getHistoricalDjAggregatesForRound(round: Round, songs: Song[]): Promise<HistoricalDjAggregate[]> {
+  const overrides = await loadOverrides();
+  const databaseSongs: DatabaseSong[] = songs.map((song) => ({ ...song }));
+  const aggregates: HistoricalDjAggregate[] = [];
+
+  for (const sourceRound of manifest.rounds) {
+    const columns = sourceRound.skippedColumns.filter((column) => skippedColumnKind(column) === 'dj-aggregate');
+    if (!columns.length) continue;
+    const manualRound = overrides.roundMappings[sourceRound.sheet];
+    const automaticDateMatch = !manualRound && roundMatchScore(round as DatabaseRound, sourceRound.votingDate) > 0;
+    const songOverlap = matchedSourceSongs(sourceRound, databaseSongs);
+    if (manualRound ? manualRound !== round.id : !automaticDateMatch || songOverlap < Math.min(6, columns[0].rankingCount)) continue;
+
+    for (const column of columns) {
+      const mappedRows = column.ranking.map((item) => {
+        const manualSong = overrides.songMappings[sourceRound.sheet]?.[item.songLabel];
+        const match = matchSong(item.songLabel, databaseSongs, manualSong);
+        const fallback = splitSourceSong(item.songLabel);
+        return {
+          sourceSong: item.songLabel,
+          songId: match.song?.id || null,
+          title: match.song?.title || fallback.title,
+          artist: match.song?.artist || fallback.artist,
+          score: Number(item.points),
+          matched: Boolean(match.song),
+        };
+      }).sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, 'de'));
+      let previousScore: number | null = null;
+      let previousRank = 0;
+      const rows = mappedRows.map((row, index) => {
+        const rank = previousScore != null && row.score === previousScore ? previousRank : index + 1;
+        previousScore = row.score;
+        previousRank = rank;
+        return { ...row, rank };
+      });
+      aggregates.push({
+        sheet: sourceRound.sheet,
+        votingDate: sourceRound.votingDate,
+        displayName: column.displayName,
+        rows,
+        unmatchedSongs: rows.filter((row) => !row.matched).length,
+      });
+    }
+  }
+  return aggregates;
 }

@@ -5,6 +5,7 @@ import { getAdminDjParticipantRankings } from '@/lib/djVoting';
 import { getAdminRoundDetailData, getCurrentDjRoundId, listRounds } from '@/lib/releaseVoting';
 import { PageHeader, EmptyState } from '@/components/admin/AdminUi';
 import DjVotingOverview from '@/components/admin/DjVotingOverview';
+import { getHistoricalDjAggregatesForRound } from '@/lib/historicalJuryImport';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,6 @@ export default async function AdminDjVotingPage({ searchParams }: { searchParams
       <form method="get"><label><span>Umfrage auswählen</span><select name="roundId" defaultValue={selected?.id || ''}>{rounds.map((round) => <option key={round.id} value={round.id}>{round.title}</option>)}</select></label><button className="ks-button primary" type="submit">Anzeigen</button></form>
       {selected && <small>{selected.id === currentDjRoundId ? 'Aktuell als DJ-Voting ausgewählt' : 'Historische/andere Umfrage'}</small>}
     </section>
-    {!selected || !data ? <section className="ks-card"><EmptyState title="Keine Umfrage vorhanden" text="Lege zuerst eine Umfrage an oder wähle eine vorhandene Runde als DJ-Voting." /></section> : <DjVotingOverview data={data} historicalDj={historicalDj} participants={await getAdminDjParticipantRankings(selected.id, data.songs)} />}
+    {!selected || !data ? <section className="ks-card"><EmptyState title="Keine Umfrage vorhanden" text="Lege zuerst eine Umfrage an oder wähle eine vorhandene Runde als DJ-Voting." /></section> : <DjVotingOverview data={data} historicalDj={historicalDj} historicalAggregates={await getHistoricalDjAggregatesForRound(selected, data.songs)} participants={await getAdminDjParticipantRankings(selected.id, data.songs)} />}
   </main>;
 }
