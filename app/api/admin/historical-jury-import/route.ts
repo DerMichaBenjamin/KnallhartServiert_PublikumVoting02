@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
-import { buildHistoricalJuryImportPlan, importHistoricalJuryVotes, importSingleHistoricalJuryVote, saveHistoricalImportMapping } from '@/lib/historicalJuryImport';
+import {
+  buildHistoricalJuryImportPlan,
+  createHistoricalRoundFromManifest,
+  createHistoricalSongFromManifest,
+  importHistoricalJuryVotes,
+  importSingleHistoricalJuryVote,
+  saveHistoricalImportMapping,
+} from '@/lib/historicalJuryImport';
 
 function message(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -29,6 +36,14 @@ export async function POST(request: NextRequest) {
     if (action === 'apply-one') {
       const result = await importSingleHistoricalJuryVote(String(body.sheet || ''), String(body.sourceName || ''));
       return NextResponse.json({ ok: true, ...result });
+    }
+    if (action === 'create-round') {
+      const { report } = await createHistoricalRoundFromManifest(String(body.sheet || ''));
+      return NextResponse.json({ ok: true, report });
+    }
+    if (action === 'create-song') {
+      const { report } = await createHistoricalSongFromManifest(String(body.sheet || ''), String(body.sourceSong || ''));
+      return NextResponse.json({ ok: true, report });
     }
     if (action === 'save-mapping') {
       const mappingType = String(body.mappingType || '');

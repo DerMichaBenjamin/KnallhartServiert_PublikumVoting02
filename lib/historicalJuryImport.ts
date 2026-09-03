@@ -2,9 +2,10 @@ import 'server-only';
 
 import { randomBytes, randomUUID } from 'node:crypto';
 import manifestJson from '@/data/historical-jury-votes-2026.json';
+import roundSupplementsJson from '@/data/historical-jury-round-supplements-2026.json';
 import { getSetting, setSetting } from './settings';
 import { getSupabaseAdminClient } from './supabaseAdmin';
-import type { Round, Song } from './releaseVotingShared';
+import { normalizeSlug, type Round, type Song } from './releaseVotingShared';
 
 const PAGE_SIZE = 1000;
 const ITEM_CHUNK_SIZE = 500;
@@ -38,6 +39,8 @@ type ManifestRound = {
   skippedColumns: ManifestSkippedColumn[];
 };
 type Manifest = { schemaVersion: number; sourceFile: string; rounds: ManifestRound[] };
+type ManifestRoundSupplement = { sheet: string; songs: string[] };
+type ManifestRoundSupplements = { schemaVersion: number; sourceFile: string; rounds: ManifestRoundSupplement[] };
 
 type DatabaseRound = { id: string; slug: string; title: string; starts_at: string | null; ends_at: string | null; created_at: string };
 type DatabaseSong = { id: string; round_id: string; title: string; artist: string; sort_order: number };
@@ -108,6 +111,8 @@ export type HistoricalJuryRoundReport = {
   zonkEntries: number;
   songOptions: Array<{ id: string; label: string }>;
   jurorOptions: Array<{ id: string; displayName: string; category: HistoricalVoteCategory }>;
+  canCreateRound: boolean;
+  sourceSongCatalogCount: number;
 };
 
 export type HistoricalJuryImportReport = {
@@ -155,6 +160,8 @@ type PreparedJuror = {
 
 type ImportPlan = { report: HistoricalJuryImportReport; prepared: PreparedJuror[] };
 const manifest = manifestJson as Manifest;
+const roundSupplements = roundSupplementsJson as ManifestRoundSupplements;
+const supplementBySheet = new Map(roundSupplements.rounds.map((round) => [round.sheet, round]));
 
 function emptyOverrides(): HistoricalImportOverrides {
   return { version: 3, roundMappings: {}, songMappings: {}, jurorMappings: {}, rankingCorrections: {}, ignoredReasons: {} };
@@ -196,8 +203,13 @@ function canonicalJurorKey(value: unknown) {
   if (key === 'marcus' || key === 'djmarcusaurelius') return 'djmarcusaurelius';
   if (key === 'micha' || key === 'michabenjamin') return 'michabenjamin';
   if (key === 'meiki' || key === 'meikicruise') return 'meikicruise';
+  if (['meikigaste', 'gast', 'gaste', 'gastjury', 'gastjuror', 'gastevoting'].includes(key)) return 'gastjury';
   if (key === 'djs' || key === 'djgesamtwertung') return 'djgesamtwertung';
   return key;
+}
+
+function historicalJurorDisplayName(sourceName: string, displayName: string) {
+  return canonicalJurorKey(sourceName || displayName) === 'gastjury' ? 'Gastjury' : displayName;
 }
 
 function germanDate(date: string) {
@@ -239,6 +251,11 @@ function sourceSongLabels(source: ManifestRound) {
     .map((item) => item.songLabel))];
 }
 
+function sourceSongCatalog(source: ManifestRound) {
+  const supplement = supplementBySheet.get(source.sheet);
+  return supplement?.songs?.length ? supplement.songs : sourceSongLabels(source);
+}
+
 function matchedSourceSongs(source: ManifestRound, songs: DatabaseSong[]) {
   const matchedIds = new Set<string>();
   for (const label of sourceSongLabels(source)) {
@@ -252,6 +269,7 @@ type RoundCandidate = {
   round: DatabaseRound;
   dateScore: number;
   songScore: number;
+  songRatio: number;
   audienceVotes: number;
   unsuitable: boolean;
 };
@@ -262,16 +280,23 @@ function rankRoundCandidates(
   songsByRound: Map<string, DatabaseSong[]>,
   audienceVotesByRound: Map<string, number>,
 ): RoundCandidate[] {
-  return rounds.map((round) => ({
-    round,
-    dateScore: roundMatchScore(round, source.votingDate),
-    songScore: matchedSourceSongs(source, songsByRound.get(round.id) || []),
-    audienceVotes: audienceVotesByRound.get(round.id) || 0,
-    unsuitable: /(^|\W)(test|dj)(\W|$)/i.test(`${round.title} ${round.slug}`),
-  }))
-    .filter((entry) => entry.dateScore > 0)
+  const sourceLabels = sourceSongLabels(source);
+  return rounds.map((round) => {
+    const songScore = matchedSourceSongs(source, songsByRound.get(round.id) || []);
+    return {
+      round,
+      dateScore: roundMatchScore(round, source.votingDate),
+      songScore,
+      songRatio: sourceLabels.length ? songScore / sourceLabels.length : 0,
+      audienceVotes: audienceVotesByRound.get(round.id) || 0,
+      unsuitable: /(^|\W)(test|dj)(\W|$)/i.test(`${round.title} ${round.slug}`),
+    };
+  })
+    .filter((entry) => entry.dateScore > 0 || (entry.songScore >= 7 && entry.songRatio >= 0.55))
     .sort((a, b) => Number(a.unsuitable) - Number(b.unsuitable)
+      || Number(b.dateScore > 0) - Number(a.dateScore > 0)
       || b.songScore - a.songScore
+      || b.songRatio - a.songRatio
       || b.audienceVotes - a.audienceVotes
       || b.dateScore - a.dateScore
       || a.round.title.localeCompare(b.round.title, 'de'));
@@ -285,6 +310,11 @@ function matchRound(
 ) {
   const candidates = rankRoundCandidates(rounds, source, songsByRound, audienceVotesByRound);
   if (!candidates.length) return null;
+  if (candidates[0].dateScore === 0) {
+    const second = candidates[1];
+    if (candidates[0].songScore < 10 || candidates[0].songRatio < 0.7
+      || (second && candidates[0].songScore - second.songScore < 3)) return null;
+  }
   if (candidates[1]
     && candidates[0].unsuitable === candidates[1].unsuitable
     && candidates[0].songScore === candidates[1].songScore
@@ -300,7 +330,7 @@ function roundSuggestion(
   audienceVotesByRound: Map<string, number>,
 ) {
   const best = rankRoundCandidates(rounds, source, songsByRound, audienceVotesByRound)[0];
-  if (!best) return null;
+  if (!best || best.unsuitable) return null;
   const confidence = Math.min(99, 55 + best.dateScore * 2 + Math.min(20, best.songScore));
   return { ...best, confidence };
 }
@@ -333,6 +363,28 @@ function similarity(left: string, right: string) {
     if (remaining > 0) { intersection += 1; counts.set(value, remaining - 1); }
   }
   return a.length + b.length ? (2 * intersection) / (a.length + b.length) : 0;
+}
+
+function tokenSimilarity(left: string, right: string) {
+  const tokens = (value: string) => new Set(value
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('de-DE')
+    .replace(/ß/g, 'ss').split(/[^a-z0-9]+/).filter((token) => token.length >= 2));
+  const a = tokens(left);
+  const b = tokens(right);
+  if (!a.size || !b.size) return 0;
+  let intersection = 0;
+  for (const token of a) if (b.has(token)) intersection += 1;
+  return (2 * intersection) / (a.size + b.size);
+}
+
+function songSimilarity(left: string, right: string) {
+  const normalizedLeft = normalize(left);
+  const normalizedRight = normalize(right);
+  const containment = normalizedLeft && normalizedRight
+    ? Math.min(normalizedLeft.length, normalizedRight.length) / Math.max(normalizedLeft.length, normalizedRight.length)
+      * Number(normalizedLeft.includes(normalizedRight) || normalizedRight.includes(normalizedLeft))
+    : 0;
+  return Math.max(similarity(normalizedLeft, normalizedRight), tokenSimilarity(left, right), containment);
 }
 
 function ellipsisMatches(source: string, candidate: string) {
@@ -369,7 +421,16 @@ function matchSong(sourceLabel: string, songs: DatabaseSong[], manualSongId?: st
   const rows = songs.map((song) => {
     const forward = normalize(`${song.title} - ${song.artist}`);
     const reversed = normalize(`${song.artist} - ${song.title}`);
-    return { song, forward, reversed, score: Math.max(similarity(source, forward), similarity(source, reversed)) };
+    return {
+      song,
+      forward,
+      reversed,
+      score: Math.max(
+        songSimilarity(sourceLabel, `${song.title} - ${song.artist}`),
+        songSimilarity(sourceLabel, `${song.artist} - ${song.title}`),
+        songSimilarity(sourceLabel, song.title),
+      ),
+    };
   });
   const exact = rows.filter((entry) => entry.forward === source);
   if (exact.length === 1) return { song: exact[0].song, strategy: 'exact', confidence: 1, suggestions: [] };
@@ -380,12 +441,12 @@ function matchSong(sourceLabel: string, songs: DatabaseSong[], manualSongId?: st
   const sorted = [...rows].sort((a, b) => b.score - a.score || a.song.sort_order - b.song.sort_order);
   const best = sorted[0];
   const second = sorted[1];
-  if (best && best.score >= 0.9 && (!second || best.score - second.score >= 0.06)) {
+  if (best && best.score >= 0.72 && (!second || best.score - second.score >= 0.05)) {
     return { song: best.song, strategy: 'fuzzy', confidence: best.score, suggestions: [] };
   }
   return {
     song: null, strategy: 'missing', confidence: best?.score || 0,
-    suggestions: sorted.slice(0, 3).filter((entry) => entry.score >= 0.45).map((entry) => ({
+    suggestions: sorted.slice(0, 3).filter((entry) => entry.score >= 0.32).map((entry) => ({
       id: entry.song.id,
       label: `${entry.song.title} – ${entry.song.artist}`,
       confidence: Math.round(entry.score * 100),
@@ -520,6 +581,142 @@ export async function saveHistoricalImportMapping(input: {
   return buildHistoricalJuryImportPlan();
 }
 
+function splitHistoricalSongLabel(label: string) {
+  const matches = [...label.matchAll(/\s(?:–|—|-)\s/g)];
+  const separator = matches[matches.length - 1];
+  if (!separator || separator.index == null) return { title: label.trim(), artist: '' };
+  const start = separator.index;
+  const end = start + separator[0].length;
+  return {
+    title: label.slice(0, start).trim(),
+    artist: label.slice(end).trim(),
+  };
+}
+
+function historicalRoundDates(votingDate: string) {
+  const starts = new Date(`${votingDate}T00:00:00.000Z`);
+  starts.setUTCDate(starts.getUTCDate() - 7);
+  return {
+    startsAt: starts.toISOString(),
+    endsAt: `${votingDate}T23:59:59.000Z`,
+  };
+}
+
+async function uniqueHistoricalSlug(base: string) {
+  const sb = getSupabaseAdminClient();
+  if (!sb) throw new Error('Supabase ist nicht konfiguriert.');
+  for (let suffix = 0; suffix < 100; suffix += 1) {
+    const candidate = suffix ? `${base}-${suffix + 1}` : base;
+    const { data, error } = await sb.from('release_voting_rounds').select('id').eq('slug', candidate).maybeSingle();
+    if (error) throw error;
+    if (!data) return candidate;
+  }
+  throw new Error('Für die historische Umfrage konnte kein eindeutiger Slug erzeugt werden.');
+}
+
+export async function createHistoricalRoundFromManifest(sheet: string) {
+  const sourceRound = manifest.rounds.find((round) => round.sheet === sheet);
+  if (!sourceRound) throw new Error('Diese Excel-Woche ist unbekannt.');
+  const catalog = sourceSongCatalog(sourceRound);
+  if (catalog.length !== sourceRound.songsInSheet) {
+    throw new Error(`Die Excel-Songliste ist nicht vollständig verfügbar (${catalog.length}/${sourceRound.songsInSheet}). Die Runde wird deshalb nicht automatisch angelegt.`);
+  }
+  const normalizedLabels = catalog.map(normalize);
+  if (normalizedLabels.some((label) => !label) || new Set(normalizedLabels).size !== catalog.length) {
+    throw new Error('Die Excel-Songliste enthält leere oder doppelte Einträge. Die Runde wird nicht automatisch angelegt.');
+  }
+
+  const sb = getSupabaseAdminClient();
+  if (!sb) throw new Error('Supabase ist nicht konfiguriert.');
+  const databaseRounds = await fetchAllRounds();
+  const roundIds = databaseRounds.map((round) => round.id);
+  const [songs, audienceVotesByRound] = await Promise.all([
+    fetchRoundScopedRows<DatabaseSong>('release_voting_songs', 'id,round_id,title,artist,sort_order', roundIds),
+    fetchAudienceVoteCounts(roundIds),
+  ]);
+  const songsByRound = new Map<string, DatabaseSong[]>();
+  for (const song of songs) songsByRound.set(song.round_id, [...(songsByRound.get(song.round_id) || []), song]);
+  const existingCandidate = rankRoundCandidates(databaseRounds, sourceRound, songsByRound, audienceVotesByRound)
+    .find((candidate) => !candidate.unsuitable && (candidate.dateScore > 0 || (candidate.songScore >= 7 && candidate.songRatio >= 0.55)));
+  if (existingCandidate) {
+    throw new Error(`Für diese Woche existiert wahrscheinlich bereits „${existingCandidate.round.title}“. Bitte diese Umfrage zuordnen, statt eine zweite anzulegen.`);
+  }
+
+  const title = `Neue Songs der Woche ${germanDate(sourceRound.votingDate)}`;
+  const slug = await uniqueHistoricalSlug(normalizeSlug(`${title}-historisch`));
+  const dates = historicalRoundDates(sourceRound.votingDate);
+  const { data: createdRound, error: roundError } = await sb.from('release_voting_rounds').insert({
+    title,
+    slug,
+    description: `Historische Umfrage aus ${roundSupplements.sourceFile} ergänzt.`,
+    status: 'ended',
+    starts_at: dates.startsAt,
+    ends_at: dates.endsAt,
+    places_count: 12,
+    is_current: false,
+    is_public_results: false,
+  }).select('id').single();
+  if (roundError) throw roundError;
+  if (!createdRound?.id) throw new Error('Die historische Umfrage wurde nicht vollständig angelegt.');
+
+  try {
+    const rows = catalog.map((label, sortOrder) => ({
+      round_id: createdRound.id,
+      ...splitHistoricalSongLabel(label),
+      sort_order: sortOrder,
+    }));
+    for (const batch of chunks(rows, 200)) {
+      const { error } = await sb.from('release_voting_songs').insert(batch);
+      if (error) throw error;
+    }
+  } catch (error) {
+    await sb.from('release_voting_rounds').delete().eq('id', createdRound.id);
+    throw error;
+  }
+
+  const overrides = await loadOverrides();
+  overrides.roundMappings[sourceRound.sheet] = createdRound.id;
+  await setSetting(OVERRIDES_SETTING_KEY, JSON.stringify(overrides));
+  return buildHistoricalJuryImportPlan();
+}
+
+export async function createHistoricalSongFromManifest(sheet: string, sourceSong: string) {
+  const sourceRound = manifest.rounds.find((round) => round.sheet === sheet);
+  if (!sourceRound || !sourceSongCatalog(sourceRound).includes(sourceSong)) {
+    throw new Error('Dieser Excel-Song wurde in der historischen Woche nicht gefunden.');
+  }
+  const plan = await buildHistoricalJuryImportPlan();
+  const reportRound = plan.report.rounds.find((round) => round.sheet === sheet);
+  if (!reportRound?.targetRound) throw new Error('Bitte zuerst die historische Woche einer Umfrage zuordnen.');
+
+  const sb = getSupabaseAdminClient();
+  if (!sb) throw new Error('Supabase ist nicht konfiguriert.');
+  const { data: roundSongsData, error: songsError } = await sb.from('release_voting_songs')
+    .select('id,round_id,title,artist,sort_order').eq('round_id', reportRound.targetRound.id).order('sort_order');
+  if (songsError) throw songsError;
+  const roundSongs = (roundSongsData || []) as DatabaseSong[];
+  const existing = matchSong(sourceSong, roundSongs);
+  if (existing.song) {
+    throw new Error(`Der Song passt bereits zu „${existing.song.title} – ${existing.song.artist}“. Bitte den vorhandenen Vorschlag bestätigen.`);
+  }
+  const song = splitHistoricalSongLabel(sourceSong);
+  const nextSortOrder = roundSongs.reduce((maximum, row) => Math.max(maximum, Number(row.sort_order || 0)), -1) + 1;
+  const { data: createdSong, error: createError } = await sb.from('release_voting_songs').insert({
+    round_id: reportRound.targetRound.id,
+    title: song.title,
+    artist: song.artist,
+    sort_order: nextSortOrder,
+  }).select('id').single();
+  if (createError) throw createError;
+  if (!createdSong?.id) throw new Error('Der historische Song wurde nicht vollständig angelegt.');
+
+  const overrides = await loadOverrides();
+  overrides.songMappings[sourceRound.sheet] ||= {};
+  overrides.songMappings[sourceRound.sheet][sourceSong] = createdSong.id;
+  await setSetting(OVERRIDES_SETTING_KEY, JSON.stringify(overrides));
+  return buildHistoricalJuryImportPlan();
+}
+
 export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
   if (manifest.schemaVersion !== 2) throw new Error('Unbekannte Version der historischen Jury-Importdatei.');
   const sb = getSupabaseAdminClient();
@@ -566,10 +763,13 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
     const targetRound = roundMatches.get(sourceRound.sheet) || null;
     const corrections = overrides.rankingCorrections[sourceRound.sheet] || {};
     const sourceJurors: ManifestJuror[] = [
-      ...sourceRound.jurors,
+      ...sourceRound.jurors.map((juror) => ({
+        ...juror,
+        displayName: historicalJurorDisplayName(juror.sourceName, juror.displayName),
+      })),
       ...sourceRound.skippedColumns.filter((column) => skippedColumnKind(column) === 'ranking-error' && Boolean(corrections[column.sourceName])).map((column) => ({
         sourceName: column.sourceName,
-        displayName: column.displayName,
+        displayName: historicalJurorDisplayName(column.sourceName, column.displayName),
         category: column.category,
         ranking: corrections[column.sourceName],
       })),
@@ -682,6 +882,7 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
 
     const skippedColumns: HistoricalSkippedColumnReport[] = sourceRound.skippedColumns.map((column) => ({
       ...column,
+      displayName: historicalJurorDisplayName(column.sourceName, column.displayName),
       kind: skippedColumnKind(column),
       corrected: skippedColumnKind(column) === 'ranking-error' && Boolean(corrections[column.sourceName]),
       ignored: overrides.jurorMappings[sourceRound.sheet]?.[column.sourceName] === HISTORICAL_MAPPING_IGNORE,
@@ -718,6 +919,8 @@ export async function buildHistoricalJuryImportPlan(): Promise<ImportPlan> {
       songOptions: [...roundSongs].sort((a, b) => a.sort_order - b.sort_order).map((song) => ({ id: song.id, label: `${song.title} – ${song.artist}` })),
       jurorOptions: [...roundJurors].sort((a, b) => a.display_name.localeCompare(b.display_name, 'de'))
         .map((juror) => ({ id: juror.id, displayName: juror.display_name, category: juror.voting_role || 'jury' })),
+      canCreateRound: !targetRound && sourceSongCatalog(sourceRound).length === sourceRound.songsInSheet,
+      sourceSongCatalogCount: sourceSongCatalog(sourceRound).length,
     });
   }
 

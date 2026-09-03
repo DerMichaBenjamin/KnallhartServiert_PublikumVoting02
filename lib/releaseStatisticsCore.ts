@@ -409,27 +409,49 @@ function normalizeArtist(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('de-DE');
 }
 
+/**
+ * Zerlegt eine Song-Künstlerangabe in einzelne Credits. Getrennt werden nur
+ * eindeutige Kollaborations-Trenner (Komma, Semikolon, „feat./ft.“, „x“, „&“
+ * mit Leerzeichen sowie Schrägstrich). Zeichen innerhalb eines bestehenden
+ * Künstlernamens wie bei „Buffalo&Wallace“ bleiben bewusst erhalten.
+ */
+export function splitArtistCredits(value: string) {
+  const clean = value.trim().replace(/\s+/g, ' ');
+  if (!clean) return ['Ohne Künstlerangabe'];
+  const names = clean
+    .split(/\s*(?:,|;|\/|\s+\+\s+|\s+[x×]\s+|\s+&\s+|\s+(?:feat(?:uring)?|ft)\.?\s+)\s*/i)
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const unique = new Map<string, string>();
+  for (const name of names.length ? names : [clean]) {
+    const key = normalizeArtist(name);
+    if (!unique.has(key)) unique.set(key, name);
+  }
+  return [...unique.values()];
+}
+
 export function buildArtistHistories(weeks: ReleaseWeekStatistics[]): ArtistHistory[] {
   const groups = new Map<string, { name: string; entries: ArtistHistoryEntry[] }>();
   for (const week of weeks) {
     for (const row of week.comparisonRows) {
-      const name = row.song.artist.trim() || 'Ohne Künstlerangabe';
-      const key = normalizeArtist(name);
-      const group = groups.get(key) || { name, entries: [] };
-      group.entries.push({
-        roundId: week.round.id,
-        roundTitle: week.round.title,
-        date: roundDate(week.round),
-        songId: row.song.id,
-        songTitle: row.song.title,
-        overallRank: row.overallRank,
-        audienceRank: row.audienceRank,
-        juryRank: row.juryRank,
-        overallPoints: row.total,
-        audiencePoints: row.audiencePoints,
-        juryPoints: row.juryPoints,
-      });
-      groups.set(key, group);
+      for (const name of splitArtistCredits(row.song.artist)) {
+        const key = normalizeArtist(name);
+        const group = groups.get(key) || { name, entries: [] };
+        group.entries.push({
+          roundId: week.round.id,
+          roundTitle: week.round.title,
+          date: roundDate(week.round),
+          songId: row.song.id,
+          songTitle: row.song.title,
+          overallRank: row.overallRank,
+          audienceRank: row.audienceRank,
+          juryRank: row.juryRank,
+          overallPoints: row.total,
+          audiencePoints: row.audiencePoints,
+          juryPoints: row.juryPoints,
+        });
+        groups.set(key, group);
+      }
     }
   }
 

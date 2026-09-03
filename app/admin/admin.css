@@ -663,6 +663,13 @@
 .ks-import-round-suggestion span small, .ks-import-round-suggestion span b { display: block; }
 .ks-import-round-suggestion span small:first-child { color: var(--ks-violet-dark); font-weight: 850; }
 .ks-import-round-suggestion span b { margin: 3px 0; }
+.ks-import-create-source { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px; border: 1px solid #b8dfc9; border-radius: 9px; background: #f4fcf7; }
+.ks-import-create-source > div { min-width: 0; }
+.ks-import-create-source strong, .ks-import-create-source small { display: block; }
+.ks-import-create-source small { margin-top: 4px; color: #4f6e60; font-size: 11px; line-height: 1.45; }
+.ks-import-create-source .ks-button { flex: 0 0 auto; }
+.ks-import-create-source.compact { margin-top: 8px; border-color: #d8deea; background: #fff; }
+.ks-import-create-source.compact small { color: var(--ks-muted); }
 .ks-import-jurors > article.ready { border-color: #bfe1ce; }
 .ks-import-jurors > article.review { border-color: #edca8e; background: #fffbf3; scroll-margin-top: 24px; }
 .ks-import-jurors > article.error { border-color: #ebb1b1; background: #fff8f8; scroll-margin-top: 24px; }
@@ -755,55 +762,68 @@
   .ks-import-review li b { text-align: left; }
   .ks-import-round-mapping, .ks-dj-round-picker form { align-items: stretch; flex-direction: column; }
   .ks-import-ranking-grid label { grid-template-columns: 1fr; }
-  .ks-import-primary-action, .ks-import-round-suggestion, .ks-import-problem-nav, .ks-import-ignore-state, .ks-import-suggestion-callout { align-items: stretch; flex-direction: column; }
-  .ks-import-primary-action .ks-button, .ks-import-round-suggestion .ks-button { width: 100%; }
+  .ks-import-primary-action, .ks-import-round-suggestion, .ks-import-create-source, .ks-import-problem-nav, .ks-import-ignore-state, .ks-import-suggestion-callout { align-items: stretch; flex-direction: column; }
+  .ks-import-primary-action .ks-button, .ks-import-round-suggestion .ks-button, .ks-import-create-source .ks-button { width: 100%; }
   .ks-import-problem-nav > span { order: -1; text-align: center; }
 }
 
 @media print {
-  @page { size: A4 portrait; margin: 11mm; }
+  @page { size: A4 portrait; margin: 9mm 10mm; }
   html, body { background: #fff !important; }
-  .ks-admin-app { min-height: 0; overflow: visible; background: #fff; color: #111827; font-size: 10pt; }
+  html { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .ks-admin-app { min-height: 0; overflow: visible; background: #fff; color: #111827; font-size: 9pt; line-height: 1.32; }
   .ks-admin-sidebar, .no-print, .ks-report-actions { display: none !important; }
   .ks-admin-main { min-height: 0; margin: 0; }
   .ks-admin-content { width: 100%; padding: 0; }
   .ks-admin-content > main { max-width: none; }
-  .ks-page-header { margin-bottom: 7mm; }
-  .ks-page-header h1 { font-size: 22pt; }
-  .ks-page-header p { font-size: 9pt; }
+  .ks-page-header { margin-bottom: 4mm; break-after: avoid; }
+  .ks-page-header h1 { font-size: 19pt; line-height: 1.15; }
+  .ks-page-header p { margin-top: 1.5mm; font-size: 8.5pt; }
   .ks-page-eyebrow { display: none; }
   .ks-card, .ks-admin-app .admin-card, .ks-stat-card { box-shadow: none !important; }
-  .ks-card { margin-bottom: 6mm; padding: 5mm; border-color: #cfd6df; break-inside: avoid; }
-  .ks-section-heading { margin-bottom: 4mm; }
-  .ks-section-heading h2, .ks-card h2 { font-size: 15pt; }
-  .ks-section-heading p { font-size: 8.5pt; }
-  .ks-stats-grid.results-head, .ks-stats-grid.weekly-kpis { grid-template-columns: repeat(5,1fr); gap: 2.5mm; margin-bottom: 5mm; }
+  .ks-card { margin-bottom: 3.5mm; padding: 3.5mm; border-color: #cfd6df; break-inside: auto; }
+  .ks-section-heading { margin-bottom: 2.5mm; break-after: avoid; }
+  .ks-section-heading h2, .ks-card h2 { font-size: 13pt; }
+  .ks-section-heading p { margin-top: 1mm; font-size: 8pt; }
+  .ks-stats-grid.results-head, .ks-stats-grid.weekly-kpis { grid-template-columns: repeat(5,1fr); gap: 2mm; margin-bottom: 3mm; break-inside: avoid; }
   .ks-stats-grid.results-head .ks-stat-card:nth-child(n+6) { display: none; }
-  .ks-stat-card { min-height: 20mm; padding: 3mm; }
-  .ks-stat-card strong { font-size: 16pt; }
-  .ks-highlight-grid { grid-template-columns: repeat(2,1fr); gap: 3mm; }
-  .ks-highlight-card { min-height: 0; padding: 4mm; break-inside: avoid; }
-  .ks-week-comparison-grid { grid-template-columns: repeat(3,1fr); }
-  .ks-week-comparison-grid article { min-height: 0; break-inside: avoid; }
+  .ks-stat-card { min-height: 16mm; padding: 2.5mm; break-inside: avoid; }
+  .ks-stat-card span { margin-bottom: 1.5mm; font-size: 7pt; }
+  .ks-stat-card strong { font-size: 13pt; line-height: 1.05; }
+  .ks-stat-card small { margin-top: 1.5mm; font-size: 6.8pt; }
+  .ks-highlight-grid { grid-template-columns: repeat(2,1fr); gap: 2mm; }
+  .ks-highlight-card { min-height: 0; padding: 3mm; break-inside: avoid; }
+  .ks-highlight-card > span { margin-bottom: 2mm; font-size: 7pt; }
+  .ks-highlight-card > strong { font-size: 11pt; }
+  .ks-highlight-card > p { margin-top: 1.5mm; font-size: 7.5pt; }
+  .ks-week-comparison-grid { grid-template-columns: repeat(5,1fr); gap: 2mm; }
+  .ks-week-comparison-grid article { min-height: 0; padding: 2.5mm; break-inside: avoid; }
   .ks-table-scroll { overflow: visible; }
-  .ks-table { font-size: 8pt; }
-  .ks-table th, .ks-table td { padding: 2.2mm 1.8mm; }
+  .ks-table { width: 100%; font-size: 7.4pt; }
+  .ks-table thead { display: table-header-group; }
+  .ks-table tfoot { display: table-footer-group; }
+  .ks-table tr { break-inside: avoid; }
+  .ks-table th, .ks-table td { padding: 1.6mm 1.4mm; }
   .ks-jury-card-scroll { display: grid; grid-auto-flow: row; grid-template-columns: repeat(2,1fr); grid-auto-columns: auto; gap: 3mm; overflow: visible; }
   .ks-jury-ranking-card { width: auto; min-height: 0; padding: 3mm; break-inside: avoid; }
-  .ks-jury-ranking-card li { min-height: 7mm; font-size: 7.5pt; }
+  .ks-jury-ranking-card li { min-height: 5.5mm; font-size: 7pt; }
   .ks-results-split { grid-template-columns: 1fr; }
   .ks-results-summary { break-inside: avoid; }
-  .ks-polarization-list > div { padding: 2mm; }
+  .ks-polarization-list { gap: 1mm; }
+  .ks-polarization-list > div { padding: 1.3mm; break-inside: avoid; }
   .ks-method-note { break-inside: avoid; }
   .ks-statistics-report .ks-method-note { display: block; }
   .ks-statistics-report .ks-method-note > summary { list-style: none; }
   .ks-statistics-report .ks-method-note > p { display: block; }
   .ks-artist-picker, .ks-artist-empty, #artist-history { display: none !important; }
   .ks-round-statistics-picker { display: none !important; }
+  .ks-song-stat-list { gap: 1.5mm; }
   .ks-song-stat-list > details { break-inside: avoid; }
+  .ks-song-stat-list summary { min-height: 10mm; padding: 1.5mm 2mm; }
   .ks-song-stat-panel { display: none !important; }
   .ks-history-load-status, .ks-history-table, .ks-historical-exports { display: none !important; }
-  .ks-combined-report .ks-card { break-inside: auto; }
+  .ks-results-report > .ks-card, .ks-statistics-report .ks-stat-section, .ks-combined-report .ks-card { break-inside: auto; }
+  .ks-week-statistics > .ks-stat-section:first-child, .ks-week-statistics > .ks-stat-section:nth-child(2) { break-inside: avoid; }
   .ks-combined-report .ks-highlight-card, .ks-combined-report .ks-stat-card, .ks-combined-report .ks-song-stat-list > details { break-inside: avoid; }
   .ks-combined-report .ks-report-summary { break-after: avoid; }
   .ks-combined-report #week-comparison { display: none; }
