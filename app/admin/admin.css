@@ -236,6 +236,7 @@
 .ks-duplicate-status > div { display: grid; gap: 2px; }
 .ks-duplicate-status small { color: var(--ks-muted); }
 .ks-duplicate-status a { font-weight: 850; }
+.ks-duplicate-status-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
 .ks-duplicate-status.warning { border-color: #efc28d; background: #fff9f1; color: #9e5416; }
 .ks-duplicate-status.success { border-color: #abdcc3; background: #f1fbf6; color: #176d4a; }
 .ks-disclosure { margin-top: 15px; border: 1px solid var(--ks-line); border-radius: 11px; background: #fff; }
@@ -740,6 +741,9 @@
 }
 
 @media (max-width: 620px) {
+  .ks-duplicate-status { grid-template-columns: 32px minmax(0,1fr); }
+  .ks-duplicate-status-actions { grid-column: 1 / -1; align-items: stretch; flex-direction: column; }
+  .ks-duplicate-status-actions .ks-button { width: 100%; }
   .ks-report-actions { display: grid; }
   .ks-report-actions > .ks-button, .ks-report-actions > .ks-controlled-popover, .ks-report-actions > .ks-controlled-popover > .ks-button { width: 100%; }
   .ks-stats-grid.weekly-kpis, .ks-highlight-grid, .ks-week-comparison-grid, .ks-current-statistics-metrics, .ks-artist-card-grid.count-2 { grid-template-columns: 1fr; }

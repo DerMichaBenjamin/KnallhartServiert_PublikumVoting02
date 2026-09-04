@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AdminRoundSummary, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
-import { combineSongLine, findSongDuplicateGroups } from '@/lib/releaseVotingShared';
+import { combineSongLine, findSongDuplicateGroups, splitSongLine } from '@/lib/releaseVotingShared';
 import { buildCombinedResults, type CombinedResultRow } from '@/lib/combinedVotingResults';
 import { StatusBadge } from './AdminUi';
 import PopoverMenu from './PopoverMenu';
@@ -21,7 +21,10 @@ function sortValue(row: CombinedResultRow, key: SortKey) {
 export default function SongManagement({ round, songs, summary, juryData, post }: { round: Round; songs: Song[]; summary: AdminRoundSummary; juryData: AdminJuryRoundData; post: Post }) {
   const [sort, setSort] = useState<SortState>({ key: 'total', direction: 'desc' });
   const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [bulkMerging, setBulkMerging] = useState(false);
   const duplicates = useMemo(() => findSongDuplicateGroups(songs), [songs]);
+  const exactDuplicates = useMemo(() => duplicates.filter((group) => group.kind === 'exact'), [duplicates]);
+  const possibleDuplicates = duplicates.length - exactDuplicates.length;
   const results = useMemo(() => buildCombinedResults(songs, summary.leaderboard, summary.countedVotes, juryData), [songs, summary.leaderboard, summary.countedVotes, juryData]);
   const rows = useMemo(() => [...results.overallRows].sort((left, right) => {
     const delta = sortValue(left, sort.key) - sortValue(right, sort.key);
@@ -55,6 +58,33 @@ export default function SongManagement({ round, songs, summary, juryData, post }
     if (window.confirm(`„${combineSongLine(source)}“ wirklich in „${combineSongLine(target)}“ zusammenführen?`)) void post('/api/admin/merge-songs', { roundId: round.id, targetSongId, sourceSongId });
   }
 
+  function preferredDuplicateOrder(groupSongs: Song[]) {
+    return [...groupSongs].sort((left, right) => {
+      const leftParsed = splitSongLine(left.title);
+      const rightParsed = splitSongLine(right.title);
+      const leftQuality = Number(Boolean(left.artist.trim())) * 2 + Number(!leftParsed.artist);
+      const rightQuality = Number(Boolean(right.artist.trim())) * 2 + Number(!rightParsed.artist);
+      return rightQuality - leftQuality || left.sort_order - right.sort_order;
+    });
+  }
+
+  async function mergeAllExactDuplicates() {
+    const mergeCount = exactDuplicates.reduce((sum, group) => sum + Math.max(0, group.songs.length - 1), 0);
+    if (!mergeCount || !window.confirm(`${mergeCount} eindeutig doppelte Song-Datensätze zusammenführen? Vorhandene Publikums-, Jury- und ZONK-Wertungen werden auf den jeweils beibehaltenen Song übertragen.`)) return;
+    setBulkMerging(true);
+    try {
+      for (const group of exactDuplicates) {
+        const [target, ...sources] = preferredDuplicateOrder(group.songs);
+        for (const source of sources) {
+          const ok = await post('/api/admin/merge-songs', { roundId: round.id, targetSongId: target.id, sourceSongId: source.id });
+          if (!ok) return;
+        }
+      }
+    } finally {
+      setBulkMerging(false);
+    }
+  }
+
   return <section className="ks-card" id="songs">
     <div className="ks-section-heading">
       <div><span className="ks-section-kicker">Ranking und Verwaltung</span><h2>Songs</h2><p>{songs.length} Songs befinden sich in der Wertung.</p></div>
@@ -69,7 +99,7 @@ export default function SongManagement({ round, songs, summary, juryData, post }
         </form>}
       </PopoverMenu>
     </div>
-    <div className={`ks-duplicate-status ${duplicates.length ? 'warning' : 'success'}`}><span>{duplicates.length ? '!' : '✓'}</span><div><strong>{duplicates.length ? `${duplicates.length} mögliche Doppler` : 'Keine Doppler erkannt'}</strong><small>{duplicates.length ? 'Bitte vor dem Abschluss prüfen.' : 'Die vorhandene Dopplerprüfung meldet keine Treffer.'}</small></div>{duplicates.length > 0 && <a href="#duplicate-check" onClick={() => setDuplicateOpen(true)}>Doppler prüfen</a>}</div>
+    <div className={`ks-duplicate-status ${duplicates.length ? 'warning' : 'success'}`}><span>{duplicates.length ? '!' : '✓'}</span><div><strong>{duplicates.length ? `${duplicates.length} Doppler-Gruppen erkannt` : 'Keine Doppler erkannt'}</strong><small>{duplicates.length ? `${exactDuplicates.length} eindeutig · ${possibleDuplicates} nur möglicherweise doppelt` : 'Die vorhandene Dopplerprüfung meldet keine Treffer.'}</small></div>{duplicates.length > 0 && <div className="ks-duplicate-status-actions"><a href="#duplicate-check" onClick={() => setDuplicateOpen(true)}>Einzeln prüfen</a>{exactDuplicates.length > 0 && <button className="ks-button small primary" type="button" disabled={bulkMerging} onClick={() => void mergeAllExactDuplicates()}>{bulkMerging ? 'Bereinigung läuft …' : 'Eindeutige Doppler bereinigen'}</button>}</div>}</div>
     <div className="ks-table-scroll">
       <table className="ks-table songs">
         <thead><tr><th>Gesamtrang</th><th>Song</th><th>Künstler</th><th className="ks-sortable-th" aria-sort={sort.key === 'audience' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Publikum', 'audience')}</th><th className="ks-sortable-th" aria-sort={sort.key === 'juryAverage' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Jury Ø', 'juryAverage')}</th><th className="ks-sortable-th" aria-sort={sort.key === 'total' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Gesamt', 'total')}</th><th>Status</th><th>Aktionen</th></tr></thead>

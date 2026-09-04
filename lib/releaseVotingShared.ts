@@ -195,12 +195,42 @@ function normalizeSongPartLoose(value?: string | null) {
   );
 }
 
+/**
+ * Akzeptiert die in kopierten Listen üblichen Trenner " - ", " – " und " — ".
+ * Der Trenner braucht auf beiden Seiten Leerraum, damit Bindestriche innerhalb
+ * eines Titels oder Künstlernamens nicht versehentlich getrennt werden.
+ */
+export function splitSongLine(value: string) {
+  const line = String(value || '').trim();
+  const separator = /\s+[-–—]\s+/.exec(line);
+  if (!separator || separator.index <= 0) return { title: line, artist: '' };
+  const artistStart = separator.index + separator[0].length;
+  return {
+    title: line.slice(0, separator.index).trim(),
+    artist: line.slice(artistStart).trim(),
+  };
+}
+
+function canonicalSongParts(song: { title: string; artist?: string | null }) {
+  const title = String(song.title || '').trim();
+  const artist = String(song.artist || '').trim();
+  // Repariert auch den Vergleich bereits falsch importierter Zeilen, bei denen
+  // "Titel – Künstler" vollständig im Titelfeld und das Künstlerfeld leer ist.
+  if (!artist) {
+    const parsed = splitSongLine(title);
+    if (parsed.artist) return parsed;
+  }
+  return { title, artist };
+}
+
 export function normalizedSongKey(song: { title: string; artist?: string | null }) {
-  return `${normalizeSongPartStrict(song.title)}::${normalizeSongPartStrict(song.artist || '')}`;
+  const canonical = canonicalSongParts(song);
+  return `${normalizeSongPartStrict(canonical.title)}::${normalizeSongPartStrict(canonical.artist)}`;
 }
 
 function looseSongKey(song: { title: string; artist?: string | null }) {
-  return `${normalizeSongPartLoose(song.title)}::${normalizeSongPartLoose(song.artist || '')}`;
+  const canonical = canonicalSongParts(song);
+  return `${normalizeSongPartLoose(canonical.title)}::${normalizeSongPartLoose(canonical.artist)}`;
 }
 
 function groupSongsByKey(songs: Song[], keyFn: (song: Song) => string) {
@@ -287,11 +317,7 @@ export function parseSongList(text: string) {
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((line) => {
-      const parts = line.split(' - ');
-      if (parts.length >= 2) return { title: parts[0].trim(), artist: parts.slice(1).join(' - ').trim() };
-      return { title: line, artist: '' };
-    });
+    .map(splitSongLine);
 }
 
 export function combineSongLine(song: { title: string; artist: string } | string) {
