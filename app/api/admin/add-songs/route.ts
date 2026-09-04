@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import { combineSongLine, normalizedSongKey, parseSongList, type Song } from '@/lib/releaseVotingShared';
+import { areSongsDefiniteDuplicates, combineSongLine, parseSongList, type Song } from '@/lib/releaseVotingShared';
 
 function dbMessage(error: unknown) {
   if (!error) return 'Unbekannter Fehler.';
@@ -39,14 +39,12 @@ export async function POST(req: NextRequest) {
     // Eine gemischte Eingabe darf nicht komplett scheitern, nur weil einzelne
     // Zeilen bereits vorhanden sind. Pro exaktem normalisiertem Song bleibt die
     // erste Eingabe erhalten; weitere identische Zeilen werden protokolliert.
-    const inputByKey = new Map<string, Song>();
+    const uniqueInputRows: Song[] = [];
     const duplicateInputRows: Song[] = [];
     for (const song of parsedRows) {
-      const key = normalizedSongKey(song);
-      if (inputByKey.has(key)) duplicateInputRows.push(song);
-      else inputByKey.set(key, song);
+      if (uniqueInputRows.some((existing) => areSongsDefiniteDuplicates(existing, song))) duplicateInputRows.push(song);
+      else uniqueInputRows.push(song);
     }
-    const uniqueInputRows = [...inputByKey.values()];
 
     const { data: existingSongsData, error: existingSongsError } = await sb
       .from('release_voting_songs')
@@ -57,13 +55,12 @@ export async function POST(req: NextRequest) {
     if (existingSongsError) throw existingSongsError;
 
     const existingSongs = (existingSongsData || []) as Song[];
-    const existingByKey = new Map(existingSongs.map((song) => [normalizedSongKey(song), song]));
     const duplicateAgainstExisting = uniqueInputRows
-      .map((song) => ({ newSong: song, existingSong: existingByKey.get(normalizedSongKey(song)) }))
+      .map((song) => ({ newSong: song, existingSong: existingSongs.find((existing) => areSongsDefiniteDuplicates(existing, song)) }))
       .filter((entry): entry is { newSong: Song; existingSong: Song } => Boolean(entry.existingSong));
 
-    const existingKeys = new Set(existingByKey.keys());
-    const songsToInsert = uniqueInputRows.filter((song) => !existingKeys.has(normalizedSongKey(song)));
+    const duplicateInputIds = new Set(duplicateAgainstExisting.map((entry) => entry.newSong.id));
+    const songsToInsert = uniqueInputRows.filter((song) => !duplicateInputIds.has(song.id));
 
     const maxSortOrder = existingSongs.reduce((max, song) => Math.max(max, Number(song.sort_order || 0)), -1);
     const rows = songsToInsert.map((song, index) => ({

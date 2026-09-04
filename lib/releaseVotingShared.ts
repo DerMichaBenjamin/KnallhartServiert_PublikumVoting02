@@ -233,6 +233,69 @@ function looseSongKey(song: { title: string; artist?: string | null }) {
   return `${normalizeSongPartLoose(canonical.title)}::${normalizeSongPartLoose(canonical.artist)}`;
 }
 
+function artistCreditKeys(song: { title: string; artist?: string | null }) {
+  const artist = canonicalSongParts(song).artist
+    .replace(/\b(radio|single|extended|club|party|festival|malle|mallorca|apres|après|ski|mix|edit|version|remix|remaster|remastered|live|karaoke|instrumental)\b/gi, ' ');
+  const credits = artist
+    .split(/\s*(?:,|;|\/|\||&|\+|\b(?:feat(?:uring)?|ft)\.?\b|\b[x×]\b)\s*/i)
+    .map(normalizeSongPartStrict)
+    .filter(Boolean);
+  return new Set(credits.length ? credits : [normalizeSongPartStrict(artist)].filter(Boolean));
+}
+
+function editDistance(left: string, right: string) {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + Number(left[leftIndex - 1] !== right[rightIndex - 1]),
+      );
+    }
+    previous = current;
+  }
+  return previous[right.length];
+}
+
+/**
+ * Erkennt neben identischen Datensätzen auch sehr klare Metadatenvarianten:
+ * unterschiedliche Künstlertrenner/-reihenfolge, zusätzliche Feature-Credits,
+ * Versionszusätze sowie einen einzelnen Tippfehler bei ausreichend langen Titeln.
+ * Ohne mindestens einen gemeinsamen Künstler wird nie automatisch zusammengeführt.
+ */
+export function areSongsDefiniteDuplicates(
+  left: { title: string; artist?: string | null },
+  right: { title: string; artist?: string | null },
+) {
+  if (normalizedSongKey(left) === normalizedSongKey(right)) return true;
+  const leftParts = canonicalSongParts(left);
+  const rightParts = canonicalSongParts(right);
+  const leftTitle = normalizeSongPartStrict(leftParts.title);
+  const rightTitle = normalizeSongPartStrict(rightParts.title);
+  if (!leftTitle || !rightTitle) return false;
+
+  const leftArtists = artistCreditKeys(left);
+  const rightArtists = artistCreditKeys(right);
+  const sharedArtists = [...leftArtists].filter((artist) => rightArtists.has(artist)).length;
+  if (!sharedArtists) return false;
+  const artistCoverage = sharedArtists / Math.max(1, Math.min(leftArtists.size, rightArtists.size));
+
+  if (leftTitle === rightTitle) return true;
+  const leftLooseTitle = normalizeSongPartLoose(leftParts.title);
+  const rightLooseTitle = normalizeSongPartLoose(rightParts.title);
+  if (leftLooseTitle && leftLooseTitle === rightLooseTitle && artistCoverage >= 0.5) return true;
+
+  const longestTitle = Math.max(leftLooseTitle.length, rightLooseTitle.length);
+  if (longestTitle < 8 || artistCoverage < 0.5) return false;
+  const titleSimilarity = 1 - editDistance(leftLooseTitle, rightLooseTitle) / longestTitle;
+  return titleSimilarity >= 0.9;
+}
+
 function groupSongsByKey(songs: Song[], keyFn: (song: Song) => string) {
   const grouped = new Map<string, Song[]>();
 
@@ -248,32 +311,46 @@ function groupSongsByKey(songs: Song[], keyFn: (song: Song) => string) {
 }
 
 export function findSongDuplicateGroups(songs: Song[]): SongDuplicateGroup[] {
-  const exactGroups: SongDuplicateGroup[] = [];
-  const exactKeysInGroups = new Set<string>();
-  const exactByKey = groupSongsByKey(songs, normalizedSongKey);
+  const parent = new Map(songs.map((song) => [song.id, song.id]));
+  const find = (id: string): string => {
+    const current = parent.get(id) || id;
+    if (current === id) return id;
+    const root = find(current);
+    parent.set(id, root);
+    return root;
+  };
+  const union = (left: string, right: string) => {
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+  };
 
-  for (const [key, group] of exactByKey.entries()) {
-    if (group.length > 1) {
-      exactKeysInGroups.add(key);
-      exactGroups.push({
-        key,
-        kind: 'exact',
-        songs: [...group].sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title)),
-      });
+  for (let leftIndex = 0; leftIndex < songs.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < songs.length; rightIndex += 1) {
+      if (areSongsDefiniteDuplicates(songs[leftIndex], songs[rightIndex])) union(songs[leftIndex].id, songs[rightIndex].id);
     }
   }
 
+  const definiteByRoot = new Map<string, Song[]>();
+  for (const song of songs) {
+    const root = find(song.id);
+    definiteByRoot.set(root, [...(definiteByRoot.get(root) || []), song]);
+  }
+  const exactGroups = [...definiteByRoot.values()].filter((group) => group.length > 1).map((group) => ({
+    key: `exact:${group.map((song) => song.id).sort().join(':')}`,
+    kind: 'exact' as const,
+    songs: [...group].sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title)),
+  }));
+  const exactSongIds = new Set(exactGroups.flatMap((group) => group.songs.map((song) => song.id)));
+
   const possibleGroups: SongDuplicateGroup[] = [];
-  const looseByKey = groupSongsByKey(songs, looseSongKey);
+  const looseByKey = groupSongsByKey(songs.filter((song) => !exactSongIds.has(song.id)), looseSongKey);
 
   for (const [key, group] of looseByKey.entries()) {
     if (group.length < 2) continue;
 
     const uniqueExactKeys = new Set(group.map(normalizedSongKey));
     if (uniqueExactKeys.size < 2) continue;
-
-    const isOnlyExactDuplicateGroup = [...uniqueExactKeys].every((exactKey) => exactKeysInGroups.has(exactKey));
-    if (isOnlyExactDuplicateGroup) continue;
 
     possibleGroups.push({
       key,
