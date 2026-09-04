@@ -1,6 +1,6 @@
 import type { AdminJuryRoundData } from './juryVoting';
 import { buildCombinedResults, compareResultSongs, type CombinedResultRow } from './combinedVotingResults';
-import { isSongActive, type AdminRoundSummary, type AudienceRatingStats, type Round, type Song } from './releaseVotingShared';
+import { isSongActive, splitSongLine, type AdminRoundSummary, type AudienceRatingStats, type Round, type Song } from './releaseVotingShared';
 
 export type StatisticTone = 'neutral' | 'success' | 'warning' | 'danger' | 'violet';
 
@@ -432,11 +432,30 @@ export function splitArtistCredits(value: string) {
   return [...unique.values()];
 }
 
+/**
+ * Rekonstruiert die Künstlerangabe auch bei älteren Songzeilen, die vor der
+ * Korrektur des Import-Parsers am ersten statt am letzten Bindestrich getrennt
+ * wurden. Beispiel aus dem Archiv:
+ *
+ * Titel:     "HURENSOHN"
+ * Künstler: "JEBROER REMIX - Rumbombe, Jebroer"
+ *
+ * Aus der zusammengesetzten Originalzeile wird dadurch wieder
+ * "HURENSOHN - JEBROER REMIX" / "Rumbombe, Jebroer". Die gespeicherten
+ * Daten werden nicht verändert; die Reparatur gilt nur für die Statistik.
+ */
+function artistCreditsForStatistics(song: Pick<Song, 'title' | 'artist'>) {
+  const artist = String(song.artist || '').trim();
+  if (!artist) return splitArtistCredits('');
+  const reconstructed = splitSongLine(`${String(song.title || '').trim()} - ${artist}`);
+  return splitArtistCredits(reconstructed.artist || artist);
+}
+
 export function buildArtistHistories(weeks: ReleaseWeekStatistics[]): ArtistHistory[] {
   const groups = new Map<string, { name: string; entries: ArtistHistoryEntry[] }>();
   for (const week of weeks) {
     for (const row of week.comparisonRows) {
-      for (const name of splitArtistCredits(row.song.artist)) {
+      for (const name of artistCreditsForStatistics(row.song)) {
         const key = normalizeArtist(name);
         const group = groups.get(key) || { name, entries: [] };
         group.entries.push({
