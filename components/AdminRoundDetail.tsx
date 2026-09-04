@@ -48,7 +48,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) throw new Error(data?.error || 'Ungültige Server-Antwort.');
-      setMessage({ type: 'ok', text: 'Gespeichert.' });
+      setMessage({ type: 'ok', text: typeof data.message === 'string' && data.message.trim() ? data.message : 'Gespeichert.' });
       router.refresh();
       return true;
     } catch (error) {

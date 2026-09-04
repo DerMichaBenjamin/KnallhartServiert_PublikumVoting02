@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-import { combineSongLine, findSongDuplicateGroups, formatDuplicateSongMessage, normalizedSongKey, parseSongList, type Song } from '@/lib/releaseVotingShared';
+import { combineSongLine, normalizedSongKey, parseSongList, type Song } from '@/lib/releaseVotingShared';
 
 function dbMessage(error: unknown) {
   if (!error) return 'Unbekannter Fehler.';
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const parsed = parseSongList(String(body.songsText || ''));
     if (!parsed.length) throw new Error('Keine Songs zum Hinzufügen gefunden.');
 
-    const newSongsAsRows = parsed.map((song, index) => ({
+    const parsedRows = parsed.map((song, index) => ({
       id: `new-${index}`,
       round_id: roundId,
       title: song.title,
@@ -36,10 +36,17 @@ export async function POST(req: NextRequest) {
       sort_order: index,
     })) as Song[];
 
-    const internalDuplicateGroups = findSongDuplicateGroups(newSongsAsRows).filter((group) => group.kind === 'exact');
-    if (internalDuplicateGroups.length) {
-      throw new Error(formatDuplicateSongMessage(internalDuplicateGroups));
+    // Eine gemischte Eingabe darf nicht komplett scheitern, nur weil einzelne
+    // Zeilen bereits vorhanden sind. Pro exaktem normalisiertem Song bleibt die
+    // erste Eingabe erhalten; weitere identische Zeilen werden protokolliert.
+    const inputByKey = new Map<string, Song>();
+    const duplicateInputRows: Song[] = [];
+    for (const song of parsedRows) {
+      const key = normalizedSongKey(song);
+      if (inputByKey.has(key)) duplicateInputRows.push(song);
+      else inputByKey.set(key, song);
     }
+    const uniqueInputRows = [...inputByKey.values()];
 
     const { data: existingSongsData, error: existingSongsError } = await sb
       .from('release_voting_songs')
@@ -51,31 +58,47 @@ export async function POST(req: NextRequest) {
 
     const existingSongs = (existingSongsData || []) as Song[];
     const existingByKey = new Map(existingSongs.map((song) => [normalizedSongKey(song), song]));
-    const duplicateAgainstExisting = newSongsAsRows
+    const duplicateAgainstExisting = uniqueInputRows
       .map((song) => ({ newSong: song, existingSong: existingByKey.get(normalizedSongKey(song)) }))
       .filter((entry): entry is { newSong: Song; existingSong: Song } => Boolean(entry.existingSong));
 
-    if (duplicateAgainstExisting.length) {
-      const lines = duplicateAgainstExisting.slice(0, 8).map((entry) => `- ${combineSongLine(entry.newSong)} ist bereits vorhanden als ${combineSongLine(entry.existingSong)}`);
-      throw new Error([
-        'Diese Songs sind bereits in der Umfrage enthalten:',
-        ...lines,
-        duplicateAgainstExisting.length > 8 ? `- plus ${duplicateAgainstExisting.length - 8} weitere Doppler` : '',
-      ].filter(Boolean).join('\n'));
-    }
+    const existingKeys = new Set(existingByKey.keys());
+    const songsToInsert = uniqueInputRows.filter((song) => !existingKeys.has(normalizedSongKey(song)));
 
     const maxSortOrder = existingSongs.reduce((max, song) => Math.max(max, Number(song.sort_order || 0)), -1);
-    const rows = parsed.map((song, index) => ({
+    const rows = songsToInsert.map((song, index) => ({
       round_id: roundId,
       title: song.title,
       artist: song.artist,
       sort_order: maxSortOrder + 1 + index,
     }));
 
-    const { error } = await sb.from('release_voting_songs').insert(rows);
-    if (error) throw error;
+    if (rows.length) {
+      const { error } = await sb.from('release_voting_songs').insert(rows);
+      if (error) throw error;
+    }
 
-    return NextResponse.json({ ok: true });
+    const skippedExisting = duplicateAgainstExisting.map((entry) => ({
+      submitted: combineSongLine(entry.newSong),
+      existing: combineSongLine(entry.existingSong),
+    }));
+    const skippedInput = duplicateInputRows.map(combineSongLine);
+    const notices = [
+      rows.length ? `${rows.length} ${rows.length === 1 ? 'neuer Song wurde' : 'neue Songs wurden'} hinzugefügt.` : 'Es wurde kein neuer Song hinzugefügt.',
+      skippedExisting.length ? `${skippedExisting.length} bereits ${skippedExisting.length === 1 ? 'vorhandener Song wurde' : 'vorhandene Songs wurden'} übersprungen.` : '',
+      skippedInput.length ? `${skippedInput.length} doppelte ${skippedInput.length === 1 ? 'Zeile innerhalb der Eingabe wurde' : 'Zeilen innerhalb der Eingabe wurden'} übersprungen.` : '',
+    ].filter(Boolean);
+
+    return NextResponse.json({
+      ok: true,
+      message: notices.join(' '),
+      addedCount: rows.length,
+      skippedExistingCount: skippedExisting.length,
+      skippedInputCount: skippedInput.length,
+      addedSongs: rows.map(combineSongLine),
+      skippedExisting,
+      skippedInput,
+    });
   } catch (error) {
     return NextResponse.json({ ok: false, error: dbMessage(error) }, { status: 500 });
   }
