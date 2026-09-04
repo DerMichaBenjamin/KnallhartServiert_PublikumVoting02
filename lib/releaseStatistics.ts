@@ -150,7 +150,7 @@ export async function getReleaseStatisticsArchive(): Promise<ReleaseStatisticsAr
 
   const [songs, votes, jurors, juryVotes] = roundIdChunks.length ? await Promise.all([
     fetchForStatisticsRounds<Song>('Songs', async (roundIds, from, to) => {
-      const { data, error } = await sb.from('release_voting_songs').select('id,round_id,title,artist,sort_order').in('round_id', roundIds).order('created_at', { ascending: true }).range(from, to);
+      const { data, error } = await sb.from('release_voting_songs').select('id,round_id,title,artist,sort_order,is_active').in('round_id', roundIds).eq('is_active', true).order('created_at', { ascending: true }).range(from, to);
       return { data: (data || []) as Song[], error };
     }),
     fetchForStatisticsRounds<StatisticsVoteRow>('Publikumsstimmen', async (roundIds, from, to) => {

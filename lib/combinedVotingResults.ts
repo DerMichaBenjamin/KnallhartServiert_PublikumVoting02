@@ -1,5 +1,5 @@
 import type { AdminJuryRoundData, AdminJuryJurorRow } from './juryVoting';
-import { JURY_PLACES_COUNT, type LeaderboardRow, type Song } from './releaseVotingShared';
+import { isSongActive, JURY_PLACES_COUNT, type LeaderboardRow, type Song } from './releaseVotingShared';
 
 export type AudienceResultRow = LeaderboardRow & {
   rank: number;
@@ -42,6 +42,7 @@ export function buildCombinedResults(
   publicVerifiedVotes: number,
   juryData: AdminJuryRoundData,
 ) {
+  const activeSongs = songs.filter(isSongActive);
   // DJ-Rankings sind eine eigene redaktionelle Kategorie und dürfen niemals
   // in die normale Jury-plus-Publikum-Gesamtwertung einfließen.
   const activeJurors = juryData.jurors.filter((juror) => juror.is_active && (!juror.voting_role || juror.voting_role === 'jury'));
@@ -62,7 +63,7 @@ export function buildCombinedResults(
   }
 
   const hasVotes = audiencePoints.size > 0 || submittedJurors.length > 0;
-  const unranked = songs.map((song) => {
+  const unranked = activeSongs.map((song) => {
     const perJuror: Record<string, number> = {};
     let juryPoints = 0;
     for (const juror of activeJurors) {
@@ -88,7 +89,7 @@ export function buildCombinedResults(
 
   const jurorRankings: JurorRanking[] = activeJurors.map((juror) => {
     const points = juryPointsByJuror.get(juror.id) || new Map<string, number>();
-    const rows = songs
+    const rows = activeSongs
       .map((song) => ({ song, points: points.get(song.id) || 0 }))
       .filter((row) => row.points > 0)
       .sort((a, b) => b.points - a.points || compareResultSongs(a.song, b.song))

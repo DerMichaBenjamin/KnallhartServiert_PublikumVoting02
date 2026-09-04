@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AdminRoundSummary, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
-import { findSongDuplicateGroups } from '@/lib/releaseVotingShared';
+import { findSongDuplicateGroups, isSongActive } from '@/lib/releaseVotingShared';
 import { adminRoundStatusLabel, formatRoundPeriod, getAdminRoundStatus } from '@/lib/adminUi';
 import { PageHeader, StatCard, StatusBadge } from '@/components/admin/AdminUi';
 import VotingCheckCard from '@/components/admin/VotingCheckCard';
@@ -35,10 +35,12 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const activeJurors = juryData.jurors.filter((juror) => juror.is_active);
   const submittedJurors = activeJurors.filter((juror) => Boolean(juror.submitted_at));
-  const duplicates = useMemo(() => findSongDuplicateGroups(songs), [songs]);
+  const activeSongs = useMemo(() => songs.filter(isSongActive), [songs]);
+  const inactiveSongs = songs.length - activeSongs.length;
+  const duplicates = useMemo(() => findSongDuplicateGroups(activeSongs), [activeSongs]);
   const openJurors = activeJurors.length - submittedJurors.length;
   const openCheckItems = summary.reviewVotes + (securityAlerts || 0) + duplicates.length + openJurors;
-  const statistics = useMemo(() => buildReleaseWeekStatistics(round, songs, summary, juryData), [round, songs, summary, juryData]);
+  const statistics = useMemo(() => buildReleaseWeekStatistics(round, activeSongs, summary, juryData), [round, activeSongs, summary, juryData]);
   const graphicData = useMemo(() => buildReportGraphicData(statistics), [statistics]);
 
   async function post(url: string, body: unknown) {
@@ -81,7 +83,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
     {busy && <div className="notice">Speichert…</div>}
     <RoundLinksBar round={round} copyUrl={copyUrl} />
     <section className="ks-stats-grid dashboard">
-      <StatCard label="Songs" value={songs.length} />
+      <StatCard label="Songs in Wertung" value={activeSongs.length} hint={inactiveSongs ? `${inactiveSongs} deaktiviert` : undefined} />
       <StatCard label="Jury-Mitglieder" value={activeJurors.length} />
       <StatCard label="Jury abgegeben" value={submittedJurors.length} tone={openJurors ? 'warning' : 'success'} />
       <StatCard label="Publikumsstimmen" value={summary.totalVotes} />
@@ -98,7 +100,7 @@ export default function AdminRoundDetail({ round, songs, summary, isCurrentDj, j
       <a className="ks-quick-action" href="#songs"><strong>Song hinzufügen</strong><span>Songliste erweitern</span><b>→</b></a>
     </section>
     <JuryOverview round={round} juryData={juryData} post={post} copyUrl={copyUrl} />
-    <Top5GraphicGenerator round={round} songs={songs} publicLeaderboard={summary.leaderboard} publicVerifiedVotes={summary.countedVotes} juryData={juryData} />
+    <Top5GraphicGenerator round={round} songs={activeSongs} publicLeaderboard={summary.leaderboard} publicVerifiedVotes={summary.countedVotes} juryData={juryData} />
     <SongManagement round={round} songs={songs} summary={summary} juryData={juryData} post={post} />
     <PublicVotingSummary round={round} summary={summary} />
     <RoundSettingsPanel round={round} isCurrentDj={isCurrentDj} post={post} />

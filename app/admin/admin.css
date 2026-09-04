@@ -59,6 +59,9 @@
 .ks-button.ghost-on-dark { border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.06); color: #fff; }
 .ks-button.small { min-height: 34px; padding: 6px 10px; font-size: 13px; }
 .ks-button:disabled { opacity: .45; cursor: not-allowed; }
+.ks-song-row-inactive { background: #f6f8fb; color: #68778a; }
+.ks-song-row-inactive td { opacity: .82; }
+.ks-song-row-inactive td:last-child { opacity: 1; }
 .ks-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--ks-line); border-radius: 8px; background: #fff; color: var(--ks-violet-dark); font-size: 17px; font-weight: 900; cursor: pointer; }
 
 .ks-current-round-card { display: grid; grid-template-columns: minmax(0,1fr) 260px; gap: 28px; align-items: center; min-height: 250px; margin-bottom: 18px; padding: 34px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: radial-gradient(circle at 82% 20%, rgba(109,78,232,.38), transparent 25%), linear-gradient(125deg, #071a2d 0%, #102942 65%, #111d34 100%); color: #fff; box-shadow: 0 18px 42px rgba(7,26,45,.18); }

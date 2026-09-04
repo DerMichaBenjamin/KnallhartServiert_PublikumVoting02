@@ -9,6 +9,7 @@ import {
   buildAudienceRatingStats,
   buildZonk,
   combineSongLine,
+  isSongActive,
   type AdminParticipantRow,
   type AdminRoundSummary,
   type LeaderboardRow,
@@ -55,6 +56,7 @@ export type VotingCheckReviewVote = Pick<Vote,
 
 type AdminRoundDetailOptions = {
   includeParticipants?: boolean;
+  includeInactiveSongs?: boolean;
   round?: Round;
   channel?: VotingChannel;
 };
@@ -136,16 +138,19 @@ export async function listPublicResultRounds() {
   return (data || []) as Round[];
 }
 
-export async function getSongs(roundId: string) {
+export async function getSongs(roundId: string, options: { includeInactive?: boolean } = {}) {
   noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return [] as Song[];
-  const { data } = await sb
+  let request = sb
     .from('release_voting_songs')
     .select('*')
-    .eq('round_id', roundId)
+    .eq('round_id', roundId);
+  if (!options.includeInactive) request = request.eq('is_active', true);
+  const { data, error } = await request
     .order('sort_order')
     .order('created_at', { ascending: true });
+  if (error) throw databaseError('Songs konnten nicht geladen werden', error);
   return (data || []) as Song[];
 }
 
@@ -301,11 +306,12 @@ export async function getAdminRoundDetailData(roundId: string, options: AdminRou
 
   const channel = options.channel || 'audience';
 
-  const songsPromise = getSongs(round.id);
+  const songsPromise = getSongs(round.id, { includeInactive: Boolean(options.includeInactiveSongs) });
   const votesPromise = options.includeParticipants ? getAllVotes(round.id, channel) : Promise.resolve(null);
   const verifiedPromise = options.includeParticipants ? Promise.resolve(null) : getVerifiedVotes(round.id, channel);
   const countsPromise = options.includeParticipants ? Promise.resolve(null) : getRoundVoteCounts(round.id, channel);
   const [songs, allVotes, verifiedData, exactCounts] = await Promise.all([songsPromise, votesPromise, verifiedPromise, countsPromise]);
+  const activeSongs = songs.filter(isSongActive);
 
   const countedVoteRows = allVotes
     ? allVotes.filter((vote) => Boolean(vote.is_verified) && vote.is_counted === true)
@@ -313,9 +319,9 @@ export async function getAdminRoundDetailData(roundId: string, options: AdminRou
   const items = allVotes
     ? await getVoteItemsForVoteIds(countedVoteRows.map((vote) => vote.id))
     : verifiedData?.items || [];
-  const leaderboard = buildLeaderboard(songs, countedVoteRows, items);
-  const zonk = buildZonk(songs, countedVoteRows);
-  const audienceRatingStatsBySong = buildAudienceRatingStats(songs, countedVoteRows.length, items);
+  const leaderboard = buildLeaderboard(activeSongs, countedVoteRows, items);
+  const zonk = buildZonk(activeSongs, countedVoteRows);
+  const audienceRatingStatsBySong = buildAudienceRatingStats(activeSongs, countedVoteRows.length, items);
   const songById = new Map(songs.map((song) => [song.id, song]));
   const sameIpCounts = new Map<string, number>();
 
@@ -364,7 +370,7 @@ export async function getAdminRoundDetailData(roundId: string, options: AdminRou
     ...counts,
     verifiedVotes: counts.countedVotes,
     pendingVotes: counts.unverifiedVotes,
-    songsCount: songs.length,
+    songsCount: activeSongs.length,
     leaderboard,
     zonk,
     participants,

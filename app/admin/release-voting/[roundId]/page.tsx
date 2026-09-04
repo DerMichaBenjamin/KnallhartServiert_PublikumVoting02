@@ -17,7 +17,7 @@ export default async function AdminRoundPage({ params }: PageProps) {
 
   const { roundId } = await params;
   const [data, currentDjRoundId, juryData] = await Promise.all([
-    getAdminRoundDetailData(roundId),
+    getAdminRoundDetailData(roundId, { includeInactiveSongs: true }),
     getCurrentDjRoundId(),
     getAdminJuryRoundData(roundId),
   ]);

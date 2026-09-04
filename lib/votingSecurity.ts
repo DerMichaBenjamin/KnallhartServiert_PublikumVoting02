@@ -308,7 +308,8 @@ export async function getVotingSecurityReport(roundId: string): Promise<VotingSe
   const { data: songRows, error: songError } = await sb
     .from('release_voting_songs')
     .select('id,title,artist')
-    .eq('round_id', roundId);
+    .eq('round_id', roundId)
+    .eq('is_active', true);
 
   if (songError) {
     errors.push(errorMessage(songError));

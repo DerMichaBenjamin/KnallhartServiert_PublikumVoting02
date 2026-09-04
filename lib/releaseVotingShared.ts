@@ -23,7 +23,13 @@ export type Song = {
   title: string;
   artist: string;
   sort_order: number;
+  /** Fehlend/null in Altdaten bedeutet weiterhin aktiv. */
+  is_active?: boolean | null;
 };
+
+export function isSongActive(song: Pick<Song, 'is_active'>) {
+  return song.is_active !== false;
+}
 
 export type Vote = {
   id: string;
@@ -128,9 +134,10 @@ export function buildAudienceRatingStats(
   countedVotes: number,
   items: VoteItem[],
 ): Record<string, AudienceRatingStats> {
+  const activeSongs = songs.filter(isSongActive);
   const safeVoteCount = Math.max(0, Math.floor(countedVotes));
   const result: Record<string, AudienceRatingStats> = {};
-  for (const song of songs) {
+  for (const song of activeSongs) {
     const distribution = Array.from({ length: JURY_PLACES_COUNT + 1 }, () => 0);
     distribution[0] = safeVoteCount;
     result[song.id] = {
@@ -311,7 +318,8 @@ function groupSongsByKey(songs: Song[], keyFn: (song: Song) => string) {
 }
 
 export function findSongDuplicateGroups(songs: Song[]): SongDuplicateGroup[] {
-  const parent = new Map(songs.map((song) => [song.id, song.id]));
+  const candidateSongs = songs.filter(isSongActive);
+  const parent = new Map(candidateSongs.map((song) => [song.id, song.id]));
   const find = (id: string): string => {
     const current = parent.get(id) || id;
     if (current === id) return id;
@@ -325,14 +333,14 @@ export function findSongDuplicateGroups(songs: Song[]): SongDuplicateGroup[] {
     if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
   };
 
-  for (let leftIndex = 0; leftIndex < songs.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < songs.length; rightIndex += 1) {
-      if (areSongsDefiniteDuplicates(songs[leftIndex], songs[rightIndex])) union(songs[leftIndex].id, songs[rightIndex].id);
+  for (let leftIndex = 0; leftIndex < candidateSongs.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < candidateSongs.length; rightIndex += 1) {
+      if (areSongsDefiniteDuplicates(candidateSongs[leftIndex], candidateSongs[rightIndex])) union(candidateSongs[leftIndex].id, candidateSongs[rightIndex].id);
     }
   }
 
   const definiteByRoot = new Map<string, Song[]>();
-  for (const song of songs) {
+  for (const song of candidateSongs) {
     const root = find(song.id);
     definiteByRoot.set(root, [...(definiteByRoot.get(root) || []), song]);
   }
@@ -344,7 +352,7 @@ export function findSongDuplicateGroups(songs: Song[]): SongDuplicateGroup[] {
   const exactSongIds = new Set(exactGroups.flatMap((group) => group.songs.map((song) => song.id)));
 
   const possibleGroups: SongDuplicateGroup[] = [];
-  const looseByKey = groupSongsByKey(songs.filter((song) => !exactSongIds.has(song.id)), looseSongKey);
+  const looseByKey = groupSongsByKey(candidateSongs.filter((song) => !exactSongIds.has(song.id)), looseSongKey);
 
   for (const [key, group] of looseByKey.entries()) {
     if (group.length < 2) continue;
@@ -415,11 +423,12 @@ export function buildLeaderboard(
   votes: Array<{ id: string; is_verified: boolean; is_counted: boolean | null | undefined }>,
   items: VoteItem[],
 ): LeaderboardRow[] {
+  const activeSongs = songs.filter(isSongActive);
   const validVoteIds = new Set(votes.filter((vote) => vote.is_verified && vote.is_counted !== false).map((vote) => vote.id));
   const validVotesCount = validVoteIds.size;
-  const songIds = new Set(songs.map((song) => song.id));
+  const songIds = new Set(activeSongs.map((song) => song.id));
   const rowsBySongId = new Map<string, LeaderboardRow>(
-    songs.map((song) => [song.id, { song, total: 0, count: 0, avg: 0 }])
+    activeSongs.map((song) => [song.id, { song, total: 0, count: 0, avg: 0 }])
   );
 
   // Important after manual merges: count every song only once per verified vote.
@@ -467,8 +476,9 @@ export function buildZonk(
   songs: Song[],
   votes: Array<{ is_verified: boolean; is_counted: boolean | null | undefined; zonk_song_id: string | null }>,
 ): ZonkRow[] {
+  const activeSongs = songs.filter(isSongActive);
   const counts = new Map<string, number>();
-  const songIds = new Set(songs.map((song) => song.id));
+  const songIds = new Set(activeSongs.map((song) => song.id));
 
   votes
     .filter((vote) => vote.is_verified && vote.is_counted !== false)
@@ -478,7 +488,7 @@ export function buildZonk(
       }
     });
 
-  return songs
+  return activeSongs
     .map((song) => ({ song, count: counts.get(song.id) || 0 }))
     .sort((a, b) => b.count - a.count || a.song.title.localeCompare(b.song.title));
 }

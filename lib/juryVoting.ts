@@ -161,7 +161,7 @@ export async function getJuryAccessData(accessToken: string): Promise<JuryAccess
 
   const [{ data: roundData }, { data: songData }, { data: voteData }] = await Promise.all([
     sb.from('release_voting_rounds').select('*').eq('id', juror.round_id).maybeSingle(),
-    sb.from('release_voting_songs').select('*').eq('round_id', juror.round_id).order('sort_order').order('created_at', { ascending: true }),
+    sb.from('release_voting_songs').select('*').eq('round_id', juror.round_id).eq('is_active', true).order('sort_order').order('created_at', { ascending: true }),
     sb.from('release_voting_jury_votes').select('*').eq('round_juror_id', juror.id).maybeSingle(),
   ]);
 

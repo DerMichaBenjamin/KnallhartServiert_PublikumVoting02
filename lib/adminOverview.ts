@@ -78,7 +78,7 @@ async function getAdminRoundOverview(round: Round): Promise<AdminRoundOverview> 
 
   const [voteCounts, songsResult, jurorsResult] = await Promise.all([
     getRoundVoteCounts(round.id),
-    sb.from('release_voting_songs').select('id', { count: 'exact', head: true }).eq('round_id', round.id),
+    sb.from('release_voting_songs').select('id', { count: 'exact', head: true }).eq('round_id', round.id).eq('is_active', true),
     sb.from('release_voting_round_jurors').select('id').eq('round_id', round.id).eq('voting_role', 'jury').or('is_active.eq.true,is_active.is.null'),
   ]);
 
@@ -185,8 +185,8 @@ export async function getAdminOverviewTotals(
       : Promise.resolve(sb.from('release_voting_rounds').select('id', { count: 'exact', head: true })).then((result) => countValue(result, 'Umfragen')),
     scopedCount(
       'Songs',
-      () => sb.from('release_voting_songs').select('id', { count: 'exact', head: true }),
-      (ids) => sb.from('release_voting_songs').select('id', { count: 'exact', head: true }).in('round_id', ids),
+      () => sb.from('release_voting_songs').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      (ids) => sb.from('release_voting_songs').select('id', { count: 'exact', head: true }).in('round_id', ids).eq('is_active', true),
     ),
     scopedCount(
       'Publikumsstimmen',

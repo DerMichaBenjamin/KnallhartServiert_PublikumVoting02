@@ -1,6 +1,6 @@
 import type { AdminJuryRoundData } from './juryVoting';
 import { buildCombinedResults, compareResultSongs, type CombinedResultRow } from './combinedVotingResults';
-import type { AdminRoundSummary, AudienceRatingStats, Round, Song } from './releaseVotingShared';
+import { isSongActive, type AdminRoundSummary, type AudienceRatingStats, type Round, type Song } from './releaseVotingShared';
 
 export type StatisticTone = 'neutral' | 'success' | 'warning' | 'danger' | 'violet';
 
@@ -237,7 +237,9 @@ export function buildReleaseWeekStatistics(
   summary: AdminRoundSummary,
   juryData: AdminJuryRoundData,
 ): ReleaseWeekStatistics {
-  const combined = buildCombinedResults(songs, summary.leaderboard, summary.countedVotes, juryData);
+  const activeSongs = songs.filter(isSongActive);
+  const activeSongIds = new Set(activeSongs.map((song) => song.id));
+  const combined = buildCombinedResults(activeSongs, summary.leaderboard, summary.countedVotes, juryData);
   const publicBySong = new Map(summary.leaderboard.map((row) => [row.song.id, row]));
   const hasAudience = summary.countedVotes > 0;
   const hasJury = combined.submittedJurors.length > 0;
@@ -287,7 +289,7 @@ export function buildReleaseWeekStatistics(
     ? percent(winnerGap, combined.overallRows[0].total)
     : null;
   const individualRatings = summary.leaderboard.reduce((sum, row) => sum + row.count, 0)
-    + combined.submittedJurors.reduce((sum, juror) => sum + juror.items.filter((item) => Number(item.points) > 0).length, 0);
+    + combined.submittedJurors.reduce((sum, juror) => sum + juror.items.filter((item) => activeSongIds.has(item.song_id) && Number(item.points) > 0).length, 0);
   const songsWithoutPoints = combined.overallRows.filter((row) => row.total === 0).length;
   const songsWithoutRatings = comparisonRows.filter((row) => row.audienceMentions === 0 && row.juryPoints === 0).length;
   const ratedComparisons = comparisonRows.filter((row) => row.audienceMentions > 0 || row.juryPoints > 0);
@@ -359,7 +361,7 @@ export function buildReleaseWeekStatistics(
 
   return {
     round,
-    songsCount: songs.length,
+    songsCount: activeSongs.length,
     totalVotes: summary.totalVotes,
     countedVotes: summary.countedVotes,
     confirmedVotes: summary.confirmedVotes,

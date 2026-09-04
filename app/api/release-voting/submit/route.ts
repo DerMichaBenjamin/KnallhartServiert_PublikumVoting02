@@ -159,7 +159,8 @@ export async function POST(req: Request) {
     const { data: roundSongs, error: songsError } = await sb
       .from('release_voting_songs')
       .select('id,title,artist')
-      .eq('round_id', roundId);
+      .eq('round_id', roundId)
+      .eq('is_active', true);
 
     if (songsError) throw songsError;
 

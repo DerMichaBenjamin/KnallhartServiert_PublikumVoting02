@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
     const [{ data: roundData, error: roundError }, { data: songsData, error: songsError }] = await Promise.all([
       sb.from('release_voting_rounds').select('*').eq('id', juror.round_id).maybeSingle(),
-      sb.from('release_voting_songs').select('id').eq('round_id', juror.round_id),
+      sb.from('release_voting_songs').select('id').eq('round_id', juror.round_id).eq('is_active', true),
     ]);
     if (roundError) throw roundError;
     if (songsError) throw songsError;
