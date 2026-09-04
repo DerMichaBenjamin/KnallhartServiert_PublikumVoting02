@@ -7,7 +7,7 @@ import type { AdminJuryRoundData, JuryRoundJuror, JuryVoteItem } from './juryVot
 import { getAdminJuryRoundData } from './juryVoting';
 import { getAdminRoundDetailData } from './releaseVoting';
 import { databaseError, describeDatabaseError } from './supabaseErrors';
-import { keepForReleaseStatistics, STATISTICS_TEST_PATTERN } from './statisticsRoundFilter';
+import { keepForReleaseStatistics, STATISTICS_LEGACY_DJ_PATTERN, STATISTICS_TEST_PATTERN } from './statisticsRoundFilter';
 import {
   buildArtistHistories,
   buildReleaseWeekStatistics,
@@ -138,7 +138,12 @@ export async function getReleaseStatisticsArchive(): Promise<ReleaseStatisticsAr
   }
 
   const rounds = await fetchAllPages<Round>('Umfragen', async (from, to) => {
-    const { data, error } = await sb.from('release_voting_rounds').select('*').not('title', 'ilike', STATISTICS_TEST_PATTERN).not('slug', 'ilike', STATISTICS_TEST_PATTERN).order('created_at', { ascending: false }).range(from, to);
+    const { data, error } = await sb.from('release_voting_rounds').select('*')
+      .not('title', 'ilike', STATISTICS_TEST_PATTERN)
+      .not('slug', 'ilike', STATISTICS_TEST_PATTERN)
+      .not('title', 'ilike', STATISTICS_LEGACY_DJ_PATTERN)
+      .not('slug', 'ilike', STATISTICS_LEGACY_DJ_PATTERN)
+      .order('created_at', { ascending: false }).range(from, to);
     return { data: ((data || []) as Round[]).filter(keepForReleaseStatistics), error };
   });
   const roundIdChunks = chunks(rounds.map((round) => round.id));
@@ -269,6 +274,8 @@ export async function getStatisticsWeeksBatch(offset = 0, limit = 2): Promise<St
     .select('*', { count: 'exact' })
     .not('title', 'ilike', STATISTICS_TEST_PATTERN)
     .not('slug', 'ilike', STATISTICS_TEST_PATTERN)
+    .not('title', 'ilike', STATISTICS_LEGACY_DJ_PATTERN)
+    .not('slug', 'ilike', STATISTICS_LEGACY_DJ_PATTERN)
     .order('created_at', { ascending: false })
     .range(safeOffset, safeOffset + safeLimit - 1);
   if (error) throw databaseError('Umfragen konnten nicht geladen werden', error);

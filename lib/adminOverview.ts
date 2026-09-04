@@ -6,7 +6,7 @@ import { getRoundVoteCounts } from './releaseVoting';
 import type { Round } from './releaseVotingShared';
 import type { AdminRoundStatus } from './adminUi';
 import { databaseError } from './supabaseErrors';
-import { STATISTICS_TEST_PATTERN } from './statisticsRoundFilter';
+import { STATISTICS_LEGACY_DJ_PATTERN, STATISTICS_TEST_PATTERN } from './statisticsRoundFilter';
 
 export type AdminRoundOverview = {
   roundId: string;
@@ -113,13 +113,13 @@ export async function getAdminRoundsPage({
   pageSize = 8,
   query = '',
   filter = 'all',
-  excludeTestRounds = false,
+  statisticsOnly = false,
 }: {
   page?: number;
   pageSize?: number;
   query?: string;
   filter?: AdminRoundsFilter;
-  excludeTestRounds?: boolean;
+  statisticsOnly?: boolean;
 }): Promise<AdminRoundsPageData> {
   noStore();
   const sb = getSupabaseAdminClient();
@@ -133,7 +133,11 @@ export async function getAdminRoundsPage({
     .order('created_at', { ascending: false });
 
   if (filter !== 'all') request = request.eq('status', ROUND_STATUS[filter]);
-  if (excludeTestRounds) request = request.not('title', 'ilike', STATISTICS_TEST_PATTERN).not('slug', 'ilike', STATISTICS_TEST_PATTERN);
+  if (statisticsOnly) request = request
+    .not('title', 'ilike', STATISTICS_TEST_PATTERN)
+    .not('slug', 'ilike', STATISTICS_TEST_PATTERN)
+    .not('title', 'ilike', STATISTICS_LEGACY_DJ_PATTERN)
+    .not('slug', 'ilike', STATISTICS_LEGACY_DJ_PATTERN);
   const normalizedQuery = safeSearch(query);
   if (normalizedQuery) request = request.or(`title.ilike.%${normalizedQuery}%,slug.ilike.%${normalizedQuery}%`);
 
@@ -147,14 +151,14 @@ export async function getAdminRoundsPage({
 
 export async function getAdminOverviewTotals(
   roundsInput?: Round[],
-  options: { excludeTestRounds?: boolean } = {},
+  options: { statisticsOnly?: boolean } = {},
 ): Promise<AdminOverviewTotals> {
   noStore();
   const sb = getSupabaseAdminClient();
   if (!sb) return { databaseRounds: 0, conductedRounds: 0, songsCount: 0, totalVotes: 0, confirmedVotes: 0, countedVotes: 0, reviewVotes: 0, excludedVotes: 0, unverifiedVotes: 0 };
 
   let statisticsRoundIds: string[] | null = null;
-  if (options.excludeTestRounds) {
+  if (options.statisticsOnly) {
     statisticsRoundIds = [];
     for (let from = 0; ; from += OVERVIEW_ROUND_PAGE_SIZE) {
       const { data, error } = await sb
@@ -162,6 +166,8 @@ export async function getAdminOverviewTotals(
         .select('id')
         .not('title', 'ilike', STATISTICS_TEST_PATTERN)
         .not('slug', 'ilike', STATISTICS_TEST_PATTERN)
+        .not('title', 'ilike', STATISTICS_LEGACY_DJ_PATTERN)
+        .not('slug', 'ilike', STATISTICS_LEGACY_DJ_PATTERN)
         .order('created_at', { ascending: false })
         .range(from, from + OVERVIEW_ROUND_PAGE_SIZE - 1);
       if (error) throw databaseError('Statistik-Umfragen konnten nicht geladen werden', error);
