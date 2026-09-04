@@ -203,14 +203,23 @@ function normalizeSongPartLoose(value?: string | null) {
 }
 
 /**
- * Akzeptiert die in kopierten Listen üblichen Trenner " - ", " – " und " — ".
- * Der Trenner braucht auf beiden Seiten Leerraum, damit Bindestriche innerhalb
- * eines Titels oder Künstlernamens nicht versehentlich getrennt werden.
+ * Akzeptiert die in kopierten Spotify-, Excel- und Messenger-Listen üblichen
+ * Strichvarianten. Beim normalen ASCII-Bindestrich muss mindestens auf einer
+ * Seite Leerraum stehen, damit Wörter wie "Après-Ski" nicht getrennt werden.
+ * Typografische Striche sind auch ohne Leerraum ein eindeutiger Listentrenner.
+ *
+ * Der letzte passende Trenner wird verwendet. Dadurch bleibt beispielsweise
+ * "Titel - Remix – Künstler" vollständig als Titel erhalten.
  */
 export function splitSongLine(value: string) {
   const line = String(value || '').trim();
-  const separator = /\s+[-–—]\s+/.exec(line);
-  if (!separator || separator.index <= 0) return { title: line, artist: '' };
+  const separators = [...line.matchAll(/(?:\s+-\s*|\s*-\s+|[‐‑‒–—―−﹘﹣－])/gu)];
+  const separator = separators
+    .reverse()
+    .find((match) => match.index != null
+      && match.index > 0
+      && match.index + match[0].length < line.length);
+  if (!separator || separator.index == null) return { title: line, artist: '' };
   const artistStart = separator.index + separator[0].length;
   return {
     title: line.slice(0, separator.index).trim(),

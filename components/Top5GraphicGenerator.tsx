@@ -162,6 +162,7 @@ function drawTextLine(
   fontSize: number,
   fontFamily: string,
   fontWeight = 900,
+  textBaseline: CanvasTextBaseline = 'alphabetic',
 ) {
   ctx.save();
   ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
@@ -171,7 +172,7 @@ function drawTextLine(
   ctx.lineJoin = 'round';
   ctx.shadowColor = 'rgba(0, 0, 0, 0.58)';
   ctx.shadowBlur = Math.max(8, fontSize * 0.2);
-  ctx.textBaseline = 'alphabetic';
+  ctx.textBaseline = textBaseline;
   ctx.strokeText(text, x, y);
   ctx.fillText(text, x, y);
   ctx.restore();
@@ -382,7 +383,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         ctx.restore();
       }
 
-      const textX = barX + 104;
+      const textX = barX + barWidth / 2;
       const textMaxWidth = barWidth - 156;
       const titleText = row.title.toUpperCase();
       const artistText = row.artist.toUpperCase();
@@ -402,15 +403,18 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
       }
 
-      const textBlockTop = barY + (barHeight - totalTextHeight) / 2 + titleWrap.fontSize;
+      const textBlockTop = barY + (barHeight - totalTextHeight) / 2;
+      ctx.save();
+      ctx.textAlign = 'center';
       titleWrap.lines.forEach((line, titleIndex) => {
-        drawTextLine(ctx, line, textX, textBlockTop + titleIndex * titleWrap.lineHeight, '#f0f0f0', titleWrap.fontSize, 'Arial Black, Arial, sans-serif');
+        drawTextLine(ctx, line, textX, textBlockTop + titleWrap.lineHeight * (titleIndex + 0.5), '#f0f0f0', titleWrap.fontSize, 'Arial Black, Arial, sans-serif', 900, 'middle');
       });
 
       const artistStartY = textBlockTop + titleWrap.lines.length * titleWrap.lineHeight + textGap;
       artistWrap.lines.forEach((line, artistIndex) => {
-        drawTextLine(ctx, line, textX, artistStartY + artistIndex * artistWrap.lineHeight, '#ffd117', artistWrap.fontSize, 'Arial Black, Arial, sans-serif');
+        drawTextLine(ctx, line, textX, artistStartY + artistWrap.lineHeight * (artistIndex + 0.5), '#ffffff', artistWrap.fontSize, 'Arial Black, Arial, sans-serif', 900, 'middle');
       });
+      ctx.restore();
     });
 
     updatePreview();
