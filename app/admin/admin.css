@@ -498,7 +498,7 @@
 .ks-song-stat-list { display: grid; gap: 9px; }
 .ks-song-stat-list > details { overflow: hidden; border: 1px solid var(--ks-line); border-radius: 10px; background: #fff; }
 .ks-song-stat-list > details[open] { border-color: #c9bdf5; box-shadow: 0 8px 22px rgba(65,46,145,.07); }
-.ks-song-stat-list summary { display: grid; grid-template-columns: 42px minmax(220px,1.5fr) repeat(3,minmax(95px,.45fr)) 22px; gap: 13px; align-items: center; min-height: 72px; padding: 10px 14px; cursor: pointer; list-style: none; }
+.ks-song-stat-list summary { display: grid; grid-template-columns: 42px minmax(220px,1.5fr) repeat(4,minmax(95px,.45fr)) 22px; gap: 13px; align-items: center; min-height: 72px; padding: 10px 14px; cursor: pointer; list-style: none; }
 .ks-song-stat-list summary::-webkit-details-marker { display: none; }
 .ks-song-stat-list summary:hover { background: #faf9ff; }
 .ks-song-stat-list summary > span:not(.ks-rank-pill) small, .ks-song-stat-list summary > span:not(.ks-rank-pill) strong { display: block; }
@@ -735,7 +735,7 @@
   .ks-artist-card-grid.count-3 { grid-template-columns: 1fr; }
   .ks-polarization-list > div { grid-template-columns: minmax(180px,1fr) minmax(160px,1fr) 35px; }
   .ks-song-stat-list summary { grid-template-columns: 42px minmax(200px,1fr) repeat(2,minmax(85px,.4fr)) 22px; }
-  .ks-song-stat-list summary > span:nth-of-type(5) { display: none; }
+  .ks-song-stat-list summary > span:nth-of-type(5), .ks-song-stat-list summary > span:nth-of-type(6) { display: none; }
   .ks-song-stat-metrics { grid-template-columns: repeat(3,minmax(105px,1fr)); }
   .ks-historical-exports { display: grid; }
   .ks-import-jurors { grid-template-columns: 1fr; }

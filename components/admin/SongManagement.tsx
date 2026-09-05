@@ -9,17 +9,28 @@ import { StatusBadge } from './AdminUi';
 import PopoverMenu from './PopoverMenu';
 
 type Post = (url: string, body: unknown) => Promise<boolean>;
-type SortKey = 'audience' | 'juryAverage' | 'total';
+type SortKey = 'audience' | 'averagePoints';
 type SortState = { key: SortKey; direction: 'asc' | 'desc' };
 
 function sortValue(row: CombinedResultRow, key: SortKey) {
   if (key === 'audience') return row.audiencePoints;
-  if (key === 'juryAverage') return row.juryAverage ?? Number.NEGATIVE_INFINITY;
-  return row.total;
+  return row.averagePoints ?? Number.NEGATIVE_INFINITY;
+}
+
+function rankLabel(value: number | null) {
+  return value === null ? '—' : `#${value}`;
+}
+
+function pointsLabel(value: number) {
+  return `${value} Pkt.`;
+}
+
+function averagePointsLabel(value: number | null) {
+  return value === null ? '—' : `Ø ${value.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
 }
 
 export default function SongManagement({ round, songs, summary, juryData, post }: { round: Round; songs: Song[]; summary: AdminRoundSummary; juryData: AdminJuryRoundData; post: Post }) {
-  const [sort, setSort] = useState<SortState>({ key: 'total', direction: 'desc' });
+  const [sort, setSort] = useState<SortState>({ key: 'averagePoints', direction: 'desc' });
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [bulkMerging, setBulkMerging] = useState(false);
   const activeSongs = useMemo(() => songs.filter(isSongActive), [songs]);
@@ -28,6 +39,7 @@ export default function SongManagement({ round, songs, summary, juryData, post }
   const exactDuplicates = useMemo(() => duplicates.filter((group) => group.kind === 'exact'), [duplicates]);
   const possibleDuplicates = duplicates.length - exactDuplicates.length;
   const results = useMemo(() => buildCombinedResults(activeSongs, summary.leaderboard, summary.countedVotes, juryData), [activeSongs, summary.leaderboard, summary.countedVotes, juryData]);
+  const audienceBySong = useMemo(() => new Map(results.audienceResults.map((row) => [row.song.id, row])), [results.audienceResults]);
   const rows = useMemo(() => [...results.overallRows].sort((left, right) => {
     const delta = sortValue(left, sort.key) - sortValue(right, sort.key);
     if (delta) return sort.direction === 'asc' ? delta : -delta;
@@ -109,11 +121,11 @@ export default function SongManagement({ round, songs, summary, juryData, post }
     <div className={`ks-duplicate-status ${duplicates.length ? 'warning' : 'success'}`}><span>{duplicates.length ? '!' : '✓'}</span><div><strong>{duplicates.length ? `${duplicates.length} Doppler-Gruppen erkannt` : 'Keine Doppler erkannt'}</strong><small>{duplicates.length ? `${exactDuplicates.length} eindeutig · ${possibleDuplicates} nur möglicherweise doppelt` : 'Die vorhandene Dopplerprüfung meldet keine Treffer.'}</small></div>{duplicates.length > 0 && <div className="ks-duplicate-status-actions"><a href="#duplicate-check" onClick={() => setDuplicateOpen(true)}>Einzeln prüfen</a>{exactDuplicates.length > 0 && <button className="ks-button small primary" type="button" disabled={bulkMerging} onClick={() => void mergeAllExactDuplicates()}>{bulkMerging ? 'Bereinigung läuft …' : 'Eindeutige Doppler bereinigen'}</button>}</div>}</div>
     <div className="ks-table-scroll">
       <table className="ks-table songs">
-        <thead><tr><th>Gesamtrang</th><th>Song</th><th>Künstler</th><th className="ks-sortable-th" aria-sort={sort.key === 'audience' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Publikum', 'audience')}</th><th className="ks-sortable-th" aria-sort={sort.key === 'juryAverage' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Jury Ø', 'juryAverage')}</th><th className="ks-sortable-th" aria-sort={sort.key === 'total' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Gesamt', 'total')}</th><th>Status</th><th>Aktionen</th></tr></thead>
+        <thead><tr><th>Gesamt</th><th>Song</th><th>Künstler</th><th className="ks-sortable-th" aria-sort={sort.key === 'audience' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Publikum', 'audience')}</th><th className="ks-sortable-th" aria-sort={sort.key === 'averagePoints' ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'}>{sortLabel('Ø Punkte', 'averagePoints')}</th><th>Status</th><th>Aktionen</th></tr></thead>
         <tbody>
-          {rows.map((row) => <tr key={row.song.id}><td><strong>{row.rank ?? '—'}</strong></td><td><strong>{row.song.title}</strong></td><td>{row.song.artist || '—'}</td><td>{row.audiencePoints}</td><td>{row.juryAverage === null ? '—' : row.juryAverage.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td><td><strong>{row.total}</strong></td><td><StatusBadge status="success">In Wertung</StatusBadge></td><td><button className="ks-button small warning" type="button" onClick={() => setSongActive(row.song, false)}>Deaktivieren</button></td></tr>)}
-          {inactiveSongs.map((song) => <tr key={song.id} className="ks-song-row-inactive"><td>—</td><td><strong>{song.title}</strong></td><td>{song.artist || '—'}</td><td>—</td><td>—</td><td>—</td><td><StatusBadge status="muted">Deaktiviert</StatusBadge></td><td><button className="ks-button small success" type="button" onClick={() => setSongActive(song, true)}>Aktivieren</button></td></tr>)}
-          {!songs.length && <tr><td colSpan={8} className="ks-table-empty">Keine Songs vorhanden.</td></tr>}
+          {rows.map((row) => { const audience = audienceBySong.get(row.song.id); return <tr key={row.song.id}><td><strong>{rankLabel(row.rank)}</strong></td><td><strong>{row.song.title}</strong></td><td>{row.song.artist || '—'}</td><td>{summary.countedVotes > 0 ? <strong>{audience ? `${rankLabel(audience.rank)} · ${pointsLabel(row.audiencePoints)}` : `— · ${pointsLabel(0)}`}</strong> : '—'}</td><td><strong>{averagePointsLabel(row.averagePoints)}</strong></td><td><StatusBadge status="success">In Wertung</StatusBadge></td><td><button className="ks-button small warning" type="button" onClick={() => setSongActive(row.song, false)}>Deaktivieren</button></td></tr>; })}
+          {inactiveSongs.map((song) => <tr key={song.id} className="ks-song-row-inactive"><td>—</td><td><strong>{song.title}</strong></td><td>{song.artist || '—'}</td><td>—</td><td>—</td><td><StatusBadge status="muted">Deaktiviert</StatusBadge></td><td><button className="ks-button small success" type="button" onClick={() => setSongActive(song, true)}>Aktivieren</button></td></tr>)}
+          {!songs.length && <tr><td colSpan={7} className="ks-table-empty">Keine Songs vorhanden.</td></tr>}
         </tbody>
       </table>
     </div>

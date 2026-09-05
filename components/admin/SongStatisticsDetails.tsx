@@ -10,6 +10,14 @@ function difference(value: number | null) {
   return value > 0 ? `Publikum +${value}` : `Jury +${Math.abs(value)}`;
 }
 
+function rank(value: number | null) {
+  return value === null ? '—' : `#${value}`;
+}
+
+function points(value: number) {
+  return `${value} Pkt.`;
+}
+
 export default function SongStatisticsDetails({ rows }: { rows: RankingComparisonRow[] }) {
   return <section className="ks-card ks-stat-section" id="song-statistics">
     <div className="ks-section-heading"><div><span className="ks-section-kicker">Details je Titel</span><h2>Songstatistiken</h2><p>Zeile öffnen, um Einzelwertungen, Streuung und Bewertungsverteilung zu sehen.</p></div></div>
@@ -18,19 +26,21 @@ export default function SongStatisticsDetails({ rows }: { rows: RankingCompariso
         const maxDistribution = Math.max(1, ...row.detail.distribution);
         return <details key={row.song.id} id={`song-stat-${row.song.id}`}>
           <summary>
-            <span className="ks-rank-pill">{row.overallRank ?? '—'}</span>
+            <span className="ks-rank-pill">{rank(row.overallRank)}</span>
             <span className="ks-song-stat-title"><strong>{row.song.title}</strong><small>{row.song.artist}</small></span>
-            <span><small>Gesamt</small><strong>{row.total}</strong></span>
-            <span><small>Publikum / Jury</small><strong>{row.audienceRank ?? '—'} / {row.juryRank ?? '—'}</strong></span>
+            <span><small>Gesamtpunkte</small><strong>{points(row.total)}</strong></span>
+            <span><small>Ø Punkte</small><strong>{row.averagePoints === null ? '—' : `Ø ${decimal(row.averagePoints)}`}</strong></span>
+            <span><small>Publikum / Jury</small><strong>{rank(row.audienceRank)} / {rank(row.juryRank)}</strong></span>
             <span><small>Polarisation</small><strong>{row.polarizationIndex ?? '—'}</strong></span>
             <b aria-hidden="true">⌄</b>
           </summary>
           <div className="ks-song-stat-panel">
             <div className="ks-song-stat-metrics">
-              <span><small>Gesamtplatz</small><strong>{row.overallRank ?? '—'}</strong></span>
-              <span><small>Gesamtpunkte</small><strong>{row.total}</strong></span>
-              <span><small>Publikumsplatz</small><strong>{row.audienceRank ?? '—'}</strong></span>
-              <span><small>Juryplatz</small><strong>{row.juryRank ?? '—'}</strong></span>
+              <span><small>Gesamtplatz</small><strong>{rank(row.overallRank)}</strong></span>
+              <span><small>Gesamtpunkte</small><strong>{points(row.total)}</strong></span>
+              <span><small>Ø Punkte</small><strong>{row.averagePoints === null ? '—' : `Ø ${decimal(row.averagePoints)}`}</strong></span>
+              <span><small>Publikum</small><strong>{row.audienceRank === null ? '—' : `${rank(row.audienceRank)} · ${points(row.audiencePoints)}`}</strong></span>
+              <span><small>Jury</small><strong>{row.juryRank === null ? '—' : `${rank(row.juryRank)} · ${points(row.juryPoints)}`}</strong></span>
               <span><small>Differenz</small><strong>{difference(row.rankDifference)}</strong></span>
               <span><small>Ø Einzelbewertung</small><strong>{decimal(row.detail.averageRating)}</strong></span>
               <span><small>Höchste Bewertung</small><strong>{row.detail.highestRating ?? '—'}</strong></span>
@@ -43,7 +53,7 @@ export default function SongStatisticsDetails({ rows }: { rows: RankingCompariso
             <div className="ks-rating-distribution" aria-label={`Bewertungsverteilung für ${row.song.title}`}>
               {row.detail.distribution.map((count, points) => <div key={points}><span>{points}</span><i><b style={{ height: count ? `${Math.max(6, (count / maxDistribution) * 100)}%` : '0' }} /></i><strong>{count}</strong></div>)}
             </div>
-            <p className="ks-song-stat-note">Ø, Minimum, Maximum und Streuung basieren auf {row.detail.ratingCount} gewerteten Einzelstimmen aus Publikum und abgegebener Jury. Nicht platzierte Songs zählen dabei mit 0. Der offizielle Polarisierungsindex behandelt das Publikum weiterhin wie in der Gesamtwertung als eine aggregierte 12-bis-1-Stimme.</p>
+            <p className="ks-song-stat-note"><strong>Ø Punkte</strong> basiert auf den Stimmen der offiziellen Gesamtwertung: abgegebene Juroren plus Publikum genau einmal. <strong>Ø Einzelbewertung</strong>, Minimum, Maximum und Streuung basieren dagegen auf {row.detail.ratingCount} gewerteten Einzelstimmen aus Publikum und abgegebener Jury. Nicht platzierte Songs zählen dabei mit 0. Der offizielle Polarisierungsindex behandelt das Publikum weiterhin wie in der Gesamtwertung als eine aggregierte 12-bis-1-Stimme.</p>
           </div>
         </details>;
       })}
