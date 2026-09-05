@@ -35,7 +35,7 @@ export type RankingComparisonRow = {
   juryPoints: number;
   juryAverage: number | null;
   total: number;
-  averagePoints: number | null;
+  audienceAverage: number | null;
   rankDifference: number | null;
   polarizationIndex: number | null;
   polarizationLabel: string;
@@ -272,7 +272,7 @@ export function buildReleaseWeekStatistics(
       juryPoints: row.juryPoints,
       juryAverage: row.juryAverage,
       total: row.total,
-      averagePoints: row.averagePoints,
+      audienceAverage: hasAudience ? (publicRow?.avg ?? 0) : null,
       rankDifference: audienceRank !== null && juryRank !== null ? juryRank - audienceRank : null,
       polarizationIndex,
       polarizationLabel: polarizationLabel(polarizationIndex),

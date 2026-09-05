@@ -13,8 +13,6 @@ export type CombinedResultRow = {
   juryAverage: number | null;
   audiencePoints: number;
   total: number;
-  averagePoints: number | null;
-  scoringVoices: number;
   rank: number | null;
 };
 
@@ -52,7 +50,6 @@ export function buildCombinedResults(
   const audienceResults = buildAudienceResults(publicLeaderboard, publicVerifiedVotes);
   const audiencePoints = new Map(audienceResults.map((row) => [row.song.id, row.audiencePoints]));
   const juryPointsByJuror = new Map<string, Map<string, number>>();
-  const scoringVoices = submittedJurors.length + (audienceResults.length > 0 ? 1 : 0);
 
   for (const juror of activeJurors) {
     const points = new Map<string, number>();
@@ -76,9 +73,7 @@ export function buildCombinedResults(
     }
     const publicPoints = audiencePoints.get(song.id) || 0;
     const juryAverage = submittedJurors.length ? juryPoints / submittedJurors.length : null;
-    const total = juryPoints + publicPoints;
-    const averagePoints = scoringVoices ? total / scoringVoices : null;
-    return { song, juryPointsByJuror: perJuror, juryPoints, juryAverage, audiencePoints: publicPoints, total, averagePoints, scoringVoices };
+    return { song, juryPointsByJuror: perJuror, juryPoints, juryAverage, audiencePoints: publicPoints, total: juryPoints + publicPoints };
   });
 
   unranked.sort((a, b) => b.total - a.total || compareResultSongs(a.song, b.song));

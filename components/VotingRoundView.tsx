@@ -60,7 +60,7 @@ export default async function VotingRoundView({ round, variant = 'public' }: Vot
             <p>Gezählt werden nur per E-Mail bestätigte Stimmen.</p>
             <table>
               <thead>
-                <tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø Punkte</th><th>Gewählt</th></tr>
+                <tr><th>#</th><th>Song</th><th>Gesamt</th><th>Ø Publikum</th><th>Gewählt</th></tr>
               </thead>
               <tbody>
                 {board.map((row, index) => (
@@ -68,7 +68,7 @@ export default async function VotingRoundView({ round, variant = 'public' }: Vot
                     <td>{index + 1}</td>
                     <td><b>{row.song.title}</b><br /><small>{row.song.artist}</small></td>
                     <td>{row.total}</td>
-                    <td>{row.avg.toFixed(2)}</td>
+                    <td>Ø {row.avg.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                     <td>{row.count}</td>
                   </tr>
                 ))}
