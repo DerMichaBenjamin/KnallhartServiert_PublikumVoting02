@@ -29,7 +29,7 @@ export default function SongStatisticsDetails({ rows }: { rows: RankingCompariso
             <span className="ks-rank-pill">{rank(row.overallRank)}</span>
             <span className="ks-song-stat-title"><strong>{row.song.title}</strong><small>{row.song.artist}</small></span>
             <span><small>Gesamtpunkte</small><strong>{points(row.total)}</strong></span>
-            <span><small>Ø Publikum</small><strong>{row.audienceAverage === null ? '—' : `Ø ${decimal(row.audienceAverage)}`}</strong></span>
+            <span><small>Ø Punkte</small><strong>{row.overallAverage === null ? '—' : `Ø ${decimal(row.overallAverage)}`}</strong></span>
             <span><small>Publikum / Jury</small><strong>{rank(row.audienceRank)} / {rank(row.juryRank)}</strong></span>
             <span><small>Polarisation</small><strong>{row.polarizationIndex ?? '—'}</strong></span>
             <b aria-hidden="true">⌄</b>
@@ -38,11 +38,11 @@ export default function SongStatisticsDetails({ rows }: { rows: RankingCompariso
             <div className="ks-song-stat-metrics">
               <span><small>Gesamtplatz</small><strong>{rank(row.overallRank)}</strong></span>
               <span><small>Gesamtpunkte</small><strong>{points(row.total)}</strong></span>
-              <span><small>Ø Publikum</small><strong>{row.audienceAverage === null ? '—' : `Ø ${decimal(row.audienceAverage)}`}</strong></span>
+              <span><small>Ø Punkte</small><strong>{row.overallAverage === null ? '—' : `Ø ${decimal(row.overallAverage)}`}</strong></span>
               <span><small>Publikum</small><strong>{row.audienceRank === null ? '—' : `${rank(row.audienceRank)} · ${points(row.audiencePoints)}`}</strong></span>
               <span><small>Jury</small><strong>{row.juryRank === null ? '—' : `${rank(row.juryRank)} · ${points(row.juryPoints)}`}</strong></span>
               <span><small>Differenz</small><strong>{difference(row.rankDifference)}</strong></span>
-              <span><small>Ø Einzelbewertung gesamt</small><strong>{decimal(row.detail.averageRating)}</strong></span>
+              <span><small>Ø alle Einzelstimmen</small><strong>{decimal(row.detail.averageRating)}</strong></span>
               <span><small>Höchste Bewertung</small><strong>{row.detail.highestRating ?? '—'}</strong></span>
               <span><small>Niedrigste Bewertung</small><strong>{row.detail.lowestRating ?? '—'}</strong></span>
               <span><small>12-Punkte-Wertungen</small><strong>{row.detail.topRatings}</strong></span>
@@ -53,7 +53,7 @@ export default function SongStatisticsDetails({ rows }: { rows: RankingCompariso
             <div className="ks-rating-distribution" aria-label={`Bewertungsverteilung für ${row.song.title}`}>
               {row.detail.distribution.map((count, points) => <div key={points}><span>{points}</span><i><b style={{ height: count ? `${Math.max(6, (count / maxDistribution) * 100)}%` : '0' }} /></i><strong>{count}</strong></div>)}
             </div>
-            <p className="ks-song-stat-note"><strong>Ø Publikum</strong> ist die Summe der Punkte aus allen gewerteten Publikumsstimmen für diesen Song geteilt durch die Anzahl der gewerteten Publikumsstimmen. Nicht in die Top 12 gewählte Songs zählen in der jeweiligen Publikumsstimme mit 0. <strong>Ø Einzelbewertung gesamt</strong>, Minimum, Maximum und Streuung basieren dagegen auf {row.detail.ratingCount} gewerteten Einzelstimmen aus Publikum und abgegebener Jury. Nicht platzierte Songs zählen dabei mit 0. Der offizielle Polarisierungsindex behandelt das Publikum weiterhin wie in der Gesamtwertung als eine aggregierte 12-bis-1-Stimme.</p>
+            <p className="ks-song-stat-note"><strong>Ø Punkte</strong> gehört zur offiziellen Gesamtwertung: Gesamtpunkte geteilt durch alle abgegebenen Jury-Wertungen plus Publikum als genau eine aggregierte 12-bis-1-Stimme. Nicht abgegebene Juroren werden nicht mit 0 eingerechnet. <strong>Ø alle Einzelstimmen</strong>, Minimum, Maximum und Streuung basieren dagegen auf {row.detail.ratingCount} einzelnen Publikums- und Jurybewertungen und sind eine zusätzliche Detailstatistik, nicht die offizielle Gesamtwertungskennzahl.</p>
           </div>
         </details>;
       })}

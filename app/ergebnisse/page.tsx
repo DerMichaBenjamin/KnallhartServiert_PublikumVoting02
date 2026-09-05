@@ -90,7 +90,7 @@ export default async function Ergebnisse() {
                     <th>#</th>
                     <th>Song</th>
                     <th>Gesamt</th>
-                    <th>Ø Punkte</th>
+                    <th>Ø Publikum</th>
                     <th>Gewählt</th>
                   </tr>
                 </thead>

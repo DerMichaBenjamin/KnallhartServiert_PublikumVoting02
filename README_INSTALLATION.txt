@@ -1,18 +1,41 @@
-KNALLHART SERVIERT – KORREKTUR PUBLIKUMSDURCHSCHNITT
+KNALLHART SERVIERT – FINALE LOGIK FÜR DURCHSCHNITTSWERTE
 
-Diese ZIP ersetzt die vorherige Umsetzung von „Ø Punkte“.
+Es gibt bewusst ZWEI verschiedene Durchschnittswerte:
 
-Richtige Definition:
-Ø Publikum = Summe der Punkte, die ein Song aus allen GEWERTETEN Publikums-Votings erhalten hat
-             / Anzahl der GEWERTETEN Publikums-Votings.
+1) Ø PUBLIKUM
+   Wird in der Publikumswertung und in der Voting-/Songübersicht angezeigt.
 
-Wenn ein Song in einer Publikumsstimme nicht in den Top 12 gewählt wurde,
-zählt diese Stimme für diesen Song mit 0 Punkten.
+   Formel:
+   Summe aller Punkte aus den einzelnen gewerteten Publikumsstimmen für den Song
+   ÷ Anzahl aller gewerteten Publikumsstimmen.
+
+   Wird ein Song in einer Publikumsstimme nicht in die Top 12 gewählt,
+   zählt diese Stimme für den Song mit 0 Punkten.
+
+2) Ø PUNKTE / GESAMTWERTUNG
+   Wird in "Gesamtwertung Jury + Publikum" und den Gesamt-Statistiken angezeigt.
+
+   Formel:
+   Gesamtpunkte
+   ÷ Anzahl der tatsächlich eingegangenen Wertungsquellen.
+
+   Dabei gilt:
+   - jede abgegebene Jury-Wertung = 1 Wertungsquelle
+   - das Publikum = genau 1 aggregierte Wertungsquelle
+   - nicht abgegebene Juroren werden NICHT als 0 mitgezählt
+
+   Beispiel:
+   Jury-Punkte zusammen: 22
+   Publikumspunkte der offiziellen 12–1-Wertung: 12
+   Gesamtpunkte: 34
+   4 abgegebene Juroren + Publikum = 5 Wertungsquellen
+   Ø Punkte = 34 / 5 = 6,8
 
 WICHTIG:
-- Das ist NICHT der Durchschnitt aus Jury + Publikum.
-- Es ist keine Datenbankmigration nötig.
-- Die vorhandene Leaderboard-Berechnung row.avg wird verwendet.
+- "Gesamtpunkte" bleiben weiterhin die Summe aus Jury-Punkten + offiziellen Publikumspunkten.
+- Keine Datenbankmigration nötig.
+- Die Statistik-Exporte enthalten nun ebenfalls "Ø Punkte Gesamtwertung" und "Ø Publikum".
+- Öffentliche reine Publikums-Ergebnislisten sind zur Klarheit mit "Ø Publikum" beschriftet.
 
 INSTALLATION IN GITHUB:
 1. ZIP entpacken.
@@ -20,6 +43,5 @@ INSTALLATION IN GITHUB:
 3. Die vorhandene Datei durch die Datei aus dieser ZIP ersetzen.
 4. Commit speichern.
 
-Wenn du die vorherige falsche Version bereits eingebaut hast:
-Bitte ALLE Dateien aus dieser ZIP erneut ersetzen. Insbesondere
-lib/combinedVotingResults.ts setzt die versehentlich ergänzte Gesamt-Durchschnittslogik zurück.
+Wenn du eine der vorherigen Versionen bereits eingebaut hast:
+Bitte ALLE Dateien aus dieser ZIP erneut ersetzen. Damit ist die Logik auf dem finalen Stand.
