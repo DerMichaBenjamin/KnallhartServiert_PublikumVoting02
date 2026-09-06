@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSetting, setSetting } from '@/lib/settings';
+import {
+  RELEASE_ARTIST_INSTAGRAM_SEED_HANDLES,
+  RELEASE_ARTIST_INSTAGRAM_SEED_LABELS,
+  RELEASE_ARTIST_INSTAGRAM_SEED_VERSION,
+} from '@/lib/releaseArtistInstagramSeed';
 
 function cleanLabelDirectory(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, string>;
@@ -50,15 +55,30 @@ export async function GET(req: NextRequest) {
   }
 
   if (key === 'artist-instagram-handles') {
-    const [rawHandles, rawLabels] = await Promise.all([
+    const [rawHandles, rawLabels, storedSeedVersion] = await Promise.all([
       getSetting('release_check_instagram_handles', '{}'),
       getSetting('release_check_instagram_artist_labels', '{}'),
+      getSetting('release_check_instagram_seed_version', ''),
     ]);
 
     let handles: Record<string, string> = {};
     let labels: Record<string, string> = {};
     try { handles = cleanHandleDirectory(JSON.parse(rawHandles || '{}')); } catch { handles = {}; }
     try { labels = cleanLabelDirectory(JSON.parse(rawLabels || '{}')); } catch { labels = {}; }
+
+    // Die bestätigten Handles aus der Live-Auftritte-Verwaltung werden genau einmal
+    // als Startbestand übernommen. Bereits im Release-Check gepflegte Werte haben Vorrang.
+    // Nach dem Seed bleiben spätere Änderungen/Löschungen im Release-Check unangetastet.
+    if (storedSeedVersion !== RELEASE_ARTIST_INSTAGRAM_SEED_VERSION) {
+      handles = cleanHandleDirectory({ ...RELEASE_ARTIST_INSTAGRAM_SEED_HANDLES, ...handles });
+      labels = cleanLabelDirectory({ ...RELEASE_ARTIST_INSTAGRAM_SEED_LABELS, ...labels });
+      await Promise.all([
+        setSetting('release_check_instagram_handles', JSON.stringify(handles)),
+        setSetting('release_check_instagram_artist_labels', JSON.stringify(labels)),
+        setSetting('release_check_instagram_seed_version', RELEASE_ARTIST_INSTAGRAM_SEED_VERSION),
+      ]);
+    }
+
     return NextResponse.json({ ok: true, handles, labels });
   }
 
