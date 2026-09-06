@@ -33,7 +33,7 @@ export default async function AdminResultsPage({
       eyebrow={<a href={`/admin/release-voting/${data.round.id}`}>← Zur Umfrage</a>}
       title={`Auswertung – ${data.round.title}`}
       description={formatRoundPeriod(data.round)}
-      actions={<a className="ks-button secondary no-print" href={`/admin/release-voting/${data.round.id}#top5`}>Top-5-Grafik</a>}
+      actions={<a className="ks-button secondary no-print" href={`/admin/release-voting/${data.round.id}#top5`}>Top-5-/Top-12-Grafik</a>}
     />
     <RoundViewNav roundId={data.round.id} active="results" />
     <ReportActions data={graphicData} view="results" autoPrint={query.print === '1'} />

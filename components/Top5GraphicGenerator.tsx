@@ -5,10 +5,19 @@ import type { LeaderboardRow, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { buildCombinedResults } from '@/lib/combinedVotingResults';
 
-const FIXED_TEMPLATE_SRC = '/release-check-top5-template-clean.png';
-const VARIABLE_TEMPLATE_SRC = '/release-check-top5-template-variable.png';
+const TOP5_FIXED_TEMPLATE_SRC = '/release-check-top5-template-clean.png';
+const TOP5_VARIABLE_TEMPLATE_SRC = '/release-check-top5-template-variable.png';
+const TOP12_TEMPLATE_SRC = '/release-check-top12-template.png';
 const OUTPUT_WIDTH = 1080;
 const OUTPUT_HEIGHT = 1920;
+const TOP12_SOURCE_WIDTH = 941;
+const TOP12_SOURCE_HEIGHT = 1672;
+const TOP12_ROW_CENTERS = [
+  422.05, 521.63, 619.77, 717.68, 815.07, 911.69,
+  1008.5, 1105.35, 1201.86, 1298.41, 1396.01, 1495.11,
+];
+
+type GraphicMode = 'top5' | 'top12';
 
 type Props = {
   round: Round;
@@ -32,6 +41,8 @@ type WrappedTextResult = {
   lines: string[];
   lineHeight: number;
 };
+
+type InstagramHandleDirectory = Record<string, string>;
 
 function formatRoundDate(round: Round) {
   const raw = round.starts_at || round.created_at;
@@ -70,6 +81,50 @@ function safeFileName(value: string) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
+}
+
+function normalizeArtistKey(value: string) {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('de-DE');
+}
+
+function normalizeInstagramToken(token: string) {
+  let value = token.trim();
+  if (!value) return '';
+
+  value = value
+    .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i, '')
+    .replace(/^instagram\.com\//i, '')
+    .replace(/^@/, '')
+    .replace(/[/?#].*$/, '')
+    .trim();
+
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(value)) return '';
+  return `@${value}`;
+}
+
+function parseInstagramHandles(value: string) {
+  const seen = new Set<string>();
+  return value
+    .split(/[\s,;]+/)
+    .map(normalizeInstagramToken)
+    .filter((handle) => {
+      if (!handle) return false;
+      const key = handle.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function splitArtistCandidates(label: string) {
+  const parts = label
+    .split(/\s+(?:&|\+|x|feat\.?|ft\.?|und)\s+|\s*[,/]\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return Array.from(new Set([label.trim(), ...parts].filter(Boolean)));
 }
 
 function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
@@ -193,6 +248,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   const templateImageRef = useRef<HTMLImageElement | null>(null);
   const previewObjectUrlRef = useRef('');
   const savedTemplateLoadedRef = useRef(false);
+  const handlesLoadedRef = useRef(false);
   const [shouldRender, setShouldRender] = useState(false);
   const [templateReady, setTemplateReady] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -202,6 +258,10 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   const [pendingTemplateDataUrl, setPendingTemplateDataUrl] = useState('');
   const [uploadBusy, setUploadBusy] = useState(false);
   const [templateChanged, setTemplateChanged] = useState(false);
+  const [graphicMode, setGraphicMode] = useState<GraphicMode>('top5');
+  const [artistInstagramHandles, setArtistInstagramHandles] = useState<InstagramHandleDirectory>({});
+  const [handlesDirty, setHandlesDirty] = useState(false);
+  const [handlesBusy, setHandlesBusy] = useState(false);
 
   const combinedResults = useMemo(
     () => buildCombinedResults(songs, publicLeaderboard, publicVerifiedVotes, juryData),
@@ -210,6 +270,19 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   const { submittedJurors, overallRows } = combinedResults;
 
   const graphicRows = useMemo<GraphicRow[]>(() => {
+    if (graphicMode === 'top12') {
+      return overallRows
+        .filter((row) => row.rank !== null)
+        .slice(0, 12)
+        .map((row) => ({
+          rank: row.rank as number,
+          title: row.song.title,
+          artist: row.song.artist,
+          total: row.total,
+          audiencePoints: row.audiencePoints,
+        }));
+    }
+
     return overallRows
       .filter((row) => row.rank !== null && row.rank <= 5 && row.total > 0)
       .map((row) => ({
@@ -219,15 +292,17 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         total: row.total,
         audiencePoints: row.audiencePoints,
       }));
-  }, [overallRows]);
+  }, [graphicMode, overallRows]);
 
   const dateLabel = useMemo(() => formatRoundDate(round), [round]);
   const shortDateLabel = useMemo(() => formatShortRoundDate(round), [round]);
   const countedSources = submittedJurors.length + (publicVerifiedVotes > 0 ? 1 : 0);
+  const rowLimit = graphicMode === 'top12' ? 12 : 5;
+  const modeLabel = graphicMode === 'top12' ? 'Top 12' : 'Top 5';
   const fileName = useMemo(() => {
     const base = safeFileName(round.slug || round.title || 'release-check');
-    return `knallhart-serviert-top5-${base || 'release-check'}.png`;
-  }, [round.slug, round.title]);
+    return `knallhart-serviert-${graphicMode}-${base || 'release-check'}.png`;
+  }, [graphicMode, round.slug, round.title]);
 
   const votingIncomplete = useMemo(() => {
     const now = Date.now();
@@ -237,27 +312,85 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     return publicStillOpen || juryStillOpen;
   }, [round]);
 
+  const relevantArtistLabels = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const row of graphicRows) {
+      const label = row.artist.trim();
+      const key = normalizeArtistKey(label);
+      if (!label || seen.has(key)) continue;
+      seen.add(key);
+      out.push(label);
+    }
+    return out;
+  }, [graphicRows]);
+
+  const socialTags = useMemo(() => {
+    const handles: string[] = [];
+    const seen = new Set<string>();
+
+    for (const row of graphicRows) {
+      const candidates = splitArtistCandidates(row.artist);
+      let foundDirect = false;
+
+      const directValue = artistInstagramHandles[normalizeArtistKey(row.artist)] || '';
+      const directHandles = parseInstagramHandles(directValue);
+      if (directHandles.length) {
+        foundDirect = true;
+        for (const handle of directHandles) {
+          const key = handle.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            handles.push(handle);
+          }
+        }
+      }
+
+      if (foundDirect) continue;
+
+      for (const candidate of candidates.slice(1)) {
+        const value = artistInstagramHandles[normalizeArtistKey(candidate)] || '';
+        for (const handle of parseInstagramHandles(value)) {
+          const key = handle.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          handles.push(handle);
+        }
+      }
+    }
+
+    return handles;
+  }, [artistInstagramHandles, graphicRows]);
+
   const socialMediaText = useMemo(() => {
     if (!graphicRows.length) return '';
 
+    const hashtag = graphicMode === 'top12' ? '#top12' : '#top5';
     const lines = [
       `Knallhart Release-Check der Woche mit den neuen Songs vom Freitag, dem ${shortDateLabel}.`,
       '',
-      'Unsere Top 5 der Woche sind:',
+      `Unsere ${modeLabel} der Woche sind:`,
       '',
       ...graphicRows.map((row) => `${row.rank}. ${row.title} — ${row.artist}`),
       '',
-      '#knallhartserviert #top5 #releasecheck #neuemusik #partyschlager',
+      `#knallhartserviert ${hashtag} #releasecheck #neuemusik #partyschlager`,
     ];
 
-    return lines.join('\n');
-  }, [graphicRows, shortDateLabel]);
+    if (socialTags.length) {
+      lines.push('', socialTags.join(' '));
+    }
 
-  const requiresDynamicRows = graphicRows.length !== 5
-    || graphicRows.some((row, index) => row.rank !== index + 1);
-  const templateSource = requiresDynamicRows
-    ? VARIABLE_TEMPLATE_SRC
-    : customTemplateSource || FIXED_TEMPLATE_SRC;
+    return lines.join('\n');
+  }, [graphicMode, graphicRows, modeLabel, shortDateLabel, socialTags]);
+
+  const requiresDynamicRows = graphicMode === 'top5' && (
+    graphicRows.length !== 5 || graphicRows.some((row, index) => row.rank !== index + 1)
+  );
+  const templateSource = graphicMode === 'top12'
+    ? TOP12_TEMPLATE_SRC
+    : requiresDynamicRows
+      ? TOP5_VARIABLE_TEMPLATE_SRC
+      : customTemplateSource || TOP5_FIXED_TEMPLATE_SRC;
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -276,7 +409,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   }, [shouldRender]);
 
   useEffect(() => {
-    if (!shouldRender || savedTemplateLoadedRef.current || requiresDynamicRows) return;
+    if (!shouldRender || savedTemplateLoadedRef.current) return;
     savedTemplateLoadedRef.current = true;
     void fetch('/api/admin/settings?key=top5-template')
       .then((response) => response.json())
@@ -286,7 +419,19 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         }
       })
       .catch(() => undefined);
-  }, [requiresDynamicRows, shouldRender]);
+  }, [shouldRender]);
+
+  useEffect(() => {
+    if (!shouldRender || handlesLoadedRef.current) return;
+    handlesLoadedRef.current = true;
+    void fetch('/api/admin/settings?key=artist-instagram-handles')
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data?.ok || !data.handles || typeof data.handles !== 'object') return;
+        setArtistInstagramHandles(data.handles as InstagramHandleDirectory);
+      })
+      .catch(() => undefined);
+  }, [shouldRender]);
 
   useEffect(() => {
     if (!shouldRender) return;
@@ -326,6 +471,78 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     }, 'image/png');
 
     if (!graphicRows.length) return updatePreview();
+
+    if (graphicMode === 'top12') {
+      const scaleX = OUTPUT_WIDTH / TOP12_SOURCE_WIDTH;
+      const scaleY = OUTPUT_HEIGHT / TOP12_SOURCE_HEIGHT;
+      const circleCenterX = 147.5 * scaleX;
+      const textX = ((194 + 820) / 2) * scaleX;
+      const textMaxWidth = (820 - 194 - 48) * scaleX;
+      const availableTextHeight = 76 * scaleY;
+
+      graphicRows.slice(0, 12).forEach((row, index) => {
+        const centerY = TOP12_ROW_CENTERS[index] * scaleY;
+        const rankFont = row.rank >= 10 ? 39 : 50;
+        drawTextLine(
+          ctx,
+          String(row.rank),
+          circleCenterX,
+          centerY + 24 * scaleY,
+          '#111111',
+          rankFont,
+          'Arial Black, Arial, sans-serif',
+          900,
+          'middle',
+        );
+
+        const titleText = row.title.toUpperCase();
+        const artistText = row.artist.toUpperCase();
+        let titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, 30, 16, 'Arial Black, Arial, sans-serif');
+        let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 1, 21, 13, 'Arial Black, Arial, sans-serif');
+        const textGap = 4;
+        let totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
+
+        while (totalTextHeight > availableTextHeight && (titleWrap.fontSize > 16 || artistWrap.fontSize > 13)) {
+          titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, titleWrap.fontSize - 1, 16, 'Arial Black, Arial, sans-serif');
+          artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 1, artistWrap.fontSize - 1, 13, 'Arial Black, Arial, sans-serif');
+          totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
+        }
+
+        const textBlockTop = centerY - totalTextHeight / 2;
+        ctx.save();
+        ctx.textAlign = 'center';
+        titleWrap.lines.forEach((line, titleIndex) => {
+          drawTextLine(
+            ctx,
+            line,
+            textX,
+            textBlockTop + titleWrap.lineHeight * (titleIndex + 0.5),
+            '#f5f5f5',
+            titleWrap.fontSize,
+            'Arial Black, Arial, sans-serif',
+            900,
+            'middle',
+          );
+        });
+        const artistStartY = textBlockTop + titleWrap.lines.length * titleWrap.lineHeight + textGap;
+        artistWrap.lines.forEach((line, artistIndex) => {
+          drawTextLine(
+            ctx,
+            line,
+            textX,
+            artistStartY + artistWrap.lineHeight * (artistIndex + 0.5),
+            '#ffffff',
+            artistWrap.fontSize,
+            'Arial Black, Arial, sans-serif',
+            900,
+            'middle',
+          );
+        });
+        ctx.restore();
+      });
+
+      return updatePreview();
+    }
 
     const rowsCount = graphicRows.length;
     const groupTop = 875;
@@ -418,7 +635,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     });
 
     updatePreview();
-  }, [graphicRows, requiresDynamicRows, shouldRender, templateReady, templateSource]);
+  }, [graphicMode, graphicRows, requiresDynamicRows, shouldRender, templateReady, templateSource]);
 
   useEffect(() => () => {
     if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
@@ -441,7 +658,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
 
       setPendingTemplateDataUrl(dataUrl);
       setTemplateChanged(false);
-      setNotice({ type: 'ok', text: 'Die neue Hintergrundgrafik wurde gespeichert.' });
+      setNotice({ type: 'ok', text: 'Die neue Top-5-Hintergrundgrafik wurde gespeichert.' });
     } catch (error) {
       setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Unbekannter Fehler.' });
     } finally {
@@ -458,7 +675,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       setCustomTemplateSource(dataUrl);
       setPendingTemplateDataUrl(dataUrl);
       setTemplateChanged(true);
-      setNotice({ type: 'ok', text: 'Neue Hintergrundgrafik geladen. Speichere sie, wenn sie künftig dauerhaft verwendet werden soll.' });
+      setNotice({ type: 'ok', text: 'Neue Top-5-Hintergrundgrafik geladen. Speichere sie, wenn sie künftig dauerhaft verwendet werden soll.' });
     } catch (error) {
       setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Die Datei konnte nicht verarbeitet werden.' });
     } finally {
@@ -467,13 +684,47 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   }
 
   async function resetTemplateToDefault() {
-    const ok = window.confirm('Die gespeicherte Hintergrundgrafik wirklich zurücksetzen und wieder die Standardvorlage verwenden?');
+    const ok = window.confirm('Die gespeicherte Top-5-Hintergrundgrafik wirklich zurücksetzen und wieder die Standardvorlage verwenden?');
     if (!ok) return;
 
     setCustomTemplateSource('');
     setPendingTemplateDataUrl('');
     setTemplateChanged(true);
     await saveTemplate('');
+  }
+
+  function updateArtistHandle(label: string, value: string) {
+    const key = normalizeArtistKey(label);
+    setArtistInstagramHandles((current) => ({ ...current, [key]: value }));
+    setHandlesDirty(true);
+  }
+
+  async function saveArtistHandles() {
+    setHandlesBusy(true);
+    setNotice(null);
+    try {
+      const normalized: InstagramHandleDirectory = {};
+      for (const [key, value] of Object.entries(artistInstagramHandles)) {
+        const handles = parseInstagramHandles(value);
+        if (handles.length) normalized[normalizeArtistKey(key)] = handles.join(' ');
+      }
+
+      const response = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artistInstagramHandles: normalized }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) throw new Error(data?.error || 'Instagram-Tags konnten nicht gespeichert werden.');
+
+      setArtistInstagramHandles(normalized);
+      setHandlesDirty(false);
+      setNotice({ type: 'ok', text: 'Instagram-Tags gespeichert. Sie werden ab jetzt automatisch im Social-Media-Text ergänzt.' });
+    } catch (error) {
+      setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Instagram-Tags konnten nicht gespeichert werden.' });
+    } finally {
+      setHandlesBusy(false);
+    }
   }
 
   async function copySocialMediaText() {
@@ -487,7 +738,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     if (!canvas) return;
 
     if (votingIncomplete) {
-      const ok = window.confirm('Achtung: Das Voting ist noch nicht abgeschlossen. Die Grafik basiert auf einem Zwischenstand. Wirklich jetzt als PNG erstellen?');
+      const ok = window.confirm(`Achtung: Das Voting ist noch nicht abgeschlossen. Die ${modeLabel}-Grafik basiert auf einem Zwischenstand. Wirklich jetzt als PNG erstellen?`);
       if (!ok) return;
     }
 
@@ -519,16 +770,21 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     <section ref={sectionRef} id="top5" className={`admin-card top5-graphic-card ${variant === 'compact' ? 'top5-compact' : ''}`}>
       <div className="top5-graphic-header">
         <div>
-          <h2>Top-5-Grafik</h2>
+          <h2>Release-Check-Grafik</h2>
           <p className="admin-help-text">
-            Die Grafik wird automatisch aus der <b>Gesamtwertung Jury + Publikum</b> erzeugt. Bei Gleichstand werden alle Songs bis einschließlich Platz 5 mit aufgenommen.
+            Wähle <b>Top 5</b> oder <b>Top 12</b>. Beide Grafiken werden automatisch aus der <b>Gesamtwertung Jury + Publikum</b> erzeugt.
           </p>
         </div>
         <div className="top5-graphic-badges">
           <span className="status-badge">Stand: {dateLabel}</span>
           <span className="status-badge">Quellen: {countedSources}</span>
-          <span className="status-badge">Einträge: {graphicRows.length}</span>
+          <span className="status-badge">Einträge: {graphicRows.length}/{rowLimit}</span>
         </div>
+      </div>
+
+      <div className="top5-mode-switch" role="group" aria-label="Grafik auswählen">
+        <button type="button" className={graphicMode === 'top5' ? 'active' : ''} onClick={() => setGraphicMode('top5')}>Top 5</button>
+        <button type="button" className={graphicMode === 'top12' ? 'active' : ''} onClick={() => setGraphicMode('top12')}>Top 12</button>
       </div>
 
       {notice && <div className={`notice ${notice.type === 'ok' ? 'success' : 'error'}`}>{notice.text}</div>}
@@ -538,10 +794,10 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         </div>
       )}
 
-      {variant === 'full' && <div className="top5-graphic-template-card">
+      {variant === 'full' && graphicMode === 'top5' && <div className="top5-graphic-template-card">
         <div>
-          <h3>Hintergrundgrafik</h3>
-          <p className="admin-help-text">Du kannst eine saubere Vorlage mit festen Rahmen und Platzmarkierungen hochladen. Alte, noch gespeicherte Vorlagen ohne die neue Versionskennung überschreiben die bereinigte Standarddatei nicht mehr.</p>
+          <h3>Top-5-Hintergrundgrafik</h3>
+          <p className="admin-help-text">Du kannst für die Top 5 weiterhin eine eigene saubere Vorlage mit festen Rahmen und Platzmarkierungen hochladen.</p>
         </div>
         <div className="top5-template-actions">
           <label className="top5-template-upload">
@@ -557,6 +813,13 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         </div>
       </div>}
 
+      {variant === 'full' && graphicMode === 'top12' && <div className="top5-graphic-template-card">
+        <div>
+          <h3>Top-12-Hintergrundgrafik</h3>
+          <p className="admin-help-text">Die neue Top-12-Vorlage ist fest hinterlegt und enthält exakt 12 Ergebnisfelder. Platznummer, Songtitel und Künstler werden automatisch mittig eingesetzt.</p>
+        </div>
+      </div>}
+
       <div className="top5-graphic-layout">
         <div className="top5-graphic-preview-wrap">
           <canvas ref={canvasRef} className="top5-graphic-canvas" width={OUTPUT_WIDTH} height={OUTPUT_HEIGHT} />
@@ -568,21 +831,21 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
             <>
               <div className="top5-graphic-actions">
                 <button type="button" onClick={downloadGraphic} disabled={downloadBusy || !templateReady}>
-                  {downloadBusy ? 'Erstelle PNG…' : 'PNG herunterladen'}
+                  {downloadBusy ? 'Erstelle PNG…' : `${modeLabel}-PNG herunterladen`}
                 </button>
                 {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer">Vorschau ansehen</a>}
               </div>
 
               {variant === 'full' && <div className="top5-graphic-meta">
                 <p><b>Dateiname:</b> {fileName}</p>
-                <p><b>Format:</b> 1080 × 1920 Pixel (Instagram-Reel)</p>
+                <p><b>Format:</b> 1080 × 1920 Pixel (9:16)</p>
               </div>}
 
               {variant === 'full' && <div className="top5-graphic-ranking-list">
-                <h3>Inhalt der Grafik</h3>
+                <h3>Inhalt der {modeLabel}-Grafik</h3>
                 <ol>
-                  {graphicRows.map((row) => (
-                    <li key={`${row.rank}-${row.title}-${row.artist}`}>
+                  {graphicRows.map((row, index) => (
+                    <li key={`${index}-${row.rank}-${row.title}-${row.artist}`}>
                       <b>Platz {row.rank}</b><br />
                       {row.title} — {row.artist}<br />
                       <small>{row.total} Gesamtpunkte · Publikum: {row.audiencePoints}</small>
@@ -591,12 +854,37 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
                 </ol>
               </div>}
 
+              {variant === 'full' && <div className="top5-graphic-copy-card top5-instagram-card">
+                <div className="top5-copy-header">
+                  <div>
+                    <h3>Instagram-Tags</h3>
+                    <p className="admin-help-text">Einmal speichern, danach werden vorhandene Tags automatisch unter den Hashtags ergänzt. Bei Duos/Features kannst du mehrere @Handles in ein Feld schreiben.</p>
+                  </div>
+                  <button type="button" onClick={saveArtistHandles} disabled={handlesBusy || !handlesDirty}>
+                    {handlesBusy ? 'Speichere…' : 'Tags speichern'}
+                  </button>
+                </div>
+                <div className="top5-instagram-grid">
+                  {relevantArtistLabels.map((label) => (
+                    <label key={normalizeArtistKey(label)}>
+                      <span>{label}</span>
+                      <input
+                        type="text"
+                        placeholder="@instagramhandle"
+                        value={artistInstagramHandles[normalizeArtistKey(label)] || ''}
+                        onChange={(event) => updateArtistHandle(label, event.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>}
+
               <div className="top5-graphic-copy-card">
                 <div className="top5-copy-header">
-                  <h3>Social-Media-Text</h3>
+                  <h3>Social-Media-Text – {modeLabel}</h3>
                   <button type="button" onClick={copySocialMediaText}>Text kopieren</button>
                 </div>
-                <textarea value={socialMediaText} readOnly rows={12} />
+                <textarea value={socialMediaText} readOnly rows={graphicMode === 'top12' ? 22 : 14} />
               </div>
             </>
           ) : (

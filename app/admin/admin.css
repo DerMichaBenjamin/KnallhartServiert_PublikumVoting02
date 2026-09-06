@@ -838,3 +838,19 @@
   .ks-statistics-report #week-comparison, .ks-inline-load-status { display: none !important; }
   a { text-decoration: none !important; }
 }
+
+/* Release-Check Grafik: Top 5 / Top 12 + Instagram-Tags */
+.ks-admin-app .top5-mode-switch { display: inline-flex; gap: 6px; margin: 0 0 16px; padding: 4px; border: 1px solid var(--ks-line); border-radius: 10px; background: #f5f6f9; }
+.ks-admin-app .top5-mode-switch button { min-width: 88px; padding: 8px 13px; border: 0; border-radius: 7px; background: transparent; color: #59677b; font: inherit; font-size: 13px; font-weight: 900; cursor: pointer; }
+.ks-admin-app .top5-mode-switch button.active { background: var(--ks-violet); color: #fff; box-shadow: 0 2px 8px rgba(75, 50, 170, .22); }
+.ks-admin-app .top5-instagram-card .top5-copy-header { align-items: flex-start; }
+.ks-admin-app .top5-instagram-card .admin-help-text { margin: 5px 0 0; max-width: 720px; color: var(--ks-muted); font-size: 13px; line-height: 1.45; }
+.ks-admin-app .top5-instagram-grid { display: grid; gap: 9px; margin-top: 14px; }
+.ks-admin-app .top5-instagram-grid label { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(220px, 1.2fr); gap: 10px; align-items: center; }
+.ks-admin-app .top5-instagram-grid label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 850; white-space: nowrap; }
+.ks-admin-app .top5-instagram-grid input { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--ks-line); border-radius: 8px; background: #fff; color: var(--ks-text); font: inherit; font-size: 13px; }
+@media(max-width:700px){
+  .ks-admin-app .top5-mode-switch { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .ks-admin-app .top5-mode-switch button { width: 100%; }
+  .ks-admin-app .top5-instagram-grid label { grid-template-columns: 1fr; gap: 5px; }
+}
