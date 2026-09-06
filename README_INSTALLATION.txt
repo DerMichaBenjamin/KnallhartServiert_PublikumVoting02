@@ -1,23 +1,14 @@
-KNALLHART SERVIERT – UPDATE TOP-12 ZAHLEN & TOP-5 TEXTZENTRIERUNG
+KNALLHART SERVIERT – UPDATE TOP-12 EINSTELLIGE ZAHLEN
 
 Geändert:
 - components/Top5GraphicGenerator.tsx
 
-Fixes:
-1. Top-12-Grafik
-   - Die Platzierungszahlen in den gelben Kreisen wurden nochmals nach rechts verschoben,
-     damit sie optisch sauberer mittig sitzen.
-   - Zweistellige Plätze behalten die zusätzliche kleine Korrektur.
-
-2. Top-5-Grafik
-   - Der Textblock aus Songtitel + Künstlername wurde in der festen Vorlage noch etwas weiter
-     nach unten verschoben, damit oben und unten gleichmäßigerer Abstand entsteht
-     und die vertikale Zentrierung sauberer wirkt.
-
-3. Bereits enthalten bleiben:
-   - Social-Media-Text: "Knallhart serviert Release Check der Woche."
-   - Instagram-Tags unter Hashtags mit "Tags:"-Zeile
-   - Top-12-/Top-5-Umschaltung
+Fix:
+- In der Top-12-Grafik wurden die einstelligen Platzierungszahlen 1–9
+  noch einmal separat weiter nach rechts verschoben, damit sie im gelben Kreis
+  optisch sauber mittig sitzen.
+- Die zweistelligen Platzierungen 10, 11 und 12 behalten ihre eigene
+  Korrektur und bleiben unverändert sauber zentriert.
 
 Installation:
 1. ZIP entpacken.

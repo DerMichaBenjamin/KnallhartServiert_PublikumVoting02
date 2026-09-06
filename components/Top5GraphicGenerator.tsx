@@ -18,6 +18,8 @@ const TOP12_ROW_CENTERS = [
 ];
 const TOP12_CIRCLE_CENTER_X = 145;
 const TOP12_RANK_Y_OFFSET = 22;
+const TOP12_SINGLE_DIGIT_X_OFFSET = 8;
+const TOP12_DOUBLE_DIGIT_X_OFFSET = 2;
 
 type GraphicMode = 'top5' | 'top12';
 
@@ -492,7 +494,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         drawTextLine(
           ctx,
           String(row.rank),
-          circleCenterX + (row.rank >= 10 ? 2 * scaleX : 0),
+          circleCenterX + (row.rank >= 10 ? TOP12_DOUBLE_DIGIT_X_OFFSET * scaleX : TOP12_SINGLE_DIGIT_X_OFFSET * scaleX),
           centerY + TOP12_RANK_Y_OFFSET * scaleY,
           '#111111',
           rankFont,
