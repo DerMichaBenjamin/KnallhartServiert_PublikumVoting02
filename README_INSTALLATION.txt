@@ -1,26 +1,19 @@
-KNALLHART SERVIERT – 100 INSTAGRAM-HANDLES AUS LIVE-AUFTRITTE
+KNALLHART SERVIERT – UPDATE GRAFIK-ZENTRIERUNG UND INSTAGRAM-TAGS
 
-Quelle:
-Supabase-Export mit 100 Künstlern und 100 Instagram-Handles vom 06.09.2026.
+Enthalten:
+- components/Top5GraphicGenerator.tsx
 
-Verhalten:
-- Die 100 bestätigten Handles werden beim ersten Laden von /admin/artists automatisch
-  als Startbestand in app_settings übernommen.
-- Bereits vorhandene, manuell gepflegte Release-Check-Handles haben Vorrang.
-- Der Seed wird nur einmal angewendet.
-- Danach sind Änderungen und Löschungen im Release-Check maßgeblich und werden nicht
-  beim nächsten Laden wieder überschrieben.
-- Neue Künstler/Handles können weiterhin unter /admin/artists ergänzt werden.
-- Top-5- und Top-12-Social-Media-Texte greifen automatisch auf dieses Verzeichnis zu.
-- Bei mehreren Künstlern in einem Song werden vorhandene Einzel-Handles ebenfalls erkannt.
+Geändert:
+1. TOP-12-Grafik:
+   - Platznummern in den gelben Kreisen weiter nach links und sauberer mittig gesetzt.
+   - Schriftgröße der zweistelligen Plätze leicht reduziert.
+2. TOP-5-Grafik:
+   - Songtitel und Künstler bleiben explizit horizontal und vertikal zentriert.
+3. Social-Media-Text:
+   - vorhandene Instagram-Tags werden unter den Hashtags mit einer klaren "Tags:"-Zeile eingefügt.
+   - zusätzlich Hinweis im Backend, wie viele Instagram-Tags aktuell erkannt wurden.
 
-Keine Datenbankmigration erforderlich.
-
-INSTALLATION:
+Installation:
 1. ZIP entpacken.
-2. Dateien in GitHub am identischen Pfad ersetzen/hochladen.
-3. Commit speichern und Vercel deployen lassen.
-4. Einmal /admin/artists öffnen. Dadurch wird der Startbestand übernommen.
-
-Die Original-CSV liegt zusätzlich unter:
-data/live-auftritte-instagram-handles-2026-09-06.csv
+2. Die Datei im GitHub-Repository am gleichen Pfad ersetzen.
+3. Commit speichern und deployen.

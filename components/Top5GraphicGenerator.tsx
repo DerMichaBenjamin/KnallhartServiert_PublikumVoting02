@@ -16,6 +16,8 @@ const TOP12_ROW_CENTERS = [
   422.05, 521.63, 619.77, 717.68, 815.07, 911.69,
   1008.5, 1105.35, 1201.86, 1298.41, 1396.01, 1495.11,
 ];
+const TOP12_CIRCLE_CENTER_X = 126.5;
+const TOP12_RANK_Y_OFFSET = 21;
 
 type GraphicMode = 'top5' | 'top12';
 
@@ -377,7 +379,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     ];
 
     if (socialTags.length) {
-      lines.push('', socialTags.join(' '));
+      lines.push('', 'Tags:', socialTags.join(' '));
     }
 
     return lines.join('\n');
@@ -475,25 +477,29 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     if (graphicMode === 'top12') {
       const scaleX = OUTPUT_WIDTH / TOP12_SOURCE_WIDTH;
       const scaleY = OUTPUT_HEIGHT / TOP12_SOURCE_HEIGHT;
-      const circleCenterX = 147.5 * scaleX;
+      const circleCenterX = TOP12_CIRCLE_CENTER_X * scaleX;
       const textX = ((194 + 820) / 2) * scaleX;
       const textMaxWidth = (820 - 194 - 48) * scaleX;
       const availableTextHeight = 76 * scaleY;
 
       graphicRows.slice(0, 12).forEach((row, index) => {
         const centerY = TOP12_ROW_CENTERS[index] * scaleY;
-        const rankFont = row.rank >= 10 ? 39 : 50;
+        const rankFont = row.rank >= 10 ? 37 : 48;
+
+        ctx.save();
+        ctx.textAlign = 'center';
         drawTextLine(
           ctx,
           String(row.rank),
           circleCenterX,
-          centerY + 24 * scaleY,
+          centerY + TOP12_RANK_Y_OFFSET * scaleY,
           '#111111',
           rankFont,
           'Arial Black, Arial, sans-serif',
           900,
           'middle',
         );
+        ctx.restore();
 
         const titleText = row.title.toUpperCase();
         const artistText = row.artist.toUpperCase();
@@ -797,7 +803,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       {variant === 'full' && graphicMode === 'top5' && <div className="top5-graphic-template-card">
         <div>
           <h3>Top-5-Hintergrundgrafik</h3>
-          <p className="admin-help-text">Du kannst für die Top 5 weiterhin eine eigene saubere Vorlage mit festen Rahmen und Platzmarkierungen hochladen.</p>
+          <p className="admin-help-text">Du kannst für die Top 5 weiterhin eine eigene saubere Vorlage mit festen Rahmen und Platzmarkierungen hochladen. Songtitel und Künstler werden in den Balken automatisch horizontal und vertikal zentriert.</p>
         </div>
         <div className="top5-template-actions">
           <label className="top5-template-upload">
@@ -816,7 +822,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       {variant === 'full' && graphicMode === 'top12' && <div className="top5-graphic-template-card">
         <div>
           <h3>Top-12-Hintergrundgrafik</h3>
-          <p className="admin-help-text">Die neue Top-12-Vorlage ist fest hinterlegt und enthält exakt 12 Ergebnisfelder. Platznummer, Songtitel und Künstler werden automatisch mittig eingesetzt.</p>
+          <p className="admin-help-text">Die neue Top-12-Vorlage ist fest hinterlegt und enthält exakt 12 Ergebnisfelder. Platznummern sowie Songtitel und Künstler werden automatisch sauber zentriert eingesetzt.</p>
         </div>
       </div>}
 
@@ -884,7 +890,10 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
 
               <div className="top5-graphic-copy-card">
                 <div className="top5-copy-header">
-                  <h3>Social-Media-Text – {modeLabel}</h3>
+                  <div>
+                    <h3>Social-Media-Text – {modeLabel}</h3>
+                    <p className="admin-help-text">{socialTags.length ? `${socialTags.length} Instagram-Tags werden unter den Hashtags ergänzt.` : 'Für die aktuellen Songs wurden noch keine passenden Instagram-Tags gefunden.'}</p>
+                  </div>
                   <button type="button" onClick={copySocialMediaText}>Text kopieren</button>
                 </div>
                 <textarea value={socialMediaText} readOnly rows={graphicMode === 'top12' ? 22 : 14} />
