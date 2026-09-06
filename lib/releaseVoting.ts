@@ -138,6 +138,33 @@ export async function listPublicResultRounds() {
   return (data || []) as Round[];
 }
 
+export async function listAllReleaseArtists() {
+  noStore();
+  const sb = getSupabaseAdminClient();
+  if (!sb) return [] as string[];
+
+  const names = new Map<string, string>();
+  for (let from = 0; ; from += DATABASE_PAGE_SIZE) {
+    const { data, error } = await sb
+      .from('release_voting_songs')
+      .select('artist')
+      .order('created_at', { ascending: false })
+      .range(from, from + DATABASE_PAGE_SIZE - 1);
+    if (error) throw databaseError('Künstler konnten nicht geladen werden', error);
+
+    const page = data || [];
+    for (const row of page) {
+      const label = String(row.artist || '').trim().replace(/\s+/g, ' ');
+      if (!label) continue;
+      const key = label.toLocaleLowerCase('de-DE');
+      if (!names.has(key)) names.set(key, label);
+    }
+    if (page.length < DATABASE_PAGE_SIZE) break;
+  }
+
+  return Array.from(names.values()).sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+}
+
 export async function getSongs(roundId: string, options: { includeInactive?: boolean } = {}) {
   noStore();
   const sb = getSupabaseAdminClient();

@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureAdminRequest } from '@/lib/adminAuth';
 import { getSetting, setSetting } from '@/lib/settings';
 
+function cleanLabelDirectory(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, string>;
+
+  const out: Record<string, string> = {};
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>).slice(0, 500)) {
+    const key = String(rawKey || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLocaleLowerCase('de-DE')
+      .slice(0, 160);
+    const label = String(rawValue || '').trim().replace(/\s+/g, ' ').slice(0, 160);
+    if (!key || !label) continue;
+    out[key] = label;
+  }
+  return out;
+}
+
 function cleanHandleDirectory(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, string>;
 
@@ -33,13 +50,16 @@ export async function GET(req: NextRequest) {
   }
 
   if (key === 'artist-instagram-handles') {
-    const raw = await getSetting('release_check_instagram_handles', '{}');
-    try {
-      const parsed = JSON.parse(raw || '{}');
-      return NextResponse.json({ ok: true, handles: cleanHandleDirectory(parsed) });
-    } catch {
-      return NextResponse.json({ ok: true, handles: {} });
-    }
+    const [rawHandles, rawLabels] = await Promise.all([
+      getSetting('release_check_instagram_handles', '{}'),
+      getSetting('release_check_instagram_artist_labels', '{}'),
+    ]);
+
+    let handles: Record<string, string> = {};
+    let labels: Record<string, string> = {};
+    try { handles = cleanHandleDirectory(JSON.parse(rawHandles || '{}')); } catch { handles = {}; }
+    try { labels = cleanLabelDirectory(JSON.parse(rawLabels || '{}')); } catch { labels = {}; }
+    return NextResponse.json({ ok: true, handles, labels });
   }
 
   return NextResponse.json({ ok: false, error: 'Unbekannte Einstellung.' }, { status: 400 });
@@ -67,6 +87,11 @@ export async function POST(req: NextRequest) {
     if (typeof body.artistInstagramHandles !== 'undefined') {
       const handles = cleanHandleDirectory(body.artistInstagramHandles);
       await setSetting('release_check_instagram_handles', JSON.stringify(handles));
+    }
+
+    if (typeof body.artistInstagramLabels !== 'undefined') {
+      const labels = cleanLabelDirectory(body.artistInstagramLabels);
+      await setSetting('release_check_instagram_artist_labels', JSON.stringify(labels));
     }
 
     return NextResponse.json({ ok: true });

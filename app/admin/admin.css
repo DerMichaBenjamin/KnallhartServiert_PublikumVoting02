@@ -854,3 +854,33 @@
   .ks-admin-app .top5-mode-switch button { width: 100%; }
   .ks-admin-app .top5-instagram-grid label { grid-template-columns: 1fr; gap: 5px; }
 }
+
+
+/* Künstler & Instagram */
+.ks-admin-app .top5-instagram-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.ks-admin-app .top5-instagram-actions a, .ks-admin-app .top5-instagram-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 11px; border: 1px solid #cfc7f2; border-radius: 8px; background: #fff; color: var(--ks-violet-dark); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.ks-admin-app .top5-instagram-actions button { border-color: var(--ks-violet); background: var(--ks-violet); color: #fff; }
+.ks-admin-app .ks-instagram-manager { display: grid; gap: 18px; }
+.ks-admin-app .ks-instagram-summary-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.ks-admin-app .ks-instagram-summary-card h2, .ks-admin-app .ks-instagram-add-card h3, .ks-admin-app .ks-instagram-toolbar h2 { margin: 0; }
+.ks-admin-app .ks-instagram-summary-card .admin-help-text, .ks-admin-app .ks-instagram-add-card .admin-help-text, .ks-admin-app .ks-instagram-toolbar .admin-help-text { margin: 6px 0 0; color: var(--ks-muted); font-size: 13px; line-height: 1.5; }
+.ks-admin-app .ks-instagram-summary-stats { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.ks-admin-app .ks-instagram-summary-stats span { display: inline-flex; gap: 5px; padding: 8px 10px; border: 1px solid var(--ks-line); border-radius: 8px; background: #f8f9fc; color: var(--ks-muted); font-size: 13px; }
+.ks-admin-app .ks-instagram-summary-stats b { color: var(--ks-text); }
+.ks-admin-app .ks-instagram-add-card { display: grid; gap: 14px; }
+.ks-admin-app .ks-instagram-add-grid { display: grid; grid-template-columns: minmax(180px,.8fr) minmax(260px,1.2fr) auto; gap: 9px; align-items: center; }
+.ks-admin-app .ks-instagram-add-grid input, .ks-admin-app .ks-instagram-filter-row input, .ks-admin-app .ks-instagram-table input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--ks-line); border-radius: 8px; background: #fff; color: var(--ks-text); font: inherit; font-size: 13px; }
+.ks-admin-app .ks-instagram-toolbar { align-items: flex-start; }
+.ks-admin-app .ks-instagram-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: min(100%, 460px); }
+.ks-admin-app .ks-instagram-filter-row input { flex: 1 1 240px; }
+.ks-admin-app .ks-instagram-filter-row label { display: inline-flex; align-items: center; gap: 6px; color: var(--ks-muted); font-size: 13px; font-weight: 750; white-space: nowrap; }
+.ks-admin-app .ks-instagram-filter-row label input { width: auto; min-height: auto; }
+.ks-admin-app .ks-instagram-table td:nth-child(1) { min-width: 210px; }
+.ks-admin-app .ks-instagram-table td:nth-child(2) { min-width: 280px; }
+.ks-admin-app .ks-instagram-save-row { display: flex; justify-content: flex-end; padding-top: 14px; }
+@media (max-width: 820px) {
+  .ks-admin-app .ks-instagram-summary-card, .ks-admin-app .ks-instagram-toolbar { display: grid; }
+  .ks-admin-app .ks-instagram-summary-stats { justify-content: flex-start; }
+  .ks-admin-app .ks-instagram-add-grid { grid-template-columns: 1fr; }
+  .ks-admin-app .top5-instagram-actions { justify-content: flex-start; }
+}

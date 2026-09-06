@@ -1,29 +1,32 @@
-KNALLHART SERVIERT – TOP 12 + INSTAGRAM-TAGS
+KNALLHART SERVIERT – KÜNSTLER & INSTAGRAM-VERZEICHNIS
 
-NEU:
-1. Im bisherigen Bereich für die Top-5-Grafik kann zwischen TOP 5 und TOP 12 gewählt werden.
-2. Top 12 nutzt die neue 9:16-Vorlage mit exakt 12 Ergebnisfeldern.
-3. Platznummer, Songtitel und Künstler werden automatisch in die Vorlage geschrieben.
-4. Song/Künstler werden horizontal und vertikal zentriert und bei langen Namen automatisch verkleinert/umgebrochen.
-5. Dateiname und Social-Media-Text passen sich an Top 5 bzw. Top 12 an.
-6. Im Social-Media-Text werden gespeicherte Instagram-Tags NACH den Hashtags ergänzt.
-7. Instagram-Tags können im Grafikbereich pro Künstler einmal gespeichert werden.
-   Mehrere Handles sind möglich, z. B. bei Duos/Features:
-   @handle1 @handle2
-8. Die Tags werden in der bestehenden app_settings-Tabelle gespeichert.
-   KEINE neue Datenbankmigration nötig.
+Repository-Prüfung Live-Auftritte:
+- aktueller GitHub-Stand geprüft
+- hochgeladene ZIP geprüft
+- Branch main geprüft
+- Commit-Historie rund um die Künstler-Autovervollständigung geprüft
 
-WICHTIG ZUR AUFTRITTSÜBERSICHT:
-Das GitHub-Repository der Knallhart-serviert-Auftrittsübersicht wurde geprüft.
-Dort sind aktuell keine Instagram-Handles hinterlegt. Die Künstler-API liest nur
-den Künstlernamen aus events.title. Deshalb wurden bewusst keine Handles geraten
-oder automatisch erfunden.
+Ergebnis:
+Im Repository ist keine Instagram-Handle-Liste hinterlegt.
+Die Künstler-Autovervollständigung liest nur Künstlernamen aus events.title.
+Es wurden daher KEINE Handles geraten oder erfunden.
+
+NEU IM RELEASE-CHECK:
+- separate Admin-Seite: /admin/artists
+- alle Künstler aus allen Release-Check-Runden werden automatisch aufgelistet
+- Instagram-Handles können zentral ergänzt/geändert werden
+- neue Künstler können unabhängig von vorhandenen Runden angelegt werden
+- mehrere Handles pro Künstler sind möglich
+- Suche und Filter "Nur ohne Handle"
+- Speicherung in app_settings; keine neue Datenbankmigration notwendig
+- Top-5-/Top-12-Social-Media-Text nutzt das zentrale Verzeichnis automatisch
+- Grafikbereich verlinkt auf das Künstlerverzeichnis
+- NOCH KEIN Eintrag in der Seitenleiste; das kann später bewusst entschieden werden
 
 INSTALLATION:
-- ZIP entpacken.
-- In GitHub jede Datei am identischen Pfad ersetzen/hochladen.
-- Commit speichern.
-- Vercel neu deployen lassen.
+1. ZIP entpacken.
+2. Dateien im GitHub-Repository an exakt denselben Pfaden ersetzen bzw. neue Dateien anlegen.
+3. Commit speichern.
+4. Vercel deployt danach automatisch.
 
-Wenn du die vorherige FINAL-Version mit Durchschnitt + Stimmenanzahl bereits eingebaut hast,
-reicht die kleinere UPDATE-ZIP.
+Wenn die vorherige Top-12/Instagram-Version bereits eingebaut ist, reicht die UPDATE-ZIP.

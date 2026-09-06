@@ -860,9 +860,12 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
                     <h3>Instagram-Tags</h3>
                     <p className="admin-help-text">Einmal speichern, danach werden vorhandene Tags automatisch unter den Hashtags ergänzt. Bei Duos/Features kannst du mehrere @Handles in ein Feld schreiben.</p>
                   </div>
-                  <button type="button" onClick={saveArtistHandles} disabled={handlesBusy || !handlesDirty}>
-                    {handlesBusy ? 'Speichere…' : 'Tags speichern'}
-                  </button>
+                  <div className="top5-instagram-actions">
+                    <a href="/admin/artists">Künstlerverzeichnis verwalten</a>
+                    <button type="button" onClick={saveArtistHandles} disabled={handlesBusy || !handlesDirty}>
+                      {handlesBusy ? 'Speichere…' : 'Tags speichern'}
+                    </button>
+                  </div>
                 </div>
                 <div className="top5-instagram-grid">
                   {relevantArtistLabels.map((label) => (
