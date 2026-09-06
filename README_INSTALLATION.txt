@@ -1,47 +1,20 @@
-KNALLHART SERVIERT – FINALE LOGIK FÜR DURCHSCHNITTSWERTE
+KNALLHART SERVIERT – UPDATE PUBLIKUMSSTIMMEN PRO SONG
 
-Es gibt bewusst ZWEI verschiedene Durchschnittswerte:
+Diese ZIP enthält nur die zwei Dateien, die seit der letzten finalen Durchschnitts-Version geändert wurden.
 
-1) Ø PUBLIKUM
-   Wird in der Publikumswertung und in der Voting-/Songübersicht angezeigt.
+Neue Anzeige auf der Admin-Umfragenseite in der Songübersicht, z. B.:
 
-   Formel:
-   Summe aller Punkte aus den einzelnen gewerteten Publikumsstimmen für den Song
-   ÷ Anzahl aller gewerteten Publikumsstimmen.
+#3 · 10 Pkt.
+Ø 5,7 · 64 von 120 Stimmen
 
-   Wird ein Song in einer Publikumsstimme nicht in die Top 12 gewählt,
-   zählt diese Stimme für den Song mit 0 Punkten.
+Bedeutung:
+- #3 = Publikumsplatz
+- 10 Pkt. = offizielle Publikumspunkte für die Gesamtwertung
+- Ø 5,7 = Durchschnitt aus ALLEN gewerteten Publikumsstimmen
+- 64 von 120 Stimmen = 64 Personen hatten den Song in ihren Top 12; insgesamt gab es 120 gewertete Publikums-Votings
+- Nicht gewählte Songs zählen in der jeweiligen Publikumsstimme beim Durchschnitt mit 0 Punkten.
 
-2) Ø PUNKTE / GESAMTWERTUNG
-   Wird in "Gesamtwertung Jury + Publikum" und den Gesamt-Statistiken angezeigt.
-
-   Formel:
-   Gesamtpunkte
-   ÷ Anzahl der tatsächlich eingegangenen Wertungsquellen.
-
-   Dabei gilt:
-   - jede abgegebene Jury-Wertung = 1 Wertungsquelle
-   - das Publikum = genau 1 aggregierte Wertungsquelle
-   - nicht abgegebene Juroren werden NICHT als 0 mitgezählt
-
-   Beispiel:
-   Jury-Punkte zusammen: 22
-   Publikumspunkte der offiziellen 12–1-Wertung: 12
-   Gesamtpunkte: 34
-   4 abgegebene Juroren + Publikum = 5 Wertungsquellen
-   Ø Punkte = 34 / 5 = 6,8
-
-WICHTIG:
-- "Gesamtpunkte" bleiben weiterhin die Summe aus Jury-Punkten + offiziellen Publikumspunkten.
-- Keine Datenbankmigration nötig.
-- Die Statistik-Exporte enthalten nun ebenfalls "Ø Punkte Gesamtwertung" und "Ø Publikum".
-- Öffentliche reine Publikums-Ergebnislisten sind zur Klarheit mit "Ø Publikum" beschriftet.
-
-INSTALLATION IN GITHUB:
+INSTALLATION:
 1. ZIP entpacken.
-2. Im GitHub-Repository jeweils zum gleichen Ordnerpfad gehen.
-3. Die vorhandene Datei durch die Datei aus dieser ZIP ersetzen.
-4. Commit speichern.
-
-Wenn du eine der vorherigen Versionen bereits eingebaut hast:
-Bitte ALLE Dateien aus dieser ZIP erneut ersetzen. Damit ist die Logik auf dem finalen Stand.
+2. Beide Dateien im GitHub-Repository am identischen Pfad ersetzen.
+3. Commit speichern.

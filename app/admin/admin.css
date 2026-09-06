@@ -194,6 +194,7 @@
 .ks-round-title { display: block; overflow: hidden; color: var(--ks-text); font-weight: 850; text-overflow: ellipsis; }
 .ks-sortable-th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; }
 .ks-sortable-th button.active { color: var(--ks-violet-dark); }
+.ks-sortable-th > small { display: block; margin-top: 4px; color: var(--ks-muted); font-size: 10px; font-weight: 750; letter-spacing: 0; }
 .ks-cell-warning { color: #ae5b12; font-weight: 800; }
 .ks-cell-success { color: var(--ks-green); font-weight: 800; }
 
