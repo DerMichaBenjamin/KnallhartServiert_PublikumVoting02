@@ -16,7 +16,7 @@ const TOP12_ROW_CENTERS = [
   422.05, 521.63, 619.77, 717.68, 815.07, 911.69,
   1008.5, 1105.35, 1201.86, 1298.41, 1396.01, 1495.11,
 ];
-const TOP12_CIRCLE_CENTER_X = 139;
+const TOP12_CIRCLE_CENTER_X = 145;
 const TOP12_RANK_Y_OFFSET = 22;
 
 type GraphicMode = 'top5' | 'top12';
@@ -627,7 +627,7 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
       }
 
-      const top5TextVerticalOffset = requiresDynamicRows ? rowHeight * 0.01 : rowHeight * 0.04;
+      const top5TextVerticalOffset = requiresDynamicRows ? rowHeight * 0.01 : rowHeight * 0.055;
       const textBlockTop = barY + (barHeight - totalTextHeight) / 2 + top5TextVerticalOffset;
       ctx.save();
       ctx.textAlign = 'center';
