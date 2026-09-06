@@ -1,17 +1,11 @@
-KNALLHART SERVIERT – UPDATE GRAFIK-ZENTRIERUNG UND INSTAGRAM-TAGS
-
-Enthalten:
-- components/Top5GraphicGenerator.tsx
+KNALLHART SERVIERT – UPDATE SOCIAL-MEDIA-TEXT
 
 Geändert:
-1. TOP-12-Grafik:
-   - Platznummern in den gelben Kreisen weiter nach links und sauberer mittig gesetzt.
-   - Schriftgröße der zweistelligen Plätze leicht reduziert.
-2. TOP-5-Grafik:
-   - Songtitel und Künstler bleiben explizit horizontal und vertikal zentriert.
-3. Social-Media-Text:
-   - vorhandene Instagram-Tags werden unter den Hashtags mit einer klaren "Tags:"-Zeile eingefügt.
-   - zusätzlich Hinweis im Backend, wie viele Instagram-Tags aktuell erkannt wurden.
+- components/Top5GraphicGenerator.tsx
+
+Neuer Einstieg im Social-Media-Text:
+Knallhart serviert Release Check der Woche.
+Neue Songs vom Freitag, dem [Datum].
 
 Installation:
 1. ZIP entpacken.
