@@ -29,6 +29,7 @@ export type JuryVote = {
   id: string;
   round_id: string;
   round_juror_id: string;
+  zonk_song_id: string | null;
   submitted_at: string;
   updated_at: string;
 };
@@ -42,6 +43,7 @@ export type JuryVoteItem = {
 export type AdminJuryJurorRow = JuryRoundJuror & {
   submitted_at: string | null;
   vote_updated_at: string | null;
+  zonk_song_id: string | null;
   items: JuryVoteItem[];
 };
 
@@ -55,6 +57,7 @@ export type JuryAccessData = {
   juror: JuryRoundJuror;
   songs: Song[];
   items: JuryVoteItem[];
+  zonkSongId: string | null;
   submittedAt: string | null;
   updatedAt: string | null;
   isOpen: boolean;
@@ -132,6 +135,7 @@ export async function getAdminJuryRoundData(
         ...juror,
         submitted_at: vote?.submitted_at || null,
         vote_updated_at: vote?.updated_at || null,
+        zonk_song_id: vote?.zonk_song_id || null,
         items: vote?.id
           ? [...(itemsByVoteId.get(vote.id) || [])].sort((a, b) => Number(b.points) - Number(a.points))
           : [],
@@ -187,6 +191,7 @@ export async function getJuryAccessData(accessToken: string): Promise<JuryAccess
     juror,
     songs,
     items,
+    zonkSongId: vote?.zonk_song_id || null,
     submittedAt: vote?.submitted_at || null,
     updatedAt: vote?.updated_at || null,
     ...openState,

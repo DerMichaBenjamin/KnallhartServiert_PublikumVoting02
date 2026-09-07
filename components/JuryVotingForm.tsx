@@ -24,17 +24,20 @@ export default function JuryVotingForm({
   accessToken,
   songs,
   initialItems,
+  initialZonkSongId,
   jurorName,
   canEdit,
 }: {
   accessToken: string;
   songs: Song[];
   initialItems: InitialItem[];
+  initialZonkSongId: string | null;
   jurorName: string;
   canEdit: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [ranking, setRanking] = useState<(Song | null)[]>(() => buildInitialRanking(songs, initialItems));
+  const [zonkSongId, setZonkSongId] = useState(initialZonkSongId || '');
   const [displaySongs, setDisplaySongs] = useState<Song[]>(songs);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -101,7 +104,7 @@ export default function JuryVotingForm({
       const response = await fetch('/api/jury-voting/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, ranking: payload }),
+        body: JSON.stringify({ accessToken, ranking: payload, zonkSongId: zonkSongId || null }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) throw new Error(data?.error || 'Ungültige Server-Antwort.');
@@ -170,6 +173,15 @@ export default function JuryVotingForm({
           </div>
         </section>
       </div>
+
+      <section className="card zonk jury-zonk-card">
+        <h3>ZONK – Song der Woche <small>(optional)</small></h3>
+        <p>Wähle hier zusätzlich den schlechtesten Song der Woche. Diese Auswahl ist unabhängig von deiner Top-12-Punktewertung.</p>
+        <select value={zonkSongId} onChange={(event) => setZonkSongId(event.target.value)} disabled={!canEdit}>
+          <option value="">Keinen ZONK wählen</option>
+          {displaySongs.map((song) => <option key={song.id} value={song.id}>{combineSongLine(song)}</option>)}
+        </select>
+      </section>
 
       {canEdit ? (
         <button className="submit" disabled={loading || rankedIds.length !== JURY_PLACES_COUNT}>

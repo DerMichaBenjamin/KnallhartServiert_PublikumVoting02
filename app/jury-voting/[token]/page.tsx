@@ -47,6 +47,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
           accessToken={token}
           songs={data.songs}
           initialItems={data.items}
+          initialZonkSongId={data.zonkSongId}
           jurorName={data.juror.display_name}
           canEdit={canEdit}
         />

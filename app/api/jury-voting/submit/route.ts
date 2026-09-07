@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const accessToken = clean(body.accessToken);
     const ranking: RankingEntry[] = Array.isArray(body.ranking) ? body.ranking : [];
+    const zonkSongId = clean(body.zonkSongId) || null;
     const sb = getSupabaseAdminClient();
 
     if (!sb) throw new Error('Supabase ist nicht konfiguriert.');
@@ -77,11 +78,12 @@ export async function POST(req: Request) {
       throw new Error('Die Punkte müssen exakt einmal von 12 bis 1 vergeben werden.');
     }
     if (songIds.some((id) => !validSongIds.has(id))) throw new Error('Mindestens ein Song gehört nicht zu dieser Runde. Bitte Seite neu laden.');
+    if (zonkSongId && !validSongIds.has(zonkSongId)) throw new Error('Der gewählte ZONK-Song gehört nicht zu dieser Runde. Bitte Seite neu laden.');
 
     const now = new Date().toISOString();
     const { data: existingVote, error: existingVoteError } = await sb
       .from('release_voting_jury_votes')
-      .select('id')
+      .select('id,zonk_song_id')
       .eq('round_juror_id', juror.id)
       .maybeSingle();
     if (existingVoteError) throw existingVoteError;
@@ -91,7 +93,7 @@ export async function POST(req: Request) {
     if (!voteId) {
       const { data: created, error } = await sb
         .from('release_voting_jury_votes')
-        .insert({ round_id: juror.round_id, round_juror_id: juror.id, submitted_at: now, updated_at: now })
+        .insert({ round_id: juror.round_id, round_juror_id: juror.id, zonk_song_id: zonkSongId, submitted_at: now, updated_at: now })
         .select('id')
         .single();
       if (error) throw error;
@@ -127,11 +129,11 @@ export async function POST(req: Request) {
 
     const { error: voteTimestampError } = await sb
       .from('release_voting_jury_votes')
-      .update({ submitted_at: now, updated_at: now })
+      .update({ submitted_at: now, updated_at: now, zonk_song_id: zonkSongId })
       .eq('id', voteId);
     if (voteTimestampError) throw voteTimestampError;
 
-    return NextResponse.json({ ok: true, updated: Boolean(existingVote?.id), savedAt: now });
+    return NextResponse.json({ ok: true, updated: Boolean(existingVote?.id), savedAt: now, zonkSongId });
   } catch (error) {
     return NextResponse.json({ ok: false, error: dbMessage(error) }, { status: 500 });
   }

@@ -1,16 +1,27 @@
-KNALLHART SERVIERT – UPDATE TOP-12 EINSTELLIGE ZAHLEN
+KNALLHART SERVIERT – JURY: ZONK / EINZELNE SONGWAHL
 
-Geändert:
-- components/Top5GraphicGenerator.tsx
+Neu:
+- Jury kann zusätzlich zur Top-12-Punktewertung optional einen einzelnen ZONK-Song wählen.
+- Die Auswahl ist unabhängig von der 12-bis-1-Punktewertung.
+- Bereits gespeicherter ZONK wird beim erneuten Öffnen der Jury-Seite vorausgewählt.
+- Beim Aktualisieren des Jury-Votings kann auch der ZONK geändert oder wieder entfernt werden.
 
-Fix:
-- In der Top-12-Grafik wurden die einstelligen Platzierungszahlen 1–9
-  noch einmal separat weiter nach rechts verschoben, damit sie im gelben Kreis
-  optisch sauber mittig sitzen.
-- Die zweistelligen Platzierungen 10, 11 und 12 behalten ihre eigene
-  Korrektur und bleiben unverändert sauber zentriert.
+WICHTIG – SUPABASE:
+Vor dem Deploy bitte einmal die Datei
+sql/sql_jury_zonk_vote.sql
+im Supabase SQL Editor ausführen.
 
-Installation:
-1. ZIP entpacken.
-2. Die Datei im GitHub-Repository am gleichen Pfad ersetzen.
-3. Commit speichern und deployen.
+Danach die übrigen Dateien in GitHub am identischen Pfad ersetzen.
+
+Geänderte Dateien:
+- components/JuryVotingForm.tsx
+- app/jury-voting/[token]/page.tsx
+- app/api/jury-voting/submit/route.ts
+- lib/juryVoting.ts
+
+Neue SQL-Datei:
+- sql/sql_jury_zonk_vote.sql
+
+Hinweis:
+Die bestehende Top-12-Auswahl war bereits vorhanden. Dieses Update ergänzt die
+zusätzliche einzelne Songwahl (ZONK) für Juroren.
