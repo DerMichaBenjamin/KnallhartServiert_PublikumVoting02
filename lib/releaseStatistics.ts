@@ -35,6 +35,7 @@ type StatisticsJuryVoteRow = {
   round_juror_id: string;
   submitted_at: string | null;
   updated_at: string | null;
+  zonk_song_id: string | null;
 };
 
 type PageResult<T> = {
@@ -167,7 +168,7 @@ export async function getReleaseStatisticsArchive(): Promise<ReleaseStatisticsAr
       return { data: (data || []) as JuryRoundJuror[], error };
     }),
     fetchForStatisticsRounds<StatisticsJuryVoteRow>('Jury-Votings', async (roundIds, from, to) => {
-      const { data, error } = await sb.from('release_voting_jury_votes').select('id,round_id,round_juror_id,submitted_at,updated_at').in('round_id', roundIds).order('updated_at', { ascending: true }).range(from, to);
+      const { data, error } = await sb.from('release_voting_jury_votes').select('id,round_id,round_juror_id,submitted_at,updated_at,zonk_song_id').in('round_id', roundIds).order('updated_at', { ascending: true }).range(from, to);
       return { data: (data || []) as StatisticsJuryVoteRow[], error };
     }),
   ]) : [[], [], [], []] as [Song[], StatisticsVoteRow[], JuryRoundJuror[], StatisticsJuryVoteRow[]];
@@ -227,6 +228,7 @@ export async function getReleaseStatisticsArchive(): Promise<ReleaseStatisticsAr
           ...juror,
           submitted_at: vote?.submitted_at || null,
           vote_updated_at: vote?.updated_at || null,
+          zonk_song_id: vote?.zonk_song_id || null,
           items: vote ? (juryItemsByVote.get(vote.id) || []).sort((a, b) => Number(b.points) - Number(a.points)) : [],
         };
       }),
