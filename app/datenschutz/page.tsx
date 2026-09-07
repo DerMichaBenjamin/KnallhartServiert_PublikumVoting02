@@ -26,12 +26,17 @@ export default function DatenschutzPage() {
         <p>
           Beim Absenden eines Votings werden Name, E-Mail-Adresse, optionaler Instagram-Name, die abgegebene
           Song-Auswahl, eine optionale ZONK-Auswahl, Zeitpunkt der Abstimmung sowie der Bestätigungsstatus gespeichert.
+          Zur technischen Integritäts- und Missbrauchsprüfung können außerdem Interaktionsdaten des Votings gespeichert
+          werden. Dazu gehören insbesondere die zufällig angezeigte Songreihenfolge, die Reihenfolge der Songauswahl,
+          die Nutzung der Suche, Änderungen an der Rangliste sowie die ungefähre Bearbeitungsdauer.
         </p>
 
         <h2>Zweck der Verarbeitung</h2>
         <p>
           Die Daten werden verarbeitet, um die Teilnahme am Voting zu ermöglichen, Mehrfachabstimmungen zu begrenzen,
-          die E-Mail-Bestätigung durchzuführen und das Ergebnis der Abstimmung korrekt auszuwerten.
+          die E-Mail-Bestätigung durchzuführen, das Ergebnis der Abstimmung korrekt auszuwerten und auffällige
+          Abstimmungsmuster für eine manuelle Integritätsprüfung nachvollziehbar zu machen. Solche technischen Hinweise
+          werden nicht allein als Nachweis einer Manipulation behandelt.
         </p>
 
         <h2>E-Mail-Bestätigung</h2>

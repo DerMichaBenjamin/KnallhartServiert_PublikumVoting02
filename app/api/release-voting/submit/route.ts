@@ -9,6 +9,7 @@ import {
 } from '@/lib/emailVerification';
 import { checkRateLimit, clientIpFromRequest, minutesUntil } from '@/lib/rateLimit';
 import { assessVoteIntegrity } from '@/lib/voteIntegrity';
+import { assessVotingBehavior, type VotingBehaviorInput } from '@/lib/votingBehavior';
 
 type RankingEntryInput = {
   songId?: unknown;
@@ -62,6 +63,9 @@ export async function POST(req: Request) {
     const zonkSongId = clean(body.zonkSongId) || null;
     const honeypot = clean(body.website);
     const ranking: RankingEntryInput[] = Array.isArray(body.ranking) ? (body.ranking as RankingEntryInput[]) : [];
+    const rawBehavior = body?.behavior && typeof body.behavior === 'object'
+      ? (body.behavior as VotingBehaviorInput)
+      : null;
 
     if (honeypot) {
       throw new Error('Dieses Voting wurde als automatisierter Spam erkannt.');
@@ -173,7 +177,7 @@ export async function POST(req: Request) {
     }
 
     if (normalizedRanking.some((entry) => !validSongIds.has(entry.songId))) {
-      throw new Error('Ungültige Song-Auswahl: Mindestens ein Song gehört nicht zu dieser Abstimmung. Bitte Seite neu laden.');
+      throw new Error('Ungültige Song-Auswahl: Mindestens ein Song gehört nicht zu dieser Abstimmung. Bitte Seite neu laden und stimme erneut ab.');
     }
 
     if (zonkSongId && !validSongIds.has(zonkSongId)) {
@@ -188,6 +192,16 @@ export async function POST(req: Request) {
       email: jurorEmail,
       clientIp,
       ranking: normalizedRanking,
+    });
+
+    // Verhaltensdaten sind ausschließlich ein zusätzlicher Prüfhinweis und beeinflussen
+    // is_counted/integrity_status bewusst NICHT automatisch.
+    const behavior = assessVotingBehavior({
+      rawBehavior,
+      validSongIds,
+      finalRanking: [...normalizedRanking]
+        .sort((a, b) => b.points - a.points)
+        .map((entry) => entry.songId),
     });
 
     const token = createVerificationToken();
@@ -213,6 +227,14 @@ export async function POST(req: Request) {
         verify_token_hash: hashVerificationToken(token),
         verify_sent_at: win.sentAt,
         verify_expires_at: win.expiresAt,
+        display_order: behavior.displayOrder,
+        selection_order: behavior.selectionOrder,
+        search_used: behavior.searchUsed,
+        move_count: behavior.moveCount,
+        remove_count: behavior.removeCount,
+        voting_duration_ms: behavior.votingDurationMs,
+        behavior_score: behavior.behaviorScore,
+        behavior_flags: behavior.behaviorFlags,
       })
       .select('id')
       .single();
