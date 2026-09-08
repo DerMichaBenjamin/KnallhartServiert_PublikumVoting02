@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { PodcastReportData, PodcastReportJuror } from '@/lib/podcastReport';
 import styles from '@/app/admin/release-voting/[roundId]/results/results.module.css';
 
@@ -24,20 +25,29 @@ function shortName(value: string) {
 }
 
 export default function PodcastReport({ data }: { data: PodcastReportData }) {
-  const density = data.overallRows.length > 26
+  const density = data.overallRows.length > 28
     ? styles.podcastUltraDense
-    : data.overallRows.length > 20
+    : data.overallRows.length > 22
       ? styles.podcastVeryDense
-      : data.overallRows.length > 15
+      : data.overallRows.length > 16
         ? styles.podcastDense
         : '';
+
+  // Seite 1 soll die verfügbare A4-Höhe tatsächlich ausnutzen. Bei weniger Songs
+  // werden die Zeilen größer; bei vielen Songs bleibt die Schrift trotzdem lesbar.
+  const masterRowMm = Math.max(4.8, Math.min(8.6, 146 / Math.max(1, data.overallRows.length)));
+  const masterFontPt = Math.max(5.8, Math.min(7.4, masterRowMm * 0.92));
+  const printVars = {
+    '--podcast-master-row-height': `${masterRowMm.toFixed(2)}mm`,
+    '--podcast-master-font-size': `${masterFontPt.toFixed(2)}pt`,
+  } as CSSProperties;
 
   const voteColumns = [
     ...data.jurors.map((juror) => ({ id: juror.id, label: juror.name, juror })),
     { id: 'audience', label: 'Publikum', juror: null },
   ];
 
-  return <div className={`${styles.podcastReport} ${density}`}>
+  return <div className={`${styles.podcastReport} ${density}`} style={printVars}>
     <section className={styles.podcastPaper} aria-label="Sendungsausdruck Seite 1">
       <header className={styles.podcastPaperHeader}>
         <div>
@@ -101,7 +111,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
               <td><b>{rank(row.rank)}</b></td>
               <td>{rank(row.juryRank)}</td>
               <td>{rank(row.audienceRank)}</td>
-              <td className={styles.podcastSongCell}><strong>{row.title}</strong><small>{row.artist}</small></td>
+              <td className={styles.podcastSongCell}><strong>{row.title}</strong><span className={styles.podcastArtistInline}> · {row.artist}</span></td>
               {row.jurorPoints.length ? row.jurorPoints.map((entry) => <td key={entry.jurorId}>{entry.points === null ? '—' : entry.points}</td>) : <td>—</td>}
               <td><b>{row.juryPoints}</b></td><td><b>{avg(row.juryAverage)}</b></td>
               <td>{row.audiencePoints}</td><td>{row.audienceRawPoints}</td><td><b>{avg(row.audienceAverage)}</b></td>
@@ -159,7 +169,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
           <table className={styles.podcastAudienceTable}>
             <thead><tr><th>Pl.</th><th>Song / Künstler</th><th>Roh</th><th>Ø Publ.</th><th>Gewählt</th><th>Anteil</th><th>12–1</th></tr></thead>
             <tbody>{data.audienceRows.map((row) => <tr key={`aud-${row.rank}`}>
-              <td><b>#{row.rank}</b></td><td className={styles.podcastSongCell}><strong>{row.title}</strong><small>{row.artist}</small></td><td>{row.total}</td><td><b>{avg(row.average)}</b></td><td>{row.mentions}</td><td>{pct(row.share)}</td><td><b>{row.audiencePoints}</b></td>
+              <td><b>#{row.rank}</b></td><td className={styles.podcastSongCell}><strong>{row.title}</strong><span className={styles.podcastArtistInline}> · {row.artist}</span></td><td>{row.total}</td><td><b>{avg(row.average)}</b></td><td>{row.mentions}</td><td>{pct(row.share)}</td><td><b>{row.audiencePoints}</b></td>
             </tr>)}</tbody>
           </table>
         </section>

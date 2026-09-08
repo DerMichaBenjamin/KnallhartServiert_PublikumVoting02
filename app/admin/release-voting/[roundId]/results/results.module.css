@@ -342,3 +342,156 @@
   .podcastZonkCompact > div > span { font-size: 4.2pt; }
   .podcastZonkCompact > div > em { font-size: 3.8pt; }
 }
+
+/* Sendungsausdruck V3 – bessere A4-Flächennutzung und größere Lesbarkeit */
+.podcastArtistInline {
+  color: #64748b;
+  font-weight: 650;
+}
+
+@media print {
+  .podcastPaper {
+    gap: 1.45mm;
+  }
+
+  .podcastPaperHeader {
+    min-height: 9.5mm;
+    padding: 1.45mm 2.3mm;
+  }
+  .podcastPaperHeader span { font-size: 5.6pt; }
+  .podcastPaperHeader h2 { margin: .25mm 0; font-size: 12.4pt; }
+  .podcastPaperHeader p { font-size: 6.2pt; }
+  .podcastPaperHeaderSmall { min-height: 8.8mm; }
+  .podcastPaperHeaderSmall h2 { font-size: 11.8pt; }
+  .podcastHeaderMeta { min-width: 40mm; padding: .8mm 1.5mm; }
+  .podcastHeaderMeta b { font-size: 8.8pt; }
+  .podcastHeaderMeta small { font-size: 5.3pt; }
+
+  /* Die Schnellinfo ist nur Orientierung. Details stehen direkt in der Matrix. */
+  .podcastSummaryGrid { gap: 1mm; }
+  .podcastSummaryGrid article {
+    min-height: 7.3mm;
+    padding: .85mm 1.25mm;
+    border-top-width: .55mm;
+  }
+  .podcastSummaryGrid article small { font-size: 5pt; }
+  .podcastSummaryGrid article strong { font-size: 6.8pt; line-height: 1.05; }
+  .podcastSummaryGrid article span { display: none; }
+
+  .podcastBlockHeading { min-height: 5.3mm; }
+  .podcastBlockHeading > div { grid-template-columns: 5mm minmax(0,1fr); gap: 1mm; }
+  .podcastBlockHeading > div > b { width: 4.6mm; height: 4.6mm; font-size: 5.3pt; }
+  .podcastBlockHeading strong { font-size: 7.8pt; }
+  .podcastBlockHeading small { font-size: 5.2pt; }
+  .podcastBlockHeading > p { font-size: 5pt; max-width: 44%; }
+
+  /* Seite 1: dynamisch bis fast an den unteren Rand füllen. */
+  .podcastMasterTable th,
+  .podcastMasterTable td {
+    height: var(--podcast-master-row-height);
+    padding: .45mm .42mm;
+    font-size: var(--podcast-master-font-size);
+    line-height: 1.02;
+  }
+  .podcastMasterTable thead th {
+    height: 5.8mm;
+    font-size: max(5.7pt, var(--podcast-master-font-size));
+  }
+  .podcastMasterTable th:nth-child(4),
+  .podcastMasterTable td:nth-child(4) {
+    width: 31%;
+  }
+  .podcastMasterTable th:nth-child(1),
+  .podcastMasterTable th:nth-child(2),
+  .podcastMasterTable th:nth-child(3),
+  .podcastMasterTable td:nth-child(1),
+  .podcastMasterTable td:nth-child(2),
+  .podcastMasterTable td:nth-child(3) {
+    width: 3.1%;
+  }
+  .podcastSongCell {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .podcastSongCell strong,
+  .podcastSongCell .podcastArtistInline {
+    display: inline;
+    overflow: visible;
+    white-space: nowrap;
+  }
+  .podcastArtistInline { font-size: .96em; }
+
+  /* Die alten Dichteklassen dürfen nur noch die Polsterung, nicht die Schrift zerquetschen. */
+  .podcastDense .podcastMasterTable th,
+  .podcastDense .podcastMasterTable td,
+  .podcastVeryDense .podcastMasterTable th,
+  .podcastVeryDense .podcastMasterTable td,
+  .podcastUltraDense .podcastMasterTable th,
+  .podcastUltraDense .podcastMasterTable td {
+    height: var(--podcast-master-row-height);
+    padding-top: .32mm;
+    padding-bottom: .32mm;
+    font-size: var(--podcast-master-font-size);
+  }
+  .podcastUltraDense .podcastSongCell small { display: inline; }
+
+  .podcastPaperFooter {
+    min-height: 3.6mm;
+    gap: 1.5mm;
+    padding-top: .55mm;
+    font-size: 4.9pt;
+  }
+
+  /* Seite 2: 12 Einzelstimmen sind fix – deshalb kann die Schrift deutlich größer sein. */
+  .podcastVotesTable thead th {
+    height: 6.2mm;
+    font-size: 6.5pt;
+  }
+  .podcastVotesTable th,
+  .podcastVotesTable td {
+    height: 7.5mm;
+    padding: .7mm .9mm;
+    font-size: 6.6pt;
+    line-height: 1.08;
+  }
+  .podcastVotesTable td:first-child small { font-size: 5.3pt; }
+  .podcastVoteCell strong { font-size: 6.7pt; }
+  .podcastVoteCell small { margin-top: .35mm; font-size: 5.7pt; }
+  .podcastZonkRow td {
+    height: 6.2mm;
+    padding-top: .6mm;
+    padding-bottom: .6mm;
+    font-size: 5.7pt;
+  }
+
+  .podcastPage2Bottom {
+    grid-template-columns: minmax(0,1.92fr) minmax(48mm,.58fr);
+    gap: 1.6mm;
+  }
+  .podcastMiniHeading { padding: .8mm 1.2mm; }
+  .podcastMiniHeading strong { font-size: 6.4pt; }
+  .podcastMiniHeading span { font-size: 4.8pt; }
+  .podcastAudienceTable th,
+  .podcastAudienceTable td {
+    height: 3.8mm;
+    padding: .35mm .5mm;
+    font-size: 5.5pt;
+    line-height: 1.04;
+  }
+  .podcastAudienceTable th { font-size: 5.35pt; }
+  .podcastAudienceTable th:nth-child(2),
+  .podcastAudienceTable td:nth-child(2) { width: 47%; }
+  .podcastAudienceTable .podcastArtistInline { font-size: .94em; }
+
+  .podcastTalkPanel dl > div {
+    grid-template-columns: 17mm minmax(0,1fr);
+    padding: .65mm 0;
+  }
+  .podcastTalkPanel dt { font-size: 4.7pt; }
+  .podcastTalkPanel dd { font-size: 5.2pt; }
+  .podcastTalkPanel dd small { font-size: 4.4pt; }
+  .podcastZonkCompact > div { min-height: 4.1mm; }
+  .podcastZonkCompact > div > span { font-size: 4.8pt; }
+  .podcastZonkCompact > div > em { font-size: 4.2pt; }
+}
