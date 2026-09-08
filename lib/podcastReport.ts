@@ -46,9 +46,14 @@ export type PodcastReportData = {
     title: string;
     artist: string;
     jurorPoints: Array<{ jurorId: string; points: number | null }>;
+    juryRank: number | null;
+    audienceRank: number | null;
     juryPoints: number;
     juryAverage: number | null;
     audiencePoints: number;
+    audienceRawPoints: number;
+    audienceAverage: number | null;
+    audienceMentions: number;
     total: number;
     overallAverage: number | null;
   }>;
@@ -133,6 +138,7 @@ export function buildPodcastReportData(
     .sort((a, b) => Math.abs(b.rankDifference || 0) - Math.abs(a.rankDifference || 0))[0];
   const overallWinners = combined.overallRows.filter((row) => row.rank === 1);
   const overallWinner = overallWinners[0];
+  const comparisonBySongId = new Map(stats.comparisonRows.map((row) => [row.song.id, row]));
 
   return {
     roundId: round.id,
@@ -171,17 +177,25 @@ export function buildPodcastReportData(
       rows: combined.audienceResults.map((row) => ({ rank: row.rank, title: row.song.title, artist: row.song.artist, points: row.audiencePoints })),
       zonk: publicTopZonks.length ? publicTopZonks.map((row) => `${songLabel(row.song)} (${row.count})`).join(' / ') : null,
     },
-    overallRows: combined.overallRows.map((row) => ({
-      rank: row.rank,
-      title: row.song.title,
-      artist: row.song.artist,
-      jurorPoints: combined.activeJurors.map((juror) => ({ jurorId: juror.id, points: juror.submitted_at ? (row.juryPointsByJuror[juror.id] || 0) : null })),
-      juryPoints: row.juryPoints,
-      juryAverage: row.juryAverage,
-      audiencePoints: row.audiencePoints,
-      total: row.total,
-      overallAverage: row.overallAverage,
-    })),
+    overallRows: combined.overallRows.map((row) => {
+      const comparison = comparisonBySongId.get(row.song.id);
+      return {
+        rank: row.rank,
+        title: row.song.title,
+        artist: row.song.artist,
+        jurorPoints: combined.activeJurors.map((juror) => ({ jurorId: juror.id, points: juror.submitted_at ? (row.juryPointsByJuror[juror.id] || 0) : null })),
+        juryRank: comparison?.juryRank ?? null,
+        audienceRank: comparison?.audienceRank ?? null,
+        juryPoints: row.juryPoints,
+        juryAverage: row.juryAverage,
+        audiencePoints: row.audiencePoints,
+        audienceRawPoints: comparison?.audienceRawPoints ?? 0,
+        audienceAverage: comparison?.audienceAverage ?? null,
+        audienceMentions: comparison?.audienceMentions ?? 0,
+        total: row.total,
+        overallAverage: row.overallAverage,
+      };
+    }),
     songRatingRows: stats.comparisonRows.map((row) => ({
       rank: row.overallRank,
       title: row.song.title,

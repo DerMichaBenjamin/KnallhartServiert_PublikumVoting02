@@ -1,71 +1,79 @@
-KNALLHART SERVIERT – SENDUNGSAUSDRUCK FÜR DEN PODCAST
+KNALLHART SERVIERT – SENDUNGSAUSDRUCK V2
+GENAU ZWEI DIN-A4-SEITEN FÜR DEN PODCAST
 
-NEU
-- Eigene Ergebnisse-Unterseite „Sendungsausdruck“:
-  /admin/release-voting/[roundId]/results/podcast
-- Der Report sammelt alles, was für die Podcast-Aufzeichnung relevant ist, in einer festen Reihenfolge.
-- Direkt auf der Ergebnisübersicht gibt es jetzt Buttons für:
-  * PDF / Drucken (öffnet automatisch die Sendungsausdruck-Druckansicht)
-  * kompletten Report als lange PNG-Datei herunterladen
-- Die bisherige URL /results?print=1 führt jetzt ebenfalls zum Sendungsausdruck.
+ZIEL
+Der Sendungsausdruck ist jetzt kein langer Web-Report mehr, sondern besteht beim
+Drucken/PDF aus exakt zwei DIN-A4-Seiten im Querformat.
 
-INHALT DES SENDUNGSAUSDRUCKS
-1. Schnellblick
-   - Gesamtsieger
-   - Jury-Sieger
-   - Publikumssieger
-   - Gesamt-ZONK
-   - größte Jury-/Publikumsabweichung
-   - Abstand Platz 1–2
-2. Gesamtwertung Jury + Publikum
-   - Punkte jedes einzelnen Jurors pro Song
-   - Jury gesamt
-   - Ø Jury
-   - Publikum 12–1
-   - Gesamtpunkte
-   - Ø Gesamt
-3. Einzelne Jury-Wertungen
-   - komplette Top 12 jedes Jurors
-   - jeweiliger Jury-ZONK direkt darunter
-   - Publikum als virtuelle 12–1-Stimme inklusive Publikums-ZONK
-4. Song-Bewertungen im Vergleich
-   - Gesamt-, Jury- und Publikumsplatz
-   - Ø Jury
-   - Ø Publikum
-   - Ø Gesamt
-   - Publikumsnennungen
-   - Jury/Publikum-Abweichung
-   - Polarisierung
-5. Publikumsergebnis
-   - Publikumspunkte
-   - Ø Publikum
-   - Nennungen / Anteil
-   - offizielle 12–1-Punkte
-6. ZONK-Auswertung
-   - Publikum
-   - Jury
-   - Gesamt
-7. Sendungsnotizen
+SEITE 1 – ERGEBNISMATRIX
+- Schnellüberblick: Gesamt, Jury, Publikum, ZONK
+- alle Songs in einer gemeinsamen Tabelle
+- Gesamtplatz
+- Juryplatz
+- Publikumsplatz
+- einzelne Punkte JEDES Jurymitglieds pro Song
+- Jury-Punktesumme
+- Ø Jury
+- Publikum als virtuelle 12–1-Stimme
+- Publikums-Rohpunkte aus allen gewerteten Einzelstimmen
+- Ø Publikum
+- Gesamtpunkte
+- Ø Gesamt
 
-DRUCK / PDF
-- Der Report ist für A4 Querformat optimiert.
-- Die Abschnitte beginnen bewusst auf neuen Druckseiten, damit Tabellen nicht unübersichtlich ineinanderlaufen.
-- „PDF / Drucken“ öffnet die Browser-Druckansicht; dort „Als PDF speichern“ wählen.
+SEITE 2 – EINZELSTIMMEN + PUBLIKUM
+- Top 12 jedes einzelnen Jurymitglieds nebeneinander
+- Publikum als eigene virtuelle 12–1-Stimme direkt daneben
+- pro Platz ist die Punktzahl sofort erkennbar
+- ZONK jedes Jurors
+- Publikums-ZONK
+- Publikum kompakt:
+  * Rohpunkte
+  * Ø Publikum
+  * Anzahl "Gewählt"
+  * Anteil
+  * 12–1-Punkte
+- Gesprächsanker: Gesamtsieger, Jury-Sieger, Publikumssieger,
+  größte Jury-/Publikumsabweichung
+- kompakte Gesamt-ZONK-Liste
+
+DURCHSCHNITTSLOGIK
+- Ø Jury = Jury-Punktesumme / tatsächlich abgegebene Jurystimmen.
+  Nicht platzierte Songs zählen bei einer abgegebenen Jury-Stimme mit 0.
+- Ø Publikum = Summe aller Punkte aus den gewerteten einzelnen Publikumsvotings
+  / Anzahl der gewerteten Publikumsvotings. Nicht gewählt = 0.
+- Ø Gesamt = Gesamtpunkte / tatsächlich gewertete Quellen
+  (abgegebene Juroren + Publikum genau einmal).
+
+PDF / DRUCK
+- Button heißt jetzt "2-Seiten-PDF / Drucken".
+- Der Druckdialog erzeugt exakt zwei A4-Querformatseiten.
+- Im Browser kann dort "Als PDF speichern" gewählt werden.
 
 PNG
-- „Kompletten Report als PNG“ erstellt eine lange, zusammenhängende PNG-Datei mit denselben Kerninformationen.
-- Keine zusätzliche Bibliothek und keine package.json-Änderung nötig.
+- "2-Seiten-Report als PNG" erzeugt eine Datei mit beiden A4-Seiten
+  untereinander in einem einzigen PNG.
+
+AUTOMATISCHE DICHTE
+Bei Wochen mit besonders vielen Songs wird die Ergebnismatrix automatisch
+kompakter gesetzt, damit sie innerhalb der ersten A4-Seite bleibt.
+
+DATENBANK
+Keine neue Supabase-Migration nötig.
 
 INSTALLATION
 1. ZIP entpacken.
-2. Alle enthaltenen Dateien im GitHub-Repository am identischen Pfad ersetzen bzw. neu anlegen.
+2. Alle enthaltenen Dateien in GitHub am identischen Pfad ersetzen/hochladen.
 3. Commit speichern.
 4. Vercel neu deployen.
+5. Danach eine Umfrage -> Ergebnisse -> Sendungsausdruck öffnen.
 
-DATENBANK
-- Keine neue Supabase-Migration erforderlich.
-- Voraussetzung: Die bisherigen Jury-/ZONK-Updates sind bereits installiert.
+Geänderte Dateien:
+- lib/podcastReport.ts
+- components/admin/PodcastReport.tsx
+- components/admin/PodcastReportActions.tsx
+- app/admin/release-voting/[roundId]/results/results.module.css
+- app/admin/release-voting/[roundId]/results/page.tsx
+- app/admin/release-voting/[roundId]/results/podcast/page.tsx
 
-PRÜFUNG
-- Alle neu/geänderten TypeScript-/TSX-Dateien wurden syntaktisch mit TypeScript transpiliert.
-- Ein kompletter Next.js-Build war in der lokalen Umgebung nicht möglich, weil die npm-/Next-Abhängigkeiten dort nicht installiert sind.
+Prüfung:
+Die geänderten TypeScript-/TSX-Dateien wurden syntaktisch mit TypeScript geprüft.

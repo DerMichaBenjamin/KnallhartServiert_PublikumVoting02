@@ -46,7 +46,7 @@
   }
 }
 
-/* Podcast / Sendungsausdruck */
+/* Podcast / Sendungsausdruck – exakt zwei A4-Seiten */
 .podcastHubCard {
   border-color: #b9abf0 !important;
   background: linear-gradient(135deg, #f5f2ff, #fff) !important;
@@ -56,240 +56,289 @@
 
 @page podcastLandscape {
   size: A4 landscape;
-  margin: 7mm;
+  margin: 6mm;
 }
 
 .podcastReport {
   display: grid;
-  gap: 22px;
+  gap: 26px;
+  max-width: 1320px;
+  margin: 0 auto;
 }
 
-.podcastSection {
-  padding: 24px;
-  border: 1px solid #dde4ee;
+.podcastPaper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 22px;
+  overflow: hidden;
+  border: 1px solid #dce4ee;
   border-radius: 14px;
   background: #fff;
-  box-shadow: 0 7px 22px rgba(21,41,67,.045);
+  box-shadow: 0 8px 26px rgba(21,41,67,.07);
 }
 
-.podcastTitleBlock {
+.podcastPaperHeader {
   display: grid;
   grid-template-columns: minmax(0,1fr) auto;
-  gap: 28px;
-  align-items: start;
-  margin-bottom: 20px;
-  padding: 24px;
-  border-radius: 13px;
+  gap: 18px;
+  align-items: center;
+  padding: 15px 18px;
+  border-radius: 11px;
   background: linear-gradient(125deg, #071a2d 0%, #102942 70%, #1b2550 100%);
   color: #fff;
 }
+.podcastPaperHeader span { color: #c8d5e2; font-size: 10px; font-weight: 900; letter-spacing: .1em; }
+.podcastPaperHeader h2 { margin: 3px 0 2px; color: #fff; font-size: 25px; line-height: 1.05; }
+.podcastPaperHeader p { margin: 0; color: #c8d5e2; font-size: 12px; font-weight: 750; }
+.podcastPaperHeaderSmall h2 { font-size: 22px; }
 
-.podcastTitleBlock > div:first-child > span {
-  color: #c8d5e2;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: .1em;
-}
-
-.podcastTitleBlock h2 {
-  margin: 5px 0 4px;
-  color: #fff;
-  font-size: 34px;
-}
-
-.podcastTitleBlock p {
-  margin: 0;
-  color: #c8d5e2;
-  font-weight: 700;
-}
-
-.podcastMeta {
+.podcastHeaderMeta {
   display: grid;
   grid-template-columns: auto auto;
-  gap: 3px 10px;
-  min-width: 220px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 10px;
-  background: rgba(255,255,255,.07);
+  gap: 1px 8px;
+  min-width: 190px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 8px;
+  background: rgba(255,255,255,.06);
 }
+.podcastHeaderMeta b { text-align: right; font-size: 17px; }
+.podcastHeaderMeta small { align-self: center; color: #c8d5e2; font-size: 9px; font-weight: 800; }
+.podcastHeaderCallout { max-width: 330px; text-align: right; }
+.podcastHeaderCallout b, .podcastHeaderCallout small { display: block; }
+.podcastHeaderCallout b { font-size: 14px; }
+.podcastHeaderCallout small { margin-top: 2px; color: #c8d5e2; font-size: 10px; line-height: 1.25; }
 
-.podcastMeta strong { font-size: 22px; text-align: right; }
-.podcastMeta span { align-self: center; color: #c8d5e2; font-size: 12px; font-weight: 750; }
-
-.podcastQuickGrid {
+.podcastSummaryGrid {
   display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
-  gap: 12px;
-}
-
-.podcastQuickGrid article {
-  display: grid;
-  gap: 6px;
-  min-height: 118px;
-  padding: 15px 16px;
-  border: 1px solid #dde4ee;
-  border-left: 4px solid #6d4ee8;
-  border-radius: 10px;
-  background: #fff;
-}
-
-.podcastQuickGrid small {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-
-.podcastQuickGrid strong { font-size: 16px; line-height: 1.25; }
-.podcastQuickGrid span { color: #64748b; font-size: 12px; line-height: 1.35; }
-
-.podcastSectionHeading {
-  display: grid;
-  grid-template-columns: 42px minmax(0,1fr);
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 18px;
-}
-
-.podcastSectionHeading > span {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 9px;
-  background: #eee9ff;
-  color: #5638cf;
-  font-size: 13px;
-  font-weight: 950;
-}
-
-.podcastSectionHeading h2 { margin: 0; font-size: 24px; }
-.podcastSectionHeading p { margin: 5px 0 0; color: #64748b; font-size: 13px; line-height: 1.45; }
-
-.podcastDenseTable td:nth-child(2) strong,
-.podcastDenseTable td:nth-child(2) small {
-  display: block;
-}
-
-.podcastDenseTable td:nth-child(2) small {
-  margin-top: 2px;
-  color: #64748b;
-  font-size: 11px;
-}
-
-.podcastJuryGrid {
-  display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 14px;
-}
-
-.podcastJuryCard {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-width: 0;
-  border: 1px solid #dde4ee;
-  border-radius: 11px;
-  background: #fff;
-  overflow: hidden;
-}
-
-.podcastJuryCard > header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid #e8edf3;
-  background: #f7f8fb;
-}
-
-.podcastJuryCard > header strong { font-size: 15px; }
-.podcastJuryCard > header span { color: #64748b; font-size: 11px; font-weight: 800; }
-.podcastJuryCard ol { margin: 0; padding: 8px 12px; list-style: none; }
-
-.podcastJuryCard li {
-  display: grid;
-  grid-template-columns: 34px minmax(0,1fr) 52px;
+  grid-template-columns: repeat(4,minmax(0,1fr));
   gap: 8px;
+}
+.podcastSummaryGrid article {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #dce4ee;
+  border-top: 3px solid #6d4ee8;
+  border-radius: 8px;
+  background: #fff;
+}
+.podcastSummaryGrid article small { color: #64748b; font-size: 9px; font-weight: 950; letter-spacing: .05em; }
+.podcastSummaryGrid article strong { overflow: hidden; color: #132238; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.podcastSummaryGrid article span { overflow: hidden; color: #64748b; font-size: 9px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.podcastSummaryJury { border-top-color: #6d4ee8 !important; }
+.podcastSummaryAudience { border-top-color: #168657 !important; }
+.podcastSummaryOverall { border-top-color: #e97919 !important; }
+.podcastSummaryZonk { border-top-color: #d84747 !important; }
+
+.podcastBlockHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+}
+.podcastBlockHeading > div { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 8px; align-items: center; }
+.podcastBlockHeading > div > b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: #eee9ff; color: #5638cf; font-size: 10px; }
+.podcastBlockHeading strong, .podcastBlockHeading small { display: block; }
+.podcastBlockHeading strong { font-size: 15px; }
+.podcastBlockHeading small { margin-top: 1px; color: #64748b; font-size: 9px; }
+.podcastBlockHeading > p { max-width: 48%; margin: 0; color: #64748b; font-size: 8px; line-height: 1.3; text-align: right; }
+
+.podcastMatrixWrap, .podcastVotesWrap { min-height: 0; overflow: auto; }
+.podcastMasterTable, .podcastVotesTable, .podcastAudienceTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: #132238;
+}
+.podcastMasterTable th, .podcastMasterTable td,
+.podcastVotesTable th, .podcastVotesTable td,
+.podcastAudienceTable th, .podcastAudienceTable td {
+  border-bottom: 1px solid #e5eaf0;
+  vertical-align: middle;
+}
+.podcastMasterTable thead th, .podcastVotesTable thead th, .podcastAudienceTable thead th {
+  background: #f0f3f7;
+  color: #526175;
+  font-weight: 900;
+  text-align: center;
+}
+.podcastMasterTable thead tr:first-child th { background: #e8ecf3; color: #31445b; }
+.podcastMasterTable tbody tr:nth-child(even), .podcastVotesTable tbody tr:nth-child(even), .podcastAudienceTable tbody tr:nth-child(even) { background: #fafbfc; }
+.podcastMasterTable th, .podcastMasterTable td { padding: 5px 4px; font-size: 9px; text-align: center; }
+.podcastMasterTable th:nth-child(4), .podcastMasterTable td:nth-child(4) { width: 25%; text-align: left; }
+.podcastMasterTable th:nth-child(1), .podcastMasterTable th:nth-child(2), .podcastMasterTable th:nth-child(3),
+.podcastMasterTable td:nth-child(1), .podcastMasterTable td:nth-child(2), .podcastMasterTable td:nth-child(3) { width: 3.7%; }
+.podcastSongCell { min-width: 0; text-align: left !important; }
+.podcastSongCell strong, .podcastSongCell small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podcastSongCell strong { font-size: inherit; }
+.podcastSongCell small { margin-top: 1px; color: #64748b; font-size: .88em; }
+
+.podcastDense .podcastMasterTable th, .podcastDense .podcastMasterTable td { padding-top: 4px; padding-bottom: 4px; font-size: 8.3px; }
+.podcastVeryDense .podcastMasterTable th, .podcastVeryDense .podcastMasterTable td { padding-top: 3px; padding-bottom: 3px; font-size: 7.7px; }
+.podcastUltraDense .podcastMasterTable th, .podcastUltraDense .podcastMasterTable td { padding-top: 2px; padding-bottom: 2px; font-size: 7px; }
+
+.podcastPaperFooter {
+  display: flex;
   align-items: center;
-  min-height: 38px;
-  border-bottom: 1px solid #edf0f4;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 5px;
+  border-top: 1px solid #e1e7ee;
+  color: #64748b;
+  font-size: 8px;
+  line-height: 1.2;
 }
 
-.podcastJuryCard li:last-child { border-bottom: 0; }
-.podcastJuryCard li > b { color: #6d4ee8; font-size: 11px; }
-.podcastJuryCard li > span { min-width: 0; }
-.podcastJuryCard li strong, .podcastJuryCard li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.podcastJuryCard li strong { font-size: 12px; }
-.podcastJuryCard li small { margin-top: 1px; color: #64748b; font-size: 10px; }
-.podcastJuryCard li em { font-style: normal; font-size: 11px; font-weight: 900; text-align: right; }
+.podcastVotesTable th, .podcastVotesTable td { padding: 4px 5px; font-size: 8.6px; }
+.podcastVotesTable th:first-child, .podcastVotesTable td:first-child { width: 5.5%; text-align: center; }
+.podcastVotesTable td:first-child small { display: block; color: #64748b; font-size: 7px; }
+.podcastVoteCell { min-width: 0; }
+.podcastVoteCell strong, .podcastVoteCell small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podcastVoteCell strong { font-size: 8.4px; }
+.podcastVoteCell small { margin-top: 1px; color: #64748b; font-size: 7px; }
+.podcastVoteAudience { background: #f6f3ff; }
+.podcastZonkRow td { background: #fff7ed !important; color: #8c4a10; font-size: 7.5px; font-weight: 750; }
 
-.podcastJuryCard > footer {
-  padding: 10px 14px;
-  border-top: 1px solid #f2d4b0;
-  background: #fff7ed;
-  color: #8c4a10;
-  font-size: 11px;
-  line-height: 1.35;
+.podcastPage2Bottom {
+  display: grid;
+  grid-template-columns: minmax(0,1.75fr) minmax(230px,.75fr);
+  gap: 10px;
+  min-height: 0;
+  flex: 1 1 auto;
 }
-
-.podcastAudienceCard { border-color: #b9abf0; }
-.podcastAudienceCard > header { background: #f5f2ff; }
-.podcastEmpty { padding: 16px; color: #64748b; }
-
-.podcastNotes > div {
-  height: 34px;
-  border-bottom: 1px solid #cfd8e3;
+.podcastAudiencePanel, .podcastTalkPanel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dce4ee;
+  border-radius: 8px;
+  background: #fff;
 }
+.podcastMiniHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 7px 9px; background: #f5f7fa; }
+.podcastMiniHeading strong { font-size: 11px; }
+.podcastMiniHeading span { color: #64748b; font-size: 7.5px; text-align: right; }
+.podcastAudienceTable th, .podcastAudienceTable td { padding: 3px 4px; font-size: 7.5px; text-align: center; }
+.podcastAudienceTable th:nth-child(2), .podcastAudienceTable td:nth-child(2) { width: 40%; text-align: left; }
 
-@media (max-width: 1050px) {
-  .podcastQuickGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .podcastJuryGrid { grid-template-columns: 1fr; }
-  .podcastTitleBlock { grid-template-columns: 1fr; }
+.podcastTalkPanel { padding-bottom: 6px; }
+.podcastTalkPanel dl { display: grid; gap: 0; margin: 0; padding: 0 8px; }
+.podcastTalkPanel dl > div { display: grid; grid-template-columns: 72px minmax(0,1fr); gap: 5px; padding: 5px 0; border-bottom: 1px solid #e9edf2; }
+.podcastTalkPanel dt { color: #64748b; font-size: 7.5px; font-weight: 900; }
+.podcastTalkPanel dd { min-width: 0; margin: 0; font-size: 8px; font-weight: 800; }
+.podcastTalkPanel dd small { display: block; overflow: hidden; margin-top: 1px; color: #64748b; font-size: 6.8px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.podcastZonkCompact { padding: 7px 8px 0; }
+.podcastZonkCompact > strong { display: block; margin-bottom: 4px; color: #b04a3f; font-size: 9px; }
+.podcastZonkCompact > div { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; gap: 4px; align-items: center; min-height: 24px; border-top: 1px solid #f0e0dd; }
+.podcastZonkCompact > div > b { color: #d84747; font-size: 7px; }
+.podcastZonkCompact > div > span { min-width: 0; overflow: hidden; font-size: 7.5px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.podcastZonkCompact > div > span small { display: none; }
+.podcastZonkCompact > div > em { font-style: normal; color: #64748b; font-size: 6.8px; white-space: nowrap; }
+.podcastZonkCompact p { margin: 5px 0; color: #64748b; font-size: 8px; }
+
+@media (max-width: 1100px) {
+  .podcastSummaryGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .podcastPage2Bottom { grid-template-columns: 1fr; }
+  .podcastPaperFooter { flex-wrap: wrap; }
 }
 
 @media (max-width: 720px) {
-  .podcastQuickGrid { grid-template-columns: 1fr; }
+  .podcastSummaryGrid { grid-template-columns: 1fr; }
+  .podcastPaperHeader { grid-template-columns: 1fr; }
+  .podcastHeaderCallout { max-width: none; text-align: left; }
 }
 
 @media print {
-  .podcastPrintPage :global(.ks-page-header) { display: none !important; }
-  .podcastPrintPage { width: 100%; max-width: none; }
-  .podcastReport { gap: 0; }
-  .podcastSection {
+  .podcastPrintPage :global(.ks-page-header),
+  .podcastPrintPage :global(.ks-round-view-nav),
+  .podcastPrintPage :global(.ks-report-actions),
+  .podcastPrintPage :global(.no-print) { display: none !important; }
+
+  .podcastPrintPage,
+  .podcastReport { width: 100% !important; max-width: none !important; margin: 0 !important; }
+  .podcastReport { display: block; }
+
+  .podcastPaper {
+    width: 285mm;
+    height: 198mm;
+    min-height: 198mm;
+    max-height: 198mm;
     margin: 0;
-    padding: 4mm 3mm;
+    padding: 0;
+    gap: 2.1mm;
+    overflow: hidden;
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    background: #fff;
+    break-after: page;
+    page-break-after: always;
   }
-  .podcastNoBreak { break-inside: avoid; }
-  .podcastPageBreak { break-before: page; }
-  .podcastTitleBlock { margin-bottom: 3mm; padding: 4mm 5mm; }
-  .podcastTitleBlock h2 { font-size: 22pt; }
-  .podcastQuickGrid { grid-template-columns: repeat(3,1fr); gap: 2mm; }
-  .podcastQuickGrid article { min-height: 24mm; padding: 2.5mm 3mm; break-inside: avoid; }
-  .podcastQuickGrid strong { font-size: 8.3pt; }
-  .podcastQuickGrid span { font-size: 6.8pt; }
-  .podcastSectionHeading { margin-bottom: 2.5mm; grid-template-columns: 9mm minmax(0,1fr); gap: 2mm; }
-  .podcastSectionHeading > span { width: 8mm; height: 8mm; }
-  .podcastSectionHeading h2 { font-size: 14pt; }
-  .podcastSectionHeading p { font-size: 7pt; }
-  .podcastPrintPage :global(.ks-table-scroll) { overflow: visible !important; }
-  .podcastPrintPage :global(.ks-table) { min-width: 0 !important; width: 100% !important; table-layout: auto; font-size: 6.4pt !important; }
-  .podcastPrintPage :global(.ks-table th),
-  .podcastPrintPage :global(.ks-table td) { padding: 1.25mm 1mm !important; line-height: 1.2; }
-  .podcastDenseTable td:nth-child(2) small { font-size: 5.7pt; }
-  .podcastJuryGrid { grid-template-columns: repeat(2,1fr); gap: 2.5mm; }
-  .podcastJuryCard { break-inside: avoid; }
-  .podcastJuryCard > header { padding: 2mm 2.5mm; }
-  .podcastJuryCard li { min-height: 6.2mm; grid-template-columns: 7mm minmax(0,1fr) 10mm; gap: 1mm; }
-  .podcastJuryCard li strong { font-size: 6.5pt; }
-  .podcastJuryCard li small { font-size: 5.5pt; }
-  .podcastJuryCard li em, .podcastJuryCard li > b { font-size: 6pt; }
-  .podcastJuryCard > footer { padding: 1.8mm 2.5mm; font-size: 6pt; }
-  .podcastNotes { break-before: page; }
-  .podcastNotes > div { height: 10mm; }
+  .podcastPaper:last-child { break-after: auto; page-break-after: auto; }
+
+  .podcastPaperHeader { min-height: 13mm; padding: 2.2mm 3mm; border-radius: 2mm; }
+  .podcastPaperHeader span { font-size: 5.5pt; }
+  .podcastPaperHeader h2 { margin: .5mm 0; font-size: 13pt; }
+  .podcastPaperHeader p { font-size: 6pt; }
+  .podcastPaperHeaderSmall { min-height: 11mm; }
+  .podcastPaperHeaderSmall h2 { font-size: 12pt; }
+  .podcastHeaderMeta { min-width: 43mm; padding: 1.2mm 2mm; }
+  .podcastHeaderMeta b { font-size: 9pt; }
+  .podcastHeaderMeta small { font-size: 5.2pt; }
+  .podcastHeaderCallout { max-width: 68mm; }
+  .podcastHeaderCallout b { font-size: 7pt; }
+  .podcastHeaderCallout small { font-size: 5.4pt; }
+
+  .podcastSummaryGrid { grid-template-columns: repeat(4,1fr); gap: 1.5mm; }
+  .podcastSummaryGrid article { padding: 1.3mm 1.7mm; border-top-width: .7mm; border-radius: 1.5mm; }
+  .podcastSummaryGrid article small { font-size: 4.8pt; }
+  .podcastSummaryGrid article strong { font-size: 6.5pt; }
+  .podcastSummaryGrid article span { font-size: 5pt; }
+
+  .podcastBlockHeading { min-height: 7mm; gap: 3mm; }
+  .podcastBlockHeading > div { grid-template-columns: 6mm minmax(0,1fr); gap: 1.5mm; }
+  .podcastBlockHeading > div > b { width: 5.5mm; height: 5.5mm; font-size: 5.5pt; }
+  .podcastBlockHeading strong { font-size: 8pt; }
+  .podcastBlockHeading small { font-size: 5pt; }
+  .podcastBlockHeading > p { font-size: 4.7pt; }
+
+  .podcastMatrixWrap, .podcastVotesWrap { overflow: visible !important; }
+  .podcastMasterTable { font-size: 5.6pt; }
+  .podcastMasterTable th, .podcastMasterTable td { padding: .72mm .48mm; font-size: 5.6pt; line-height: 1.05; }
+  .podcastMasterTable th:nth-child(4), .podcastMasterTable td:nth-child(4) { width: 25%; }
+  .podcastSongCell small { font-size: 4.6pt; }
+  .podcastDense .podcastMasterTable th, .podcastDense .podcastMasterTable td { padding-top: .56mm; padding-bottom: .56mm; font-size: 5.2pt; }
+  .podcastVeryDense .podcastMasterTable th, .podcastVeryDense .podcastMasterTable td { padding-top: .38mm; padding-bottom: .38mm; font-size: 4.8pt; }
+  .podcastUltraDense .podcastMasterTable th, .podcastUltraDense .podcastMasterTable td { padding-top: .23mm; padding-bottom: .23mm; font-size: 4.35pt; }
+  .podcastUltraDense .podcastSongCell small { display: none; }
+
+  .podcastPaperFooter { gap: 2mm; padding-top: 1mm; font-size: 4.6pt; }
+
+  .podcastVotesTable th, .podcastVotesTable td { padding: .55mm .7mm; font-size: 5.3pt; line-height: 1.05; }
+  .podcastVotesTable td:first-child small { font-size: 4.3pt; }
+  .podcastVoteCell strong { font-size: 5.1pt; }
+  .podcastVoteCell small { font-size: 4.25pt; }
+  .podcastZonkRow td { padding-top: .7mm; padding-bottom: .7mm; font-size: 4.5pt; }
+
+  .podcastPage2Bottom { grid-template-columns: 1.75fr .75fr; gap: 2mm; min-height: 0; }
+  .podcastAudiencePanel, .podcastTalkPanel { border-radius: 1.5mm; }
+  .podcastMiniHeading { padding: 1.1mm 1.5mm; }
+  .podcastMiniHeading strong { font-size: 6pt; }
+  .podcastMiniHeading span { font-size: 4.3pt; }
+  .podcastAudienceTable th, .podcastAudienceTable td { padding: .42mm .55mm; font-size: 4.7pt; line-height: 1.05; }
+  .podcastAudienceTable .podcastSongCell small { font-size: 4pt; }
+  .podcastTalkPanel dl { padding: 0 1.3mm; }
+  .podcastTalkPanel dl > div { grid-template-columns: 16mm minmax(0,1fr); gap: .8mm; padding: .9mm 0; }
+  .podcastTalkPanel dt { font-size: 4.2pt; }
+  .podcastTalkPanel dd { font-size: 4.6pt; }
+  .podcastTalkPanel dd small { font-size: 3.9pt; }
+  .podcastZonkCompact { padding: 1.1mm 1.3mm 0; }
+  .podcastZonkCompact > strong { margin-bottom: .5mm; font-size: 5pt; }
+  .podcastZonkCompact > div { grid-template-columns: 5mm minmax(0,1fr) auto; gap: .6mm; min-height: 4.5mm; }
+  .podcastZonkCompact > div > b { font-size: 4.1pt; }
+  .podcastZonkCompact > div > span { font-size: 4.2pt; }
+  .podcastZonkCompact > div > em { font-size: 3.8pt; }
 }

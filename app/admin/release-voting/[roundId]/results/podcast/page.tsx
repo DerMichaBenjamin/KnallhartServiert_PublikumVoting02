@@ -30,7 +30,7 @@ export default async function PodcastResultsPage({ params, searchParams }: { par
     <PageHeader
       eyebrow={<a href={`/admin/release-voting/${detail.round.id}/results`}>← Ergebnisübersicht</a>}
       title={`Sendungsausdruck – ${detail.round.title}`}
-      description={`${formatRoundPeriod(detail.round)} · Alles Wichtige für die Podcast-Aufzeichnung in einem Report.`}
+      description={`${formatRoundPeriod(detail.round)} · Alles Wichtige für die Podcast-Aufzeichnung auf genau zwei DIN-A4-Seiten.`}
       actions={<PodcastReportActions data={report} autoPrint={query.print === '1'} />}
     />
     <RoundViewNav roundId={detail.round.id} active="results" />

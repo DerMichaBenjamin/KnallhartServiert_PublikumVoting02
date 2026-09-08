@@ -44,7 +44,7 @@ export default async function AdminResultsHubPage({ params, searchParams }: { pa
       <a className="ks-quick-action" href={`/admin/release-voting/${data.round.id}/results/jury`}><strong>Juryergebnisse</strong><span>Einzelwertungen aller Jurymitglieder, Publikum als Vergleich, Ø Jury und Jury-ZONK.</span><b>→</b></a>
       <a className="ks-quick-action" href={`/admin/release-voting/${data.round.id}/results/public`}><strong>Publikumsstimmen</strong><span>Publikumsranking, Ø Publikum, Anzahl der Nennungen und Publikums-ZONK.</span><b>→</b></a>
       <a className="ks-quick-action accent" href={`/admin/release-voting/${data.round.id}/results/overall`}><strong>Gesamtwertung</strong><span>Jury + Publikum mit Einzelpunkten der Juroren, Ø Jury, Ø Gesamt und Gesamt-ZONK.</span><b>→</b></a>
-      <a className={`ks-quick-action ${styles.podcastHubCard}`} href={`/admin/release-voting/${data.round.id}/results/podcast`}><strong>Sendungsausdruck</strong><span>Alles für den Podcast in einem Report: Schnellblick, Gesamtwertung, Jury, Song-Durchschnitte, Publikum und ZONK. Als PDF drucken oder als PNG laden.</span><b>→</b></a>
+      <a className={`ks-quick-action ${styles.podcastHubCard}`} href={`/admin/release-voting/${data.round.id}/results/podcast`}><strong>Sendungsausdruck</strong><span>Zwei feste DIN-A4-Seiten für die Sendung: Gesamtmatrix mit allen Einzelpunkten und Durchschnitten sowie Jury-/Publikum-Einzelstimmen, Publikum und ZONK. Als PDF drucken oder als PNG laden.</span><b>→</b></a>
     </section>
   </main>;
 }
