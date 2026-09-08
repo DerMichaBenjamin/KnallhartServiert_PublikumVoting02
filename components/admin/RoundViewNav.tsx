@@ -4,7 +4,7 @@ const ITEMS: Array<{ key: RoundView; label: string; path: string }> = [
   { key: 'overview', label: 'Übersicht / Umfrage', path: '' },
   { key: 'results', label: 'Ergebnisse', path: '/results' },
   { key: 'statistics', label: 'Statistiken', path: '/statistics' },
-  { key: 'report', label: 'Gesamtauswertung', path: '/report' },
+  { key: 'report', label: 'Bericht / Export', path: '/report' },
 ];
 
 export default function RoundViewNav({ roundId, active }: { roundId: string; active: RoundView }) {

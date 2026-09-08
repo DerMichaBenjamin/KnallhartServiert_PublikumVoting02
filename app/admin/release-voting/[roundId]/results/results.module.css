@@ -1,0 +1,47 @@
+.hubGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.printLandscape { page: resultsLandscape; }
+
+@page resultsLandscape {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media (max-width: 900px) {
+  .hubGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .printLandscape {
+    width: 100%;
+    max-width: none;
+  }
+
+  .printLandscape :global(.ks-table-scroll) {
+    overflow: visible !important;
+  }
+
+  .printLandscape :global(.ks-table) {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 7.2pt;
+  }
+
+  .printLandscape :global(.ks-table th),
+  .printLandscape :global(.ks-table td) {
+    padding: 5px 6px !important;
+  }
+
+  .printLandscape :global(.ks-card) {
+    box-shadow: none !important;
+    break-inside: auto;
+  }
+
+  .printLandscape :global(.ks-jury-ranking-card) {
+    break-inside: avoid;
+  }
+}
