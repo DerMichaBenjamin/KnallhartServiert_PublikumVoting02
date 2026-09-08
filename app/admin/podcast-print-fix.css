@@ -1,0 +1,319 @@
+/*
+ * Sendungsausdruck V7
+ * Robuster 2-Seiten-Druck auch wenn Firefox/Chrome eigene Kopf- und Fußzeilen
+ * (URL, Datum, Seitenzahl) aktiviert haben.
+ *
+ * Diese Regeln sind absichtlich über .podcast-print-root gekapselt, damit keine
+ * andere Admin-Seite verändert wird.
+ */
+
+@page podcastLandscape {
+  size: A4 landscape;
+  margin: 5mm;
+}
+
+@media print {
+  /*
+   * Browser-Kopf/-Fußzeilen verkleinern die tatsächlich nutzbare Höhe.
+   * 190 mm funktionieren auch dann zuverlässig, während 198 mm in Firefox
+   * sichtbar unter den Browser-Footer liefen.
+   */
+  .podcast-print-root,
+  .podcast-print-root > div,
+  .podcast-print-root section[aria-label^="Sendungsausdruck"] {
+    box-sizing: border-box !important;
+  }
+
+  .podcast-print-root section[aria-label^="Sendungsausdruck"] {
+    width: 287mm !important;
+    min-width: 287mm !important;
+    max-width: 287mm !important;
+    height: 190mm !important;
+    min-height: 190mm !important;
+    max-height: 190mm !important;
+    overflow: hidden !important;
+  }
+
+  /* Der interne Erklär-Footer kostet Höhe und wird im Sendungsausdruck nicht benötigt. */
+  .podcast-print-root section[aria-label^="Sendungsausdruck"] > footer {
+    display: none !important;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* SEITE 1 – alle Songs                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  /* Die Matrix ist der dritte direkte DIV-Block nach Header, Summary, Heading. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] > div:nth-of-type(3) {
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] table {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  /* Zwei Kopfzeilen kompakt, aber lesbar. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] thead th {
+    height: 4.2mm !important;
+    min-height: 4.2mm !important;
+    padding: .18mm .35mm !important;
+    font-size: 6.4pt !important;
+    line-height: 1 !important;
+  }
+
+  /*
+   * 43 Zeilen x 2,95 mm = 126,85 mm.
+   * So bleibt oberhalb des Browser-Footers garantiert Luft. Die Schrift bleibt
+   * trotzdem bei gut lesbaren 7,45 pt.
+   */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody tr,
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody td {
+    height: 2.95mm !important;
+    min-height: 2.95mm !important;
+    max-height: 2.95mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody td {
+    padding: 0 .34mm !important;
+    font-size: 7.45pt !important;
+    line-height: .98 !important;
+    vertical-align: middle !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody td:nth-child(4),
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody td:nth-child(4) strong,
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody td:nth-child(4) span {
+    font-size: 7.45pt !important;
+    line-height: .98 !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody td:nth-child(4) {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] tbody td:nth-child(4) span {
+    color: #25364a !important;
+    font-weight: 800 !important;
+  }
+
+  /* Kopfbereich auf Seite 1 etwas flacher, damit die Daten Vorrang haben. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] > header {
+    min-height: 7.4mm !important;
+    padding-top: .75mm !important;
+    padding-bottom: .75mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] > div:nth-of-type(1) article {
+    min-height: 5.7mm !important;
+    padding-top: .45mm !important;
+    padding-bottom: .45mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 1"] > div:nth-of-type(2) {
+    min-height: 4.2mm !important;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* SEITE 2 – Top 12 + Künstler + ZONK                                     */
+  /* ---------------------------------------------------------------------- */
+
+  /* Header + Überschrift sparen nur Leerraum, nicht Leseschrift. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > header {
+    min-height: 7.4mm !important;
+    padding-top: .75mm !important;
+    padding-bottom: .75mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(1) {
+    min-height: 4.2mm !important;
+  }
+
+  /*
+   * Der Top-12-Block darf NIEMALS schrumpfen. Genau das war die Ursache dafür,
+   * dass Platz 12 und ZONK im sichtbaren PDF unter "Publikum kompakt" rutschten.
+   */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) {
+    display: block !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) table {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) thead th {
+    height: 5.0mm !important;
+    min-height: 5.0mm !important;
+    padding: .35mm .65mm !important;
+    font-size: 7.5pt !important;
+    line-height: 1 !important;
+  }
+
+  /* Exakt 12 Wertungszeilen, jeweils mit eigener Künstlerzeile. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody tr:not(:last-child),
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody tr:not(:last-child) > td {
+    height: 7.75mm !important;
+    min-height: 7.75mm !important;
+    max-height: 7.75mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody tr:not(:last-child) > td {
+    padding: .38mm .75mm !important;
+    vertical-align: middle !important;
+    font-size: 7.2pt !important;
+    line-height: 1 !important;
+    overflow: hidden !important;
+  }
+
+  /* Platz/Punkte links kompakt halten. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody td:first-child {
+    width: 4.8% !important;
+    padding-left: .3mm !important;
+    padding-right: .3mm !important;
+    text-align: center !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody td:first-child b {
+    font-size: 7.5pt !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody td:first-child small {
+    display: block !important;
+    margin-top: .1mm !important;
+    font-size: 5.8pt !important;
+    line-height: 1 !important;
+  }
+
+  /* Songtitel: eine klare Zeile. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody td:not(:first-child) strong {
+    display: block !important;
+    overflow: hidden !important;
+    color: #111827 !important;
+    font-size: 7.8pt !important;
+    font-weight: 900 !important;
+    line-height: 1.02 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /*
+   * Künstler: nicht mehr mit Ellipsis in einer Mini-Zeile. Er darf auf zwei
+   * Zeilen umbrechen. Damit sind auch längere Namen wie
+   * "Tommy Zwicker, FABBEL, BIERDRIAN" im Ausdruck lesbar.
+   */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody td:not(:first-child) small {
+    display: -webkit-box !important;
+    margin-top: .18mm !important;
+    overflow: hidden !important;
+    color: #26364a !important;
+    font-size: 6.9pt !important;
+    font-weight: 800 !important;
+    line-height: 1.02 !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  /* ZONK ist die 13. Zeile und bekommt einen eigenen, garantierten Bereich. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody tr:last-child,
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody tr:last-child > td {
+    height: 6.6mm !important;
+    min-height: 6.6mm !important;
+    max-height: 6.6mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(2) tbody tr:last-child > td {
+    padding: .4mm .65mm !important;
+    overflow: hidden !important;
+    background: #fff1df !important;
+    color: #8a3d08 !important;
+    font-size: 6.4pt !important;
+    font-weight: 850 !important;
+    line-height: 1.02 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* SEITE 2 UNTEN – Publikum kompakt + Gesprächsanker                      */
+  /* ---------------------------------------------------------------------- */
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    gap: 1.5mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) > section,
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) > aside {
+    overflow: hidden !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) table thead th {
+    height: 3.5mm !important;
+    padding: .2mm .4mm !important;
+    font-size: 5.7pt !important;
+    line-height: 1 !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) table tbody tr,
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) table tbody td {
+    height: 3.45mm !important;
+    min-height: 3.45mm !important;
+    max-height: 3.45mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) table tbody td {
+    padding: .14mm .4mm !important;
+    font-size: 5.9pt !important;
+    line-height: .98 !important;
+    vertical-align: middle !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) table tbody td:nth-child(2),
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) table tbody td:nth-child(2) strong,
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) table tbody td:nth-child(2) span {
+    font-size: 5.9pt !important;
+    line-height: .98 !important;
+  }
+
+  /* Mini-Überschriften unten kompakt halten. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) > section > div:first-child,
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) > aside > div:first-child {
+    min-height: 3.8mm !important;
+    padding: .35mm .75mm !important;
+  }
+
+  /* Gesprächsanker enger, ZONK-Gesamt bleibt sichtbar. */
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) aside dl > div {
+    padding-top: .4mm !important;
+    padding-bottom: .4mm !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) aside dl dt {
+    font-size: 5.2pt !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) aside dl dd {
+    font-size: 5.6pt !important;
+  }
+
+  .podcast-print-root section[aria-label="Sendungsausdruck Seite 2"] > div:nth-of-type(3) aside dl dd small {
+    font-size: 4.8pt !important;
+  }
+}

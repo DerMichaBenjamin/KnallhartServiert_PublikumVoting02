@@ -1,70 +1,51 @@
-KNALLHART SERVIERT – ACCESSIBILITY-UPDATE
-KÜNSTLERNAMEN DEUTLICH GRÖSSER UND LESBARER
+KNALLHART SERVIERT – SENDUNGSAUSDRUCK V7
+ROBUSTER FIX FÜR ABSCHNEIDEN + KÜNSTLERNAMEN
 
-ZIEL
-Songtitel und Künstler sollen sowohl auf der Website als auch im Ausdruck
-ohne gutes Nahsehen klar erkennbar sein. Künstlernamen werden nicht mehr
-wie Kleingedrucktes behandelt.
+Im aktuellen PDF waren zwei Probleme sichtbar:
 
-1. JURY-VOTING-SEITE
-Die Songliste wurde strukturiert:
-- Songtitel eigene Zeile: 18 px, sehr fett
-- Künstler eigene Zeile: 16 px, dunkel und fett
-- größere Zeilenhöhe und mehr Abstand
+SEITE 1
+- Die letzten Songs liefen unten in den Browser-Footer hinein.
+- Ursache: Die feste Reporthöhe war größer als die tatsächlich nutzbare Druckhöhe,
+  wenn Firefox/Chrome eigene Kopf-/Fußzeilen (URL, Datum, Seitenzahl) anzeigen.
 
-In "Deine Top 12":
-- Songtitel: 17 px
-- Künstler: 15,5 px
-- Punkte stehen separat rechts
-- keine zusammengequetschte "Song — Künstler"-Zeile mehr
+SEITE 2
+- Platz 12 und ZONK waren im PDF-Text vorhanden, wurden visuell aber vom unteren
+  Block "Publikum kompakt" überdeckt.
+- Lange Künstlernamen wurden in den Top-12-Zellen mit "…" abgeschnitten.
 
-2. ADMIN / JURY-AUSWERTUNG
-Bei den einzelnen Jury-Wertungskarten:
-- Karten etwas breiter
-- Songtitel ca. 14 px
-- Künstler ca. 12,5 px, dunkler und kräftiger
-- mehr Zeilenhöhe
+NEUE LÖSUNG
+- Der Report benutzt beim Drucken eine sichere Höhe von 190 mm.
+- Der interne Report-Footer wird ausgeblendet; die wichtigen Daten erhalten Vorrang.
+- Seite 1:
+  * alle Songzeilen bekommen eine feste, sichere Höhe
+  * alle Songs bleiben oberhalb des Browser-Footers
+  * Schrift bleibt ca. 7,45 pt
+- Seite 2:
+  * der Top-12-Bereich darf NICHT mehr schrumpfen
+  * Plätze 1–12 erhalten garantiert je eine eigene Zeile
+  * ZONK erhält danach eine eigene orange markierte 13. Zeile
+  * Künstlernamen sind dunkel und fett
+  * Künstlernamen dürfen auf bis zu zwei Zeilen umbrechen statt mit Ellipsis
+    abgeschnitten zu werden
+  * Songtitel bleiben klar in der ersten Zeile
+- Der untere Bereich "Publikum kompakt / Gesprächsanker" wird nur enger gepackt,
+  nicht über die Top-12-Wertung geschoben.
 
-Im Ausdruck der Jury-Auswertung:
-- Songtitel ca. 8,5 pt
-- Künstler ca. 7,7 pt
-- Künstler deutlich dunkler und fett
+DATEIEN
+- app/admin/layout.tsx
+- app/admin/podcast-print-fix.css (neu)
 
-3. SENDUNGSAUSDRUCK – WEBSITE
-Auf der Bildschirmansicht:
-- Hauptmatrix größer
-- Künstler dunkler und kräftiger
-- Einzelne Jury-Wertungen:
-  Songtitel ca. 13,5 px
-  Künstler ca. 12,5 px
-
-4. SENDUNGSAUSDRUCK – PDF / DRUCK
-Seite 1:
-- Künstler bleibt wegen 43+ Songs inline, ist aber exakt gleich groß wie der Songtitel
-- dunkler und fett
-
-Seite 2:
-- Jury-/Publikums-Einzelstimmen:
-  Songtitel ca. 8,2 pt
-  Künstler ca. 7,8 pt
-- Künstler ist dunkel (#26364a) und fett statt grau/klein
-- Zeilenhöhe leicht erhöht, damit beide Zeilen sauber Platz haben
-
-Auch die kompakte Publikumstabelle zeigt Künstler kräftiger.
+WARUM EINE NEUE CSS-DATEI?
+Der Fix ist jetzt bewusst komplett vom bisherigen großen Admin-/Ergebnis-CSS getrennt.
+Er greift nur innerhalb von ".podcast-print-root". Dadurch ist er leichter zu warten
+und kann andere Admin-Seiten nicht versehentlich verändern.
 
 INSTALLATION
 1. ZIP entpacken.
-2. Alle 4 Dateien in GitHub am identischen Pfad ersetzen.
-3. Commit speichern.
-4. Vercel neu deployen.
+2. app/admin/layout.tsx in GitHub ersetzen.
+3. app/admin/podcast-print-fix.css neu in GitHub anlegen.
+4. Commit speichern.
+5. Vercel neu deployen.
+6. Ergebnisse -> Sendungsausdruck -> PDF/Drucken testen.
 
-GEÄNDERTE DATEIEN
-- components/JuryVotingForm.tsx
-- app/globals.css
-- app/admin/admin.css
-- app/admin/release-voting/[roundId]/results/results.module.css
-
-PRÜFUNG
-- JuryVotingForm.tsx wurde mit TypeScript syntaktisch geprüft.
-- CSS-Klammerstruktur aller drei Stylesheets wurde geprüft.
-- Keine neue Supabase-Migration erforderlich.
+Keine Supabase-Änderung nötig.
