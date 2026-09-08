@@ -1,9 +1,10 @@
-type ResultsView = 'hub' | 'jury' | 'public' | 'overall';
+type ResultsView = 'hub' | 'jury' | 'public' | 'overall' | 'podcast';
 
 const ITEMS: Array<{ key: Exclude<ResultsView, 'hub'>; label: string; path: string }> = [
   { key: 'jury', label: 'Juryergebnisse', path: '/results/jury' },
   { key: 'public', label: 'Publikumsstimmen', path: '/results/public' },
   { key: 'overall', label: 'Gesamtwertung', path: '/results/overall' },
+  { key: 'podcast', label: 'Sendungsausdruck', path: '/results/podcast' },
 ];
 
 export default function ResultsSubNav({ roundId, active }: { roundId: string; active: ResultsView }) {
