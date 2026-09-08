@@ -56,7 +56,7 @@
 
 @page podcastLandscape {
   size: A4 landscape;
-  margin: 6mm;
+  margin: 5mm;
 }
 
 .podcastReport {
@@ -494,4 +494,155 @@
   .podcastZonkCompact > div { min-height: 4.1mm; }
   .podcastZonkCompact > div > span { font-size: 4.8pt; }
   .podcastZonkCompact > div > em { font-size: 4.2pt; }
+}
+
+
+/* Sendungsausdruck V4 – Firefox-Druckmaßstab fixieren + echte Leseschrift */
+@media print {
+  /*
+   * Firefox legt Webseiten beim Drucken zunächst mit der Bildschirmbreite aus.
+   * Wenn ein 100%-Container breiter als A4 ist, wird anschließend die KOMPLETTE
+   * Seite automatisch verkleinert. Genau dadurch landete der bisherige Ausdruck
+   * effektiv bei ca. 60–65 % und nutzte nur den linken oberen Teil des Blatts.
+   * Für den Podcast-Report zwingen wir deshalb die komplette Ahnenkette auf die
+   * reale A4-Inhaltsbreite (297 mm - 2 x 5 mm Rand = 287 mm).
+   */
+  .podcastPrintPage,
+  .podcastReport,
+  .podcastPaper {
+    width: 287mm !important;
+    min-width: 287mm !important;
+    max-width: 287mm !important;
+  }
+
+  .podcastPaper {
+    height: 198mm;
+    min-height: 198mm;
+    max-height: 198mm;
+    box-sizing: border-box;
+  }
+
+  /* Seite 1: 43 Songs passen mit rund 3,5 mm Zeilenhöhe vollständig auf A4. */
+  .podcastMasterTable th,
+  .podcastMasterTable td,
+  .podcastDense .podcastMasterTable th,
+  .podcastDense .podcastMasterTable td,
+  .podcastVeryDense .podcastMasterTable th,
+  .podcastVeryDense .podcastMasterTable td,
+  .podcastUltraDense .podcastMasterTable th,
+  .podcastUltraDense .podcastMasterTable td {
+    height: var(--podcast-master-row-height) !important;
+    padding: .26mm .38mm !important;
+    font-size: var(--podcast-master-font-size) !important;
+    line-height: 1 !important;
+  }
+
+  .podcastMasterTable thead th {
+    height: 4.8mm !important;
+    padding-top: .35mm !important;
+    padding-bottom: .35mm !important;
+    font-size: 6.6pt !important;
+    line-height: 1.02 !important;
+  }
+
+  .podcastMasterTable th:nth-child(4),
+  .podcastMasterTable td:nth-child(4) {
+    width: 33% !important;
+  }
+
+  .podcastMasterTable th:nth-child(1),
+  .podcastMasterTable th:nth-child(2),
+  .podcastMasterTable th:nth-child(3),
+  .podcastMasterTable td:nth-child(1),
+  .podcastMasterTable td:nth-child(2),
+  .podcastMasterTable td:nth-child(3) {
+    width: 2.9% !important;
+  }
+
+  .podcastSongCell,
+  .podcastSongCell strong,
+  .podcastSongCell .podcastArtistInline {
+    font-size: var(--podcast-master-font-size) !important;
+    line-height: 1 !important;
+  }
+  .podcastArtistInline {
+    color: #42556c !important;
+    font-weight: 700 !important;
+  }
+
+  /* Kopf kompakt, damit der Platz in die eigentlichen Daten fließt. */
+  .podcastPaperHeader {
+    min-height: 8.2mm !important;
+    padding: 1.1mm 2mm !important;
+  }
+  .podcastPaperHeader h2 { font-size: 12pt !important; }
+  .podcastPaperHeader p { font-size: 6.6pt !important; }
+  .podcastHeaderMeta b { font-size: 9pt !important; }
+  .podcastHeaderMeta small { font-size: 5.8pt !important; }
+
+  .podcastSummaryGrid article {
+    min-height: 6.5mm !important;
+    padding: .65mm 1.15mm !important;
+  }
+  .podcastSummaryGrid article small { font-size: 5.3pt !important; }
+  .podcastSummaryGrid article strong { font-size: 7.1pt !important; }
+
+  .podcastBlockHeading {
+    min-height: 4.8mm !important;
+  }
+  .podcastBlockHeading strong { font-size: 8.2pt !important; }
+  .podcastBlockHeading small { font-size: 5.7pt !important; }
+  .podcastBlockHeading > p { font-size: 5.4pt !important; }
+  .podcastPaperFooter { min-height: 3mm !important; font-size: 5.2pt !important; }
+
+  /* Seite 2: hier gibt es immer nur 12 Plätze, also deutlich größere Schrift. */
+  .podcastVotesTable thead th {
+    height: 6.5mm !important;
+    padding: .7mm .8mm !important;
+    font-size: 7.8pt !important;
+  }
+  .podcastVotesTable th,
+  .podcastVotesTable td {
+    height: 8.1mm !important;
+    padding: .75mm 1mm !important;
+    font-size: 7.6pt !important;
+    line-height: 1.08 !important;
+  }
+  .podcastVotesTable td:first-child { width: 6% !important; }
+  .podcastVotesTable td:first-child small { font-size: 6.2pt !important; }
+  .podcastVoteCell strong { font-size: 8pt !important; line-height: 1.05 !important; }
+  .podcastVoteCell small { margin-top: .35mm !important; font-size: 7pt !important; line-height: 1.05 !important; }
+  .podcastZonkRow td { height: 6.5mm !important; font-size: 6.6pt !important; }
+
+  .podcastPage2Bottom {
+    grid-template-columns: minmax(0,1.82fr) minmax(57mm,.68fr) !important;
+    gap: 2mm !important;
+  }
+  .podcastMiniHeading { padding: 1mm 1.4mm !important; }
+  .podcastMiniHeading strong { font-size: 7.3pt !important; }
+  .podcastMiniHeading span { font-size: 5.7pt !important; }
+  .podcastAudienceTable th,
+  .podcastAudienceTable td {
+    height: 4.2mm !important;
+    padding: .42mm .58mm !important;
+    font-size: 6.4pt !important;
+    line-height: 1.04 !important;
+  }
+  .podcastAudienceTable th { font-size: 6.1pt !important; }
+  .podcastAudienceTable .podcastSongCell,
+  .podcastAudienceTable .podcastSongCell strong,
+  .podcastAudienceTable .podcastArtistInline { font-size: 6.4pt !important; }
+
+  .podcastTalkPanel dl > div {
+    grid-template-columns: 20mm minmax(0,1fr) !important;
+    padding: .85mm 0 !important;
+  }
+  .podcastTalkPanel dt { font-size: 5.8pt !important; }
+  .podcastTalkPanel dd { font-size: 6.3pt !important; }
+  .podcastTalkPanel dd small { font-size: 5.4pt !important; }
+  .podcastZonkCompact > strong { font-size: 6.2pt !important; }
+  .podcastZonkCompact > div { min-height: 4.6mm !important; }
+  .podcastZonkCompact > div > b { font-size: 5.3pt !important; }
+  .podcastZonkCompact > div > span { font-size: 5.8pt !important; }
+  .podcastZonkCompact > div > em { font-size: 5.1pt !important; }
 }

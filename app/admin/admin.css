@@ -884,3 +884,53 @@
   .ks-admin-app .ks-instagram-add-grid { grid-template-columns: 1fr; }
   .ks-admin-app .top5-instagram-actions { justify-content: flex-start; }
 }
+
+/* Künstler-Instagram: Import aus Live-Auftritte */
+.ks-admin-app .ks-instagram-import-card { display: grid; gap: 14px; }
+.ks-admin-app .ks-instagram-import-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.ks-admin-app .ks-instagram-import-head h3 { margin: 0; }
+.ks-admin-app .ks-instagram-import-head .admin-help-text { margin: 6px 0 0; max-width: 760px; color: var(--ks-muted); font-size: 13px; line-height: 1.5; }
+.ks-admin-app .ks-instagram-import-upload { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 13px; border: 1px solid var(--ks-violet); border-radius: 8px; background: var(--ks-violet); color: #fff; font-size: 13px; font-weight: 850; cursor: pointer; white-space: nowrap; }
+.ks-admin-app .ks-instagram-import-upload input { display: none; }
+.ks-admin-app .ks-instagram-import-preview { display: grid; gap: 11px; padding: 14px; border: 1px solid #d8d2f4; border-radius: 10px; background: #faf9ff; }
+.ks-admin-app .ks-instagram-import-preview p { margin: 0; color: var(--ks-muted); font-size: 13px; }
+.ks-admin-app .ks-instagram-import-preview > small { color: var(--ks-muted); line-height: 1.45; }
+.ks-admin-app .ks-instagram-import-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.ks-admin-app .ks-instagram-import-stats span { display: inline-flex; gap: 5px; padding: 7px 9px; border: 1px solid var(--ks-line); border-radius: 8px; background: #fff; color: var(--ks-muted); font-size: 12px; }
+.ks-admin-app .ks-instagram-import-stats span.warning { border-color: #f3c57a; background: #fff8eb; color: #8a5b0a; }
+.ks-admin-app .ks-instagram-import-preview details { padding: 10px 12px; border: 1px solid #ead7ad; border-radius: 8px; background: #fffbf2; font-size: 12px; }
+.ks-admin-app .ks-instagram-import-preview details summary { cursor: pointer; font-weight: 850; }
+.ks-admin-app .ks-instagram-import-preview details ul { margin: 9px 0 0; padding-left: 20px; }
+.ks-admin-app .ks-instagram-import-preview details li + li { margin-top: 5px; }
+.ks-admin-app .ks-instagram-import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 760px) {
+  .ks-admin-app .ks-instagram-import-head { display: grid; }
+  .ks-admin-app .ks-instagram-import-upload { width: 100%; }
+}
+
+
+/* Podcast-Sendungsausdruck: Firefox darf die A4-Seite nicht auf Bildschirmbreite auslegen
+   und danach automatisch auf ca. 60-65 % schrumpfen. */
+@media print {
+  html:has(.podcast-print-root),
+  body:has(.podcast-print-root),
+  .ks-admin-app:has(.podcast-print-root),
+  .ks-admin-main:has(.podcast-print-root),
+  .ks-admin-content:has(.podcast-print-root) {
+    width: 287mm !important;
+    min-width: 287mm !important;
+    max-width: 287mm !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    overflow: visible !important;
+  }
+
+  .ks-admin-content:has(.podcast-print-root) > main {
+    width: 287mm !important;
+    min-width: 287mm !important;
+    max-width: 287mm !important;
+    margin: 0 !important;
+  }
+}

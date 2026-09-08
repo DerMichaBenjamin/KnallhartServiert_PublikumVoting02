@@ -26,7 +26,7 @@ export default async function PodcastResultsPage({ params, searchParams }: { par
 
   const report = buildPodcastReportData(detail.round, detail.songs, detail.summary, juryData);
 
-  return <main className={`${styles.podcastPrintPage} ${styles.printLandscape}`}>
+  return <main className={`podcast-print-root ${styles.podcastPrintPage} ${styles.printLandscape}`}>
     <PageHeader
       eyebrow={<a href={`/admin/release-voting/${detail.round.id}/results`}>← Ergebnisübersicht</a>}
       title={`Sendungsausdruck – ${detail.round.title}`}

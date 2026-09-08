@@ -33,10 +33,12 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
         ? styles.podcastDense
         : '';
 
-  // Seite 1 soll die verfügbare A4-Höhe tatsächlich ausnutzen. Bei weniger Songs
-  // werden die Zeilen größer; bei vielen Songs bleibt die Schrift trotzdem lesbar.
-  const masterRowMm = Math.max(4.8, Math.min(8.6, 146 / Math.max(1, data.overallRows.length)));
-  const masterFontPt = Math.max(5.8, Math.min(7.4, masterRowMm * 0.92));
+  // Seite 1 hat bei 43+ Songs nur rund 150 mm echte Tabellenhöhe zur Verfügung.
+  // Deshalb muss die Zeilenhöhe aus der tatsächlichen Songzahl berechnet werden.
+  // Die Schrift bleibt dabei bewusst groß (mind. 7,25 pt), statt den gesamten
+  // Ausdruck wie bisher auf 60–65 % herunterzuskalieren.
+  const masterRowMm = Math.max(3.35, Math.min(6.2, 151 / Math.max(1, data.overallRows.length)));
+  const masterFontPt = Math.max(7.7, Math.min(8.5, masterRowMm * 2.2));
   const printVars = {
     '--podcast-master-row-height': `${masterRowMm.toFixed(2)}mm`,
     '--podcast-master-font-size': `${masterFontPt.toFixed(2)}pt`,
@@ -102,7 +104,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
             <tr>
               {data.jurors.length ? data.jurors.map((juror) => <th key={juror.id}>{shortName(juror.name)}</th>) : <th>—</th>}
               <th>Σ</th><th>Ø</th>
-              <th>12–1</th><th>Roh</th><th>Ø</th>
+              <th>12-1</th><th>Roh</th><th>Ø</th>
               <th>Σ</th><th>Ø</th>
             </tr>
           </thead>
@@ -123,7 +125,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
 
       <footer className={styles.podcastPaperFooter}>
         <span><b>G/J/P</b> = Gesamt-/Jury-/Publikumsplatz.</span>
-        <span><b>Publikum 12–1</b> = aggregierte Publikumsstimme für die Gesamtwertung.</span>
+        <span><b>Publikum 12-1</b> = aggregierte Publikumsstimme für die Gesamtwertung.</span>
         <span><b>Roh</b> = Summe der Punkte aller einzelnen Publikumsvotings.</span>
       </footer>
     </section>
@@ -167,7 +169,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
         <section className={styles.podcastAudiencePanel}>
           <div className={styles.podcastMiniHeading}><strong>Publikum kompakt</strong><span>Rohpunkte, Durchschnitt und Reichweite der Publikumswertung</span></div>
           <table className={styles.podcastAudienceTable}>
-            <thead><tr><th>Pl.</th><th>Song / Künstler</th><th>Roh</th><th>Ø Publ.</th><th>Gewählt</th><th>Anteil</th><th>12–1</th></tr></thead>
+            <thead><tr><th>Pl.</th><th>Song / Künstler</th><th>Roh</th><th>Ø Publ.</th><th>Gewählt</th><th>Anteil</th><th>12-1</th></tr></thead>
             <tbody>{data.audienceRows.map((row) => <tr key={`aud-${row.rank}`}>
               <td><b>#{row.rank}</b></td><td className={styles.podcastSongCell}><strong>{row.title}</strong><span className={styles.podcastArtistInline}> · {row.artist}</span></td><td>{row.total}</td><td><b>{avg(row.average)}</b></td><td>{row.mentions}</td><td>{pct(row.share)}</td><td><b>{row.audiencePoints}</b></td>
             </tr>)}</tbody>
@@ -192,7 +194,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
 
       <footer className={styles.podcastPaperFooter}>
         <span><b>Jury:</b> jede abgegebene Jury-Stimme vergibt 12 bis 1 Punkte.</span>
-        <span><b>Publikum:</b> Ø basiert auf allen gewerteten Einzelstimmen; die Top 12 wird zusätzlich als eine 12–1-Stimme in der Gesamtwertung verwendet.</span>
+        <span><b>Publikum:</b> Ø basiert auf allen gewerteten Einzelstimmen; die Top 12 wird zusätzlich als eine 12-1-Stimme in der Gesamtwertung verwendet.</span>
       </footer>
     </section>
   </div>;
