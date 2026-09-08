@@ -1,25 +1,36 @@
-KNALLHART SERVIERT – FIX JURY-ZONK BUILD-FEHLER
+KNALLHART SERVIERT – ZONK-AUSWERTUNG
 
-Behobener Vercel/TypeScript-Fehler:
-Property 'zonk_song_id' is missing in type ... but required in type 'AdminJuryJurorRow'.
+Neu auf der Admin-Ergebnisseite:
 
-Ursache:
-Nach der Jury-ZONK-Erweiterung enthält AdminJuryJurorRow das Feld zonk_song_id.
-lib/releaseStatistics.ts hat historische/aggregierte Jury-Datensätze aber noch ohne
-dieses Feld aufgebaut.
+1. Unter JURY-VOTING
+   - eigene ZONK-Auswertung der Jury
+   - Rang, Song, Künstler, Anzahl Jury-ZONK-Stimmen
 
-Fix:
-- StatisticsJuryVoteRow enthält jetzt zonk_song_id.
-- Die Statistik-Abfrage für release_voting_jury_votes lädt zonk_song_id mit.
-- Beim Aufbau von AdminJuryJurorRow wird zonk_song_id mitgegeben.
+2. Unter PUBLIKUMS-VOTING
+   - eigene ZONK-Auswertung des Publikums
+   - Rang, Song, Künstler, Anzahl ZONK-Stimmen, Anteil
+
+3. Unter GESAMTWERTUNG
+   - Gesamt-ZONK Jury + Publikum
+   - Spalten: Publikum | Jury | Gesamt
+   - jede tatsächliche ZONK-Auswahl zählt genau eine Stimme
+   - ZONK verändert NICHT die normale 12–1-/Gesamtpunktewertung
+
+Gleichstände:
+- Songs mit gleicher ZONK-Stimmenzahl erhalten denselben Rang.
+
+Keine neue Supabase-Migration nötig.
+Voraussetzung ist nur, dass die vorherige Jury-ZONK-Erweiterung bereits installiert ist
+(zonk_song_id in release_voting_jury_votes).
+
+Dateien:
+- lib/zonkResults.ts (neu)
+- components/admin/ResultsJuryCards.tsx
+- components/admin/ResultsPublicTable.tsx
+- components/admin/OverallResultsTable.tsx
 
 Installation:
 1. ZIP entpacken.
-2. In GitHub die Datei lib/releaseStatistics.ts durch diese Version ersetzen.
+2. Dateien in GitHub an denselben Pfaden hochladen/ersetzen.
 3. Commit speichern.
 4. Vercel neu deployen.
-
-Wichtig:
-Die SQL-Datei aus dem vorherigen Jury-ZONK-Update
-sql/sql_jury_zonk_vote.sql
-muss in Supabase einmal ausgeführt worden sein, damit die Spalte zonk_song_id existiert.
