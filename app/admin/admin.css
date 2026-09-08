@@ -934,3 +934,59 @@
     margin: 0 !important;
   }
 }
+
+/* Accessibility V2: Jury-Auswertung – Künstlernamen nicht als Kleingedrucktes behandeln */
+@media screen {
+  .ks-jury-card-scroll { grid-auto-columns: minmax(300px, 1fr); }
+  .ks-jury-ranking-card {
+    width: min(320px, 86vw);
+    min-height: 560px;
+  }
+  .ks-jury-ranking-card header small {
+    font-size: 11.5px;
+  }
+  .ks-jury-ranking-card li {
+    grid-template-columns: 28px minmax(0,1fr) 42px;
+    gap: 8px;
+    min-height: 44px;
+    padding: 5px 0;
+    font-size: 13px;
+  }
+  .ks-jury-ranking-card .song strong {
+    color: #132238;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1.18;
+  }
+  .ks-jury-ranking-card .song small {
+    margin-top: 2px;
+    color: #334155;
+    font-size: 12.5px;
+    font-weight: 750;
+    line-height: 1.18;
+  }
+  .ks-jury-ranking-card li > b {
+    font-size: 12.5px;
+  }
+}
+
+@media print {
+  .ks-jury-ranking-card li {
+    min-height: 6.5mm !important;
+    padding: .7mm 0 !important;
+    font-size: 8pt !important;
+  }
+  .ks-jury-ranking-card .song strong {
+    color: #111827 !important;
+    font-size: 8.5pt !important;
+    font-weight: 900 !important;
+    line-height: 1.12 !important;
+  }
+  .ks-jury-ranking-card .song small {
+    margin-top: .35mm !important;
+    color: #334155 !important;
+    font-size: 7.7pt !important;
+    font-weight: 750 !important;
+    line-height: 1.12 !important;
+  }
+}

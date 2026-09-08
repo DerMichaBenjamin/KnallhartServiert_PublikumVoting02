@@ -646,3 +646,79 @@
   .podcastZonkCompact > div > span { font-size: 5.8pt !important; }
   .podcastZonkCompact > div > em { font-size: 5.1pt !important; }
 }
+
+/* Sendungsausdruck V5 – Künstlernamen für schlechte Augen deutlich lesbarer */
+@media screen {
+  .podcastMasterTable th,
+  .podcastMasterTable td {
+    padding: 6px 5px;
+    font-size: 11.5px;
+  }
+  .podcastArtistInline {
+    color: #26364a;
+    font-size: 1em;
+    font-weight: 800;
+  }
+  .podcastVotesTable th,
+  .podcastVotesTable td {
+    padding: 6px 7px;
+    font-size: 11.5px;
+  }
+  .podcastVoteCell strong {
+    color: #132238;
+    font-size: 13.5px;
+    font-weight: 900;
+    line-height: 1.18;
+  }
+  .podcastVoteCell small {
+    margin-top: 3px;
+    color: #334155;
+    font-size: 12.5px;
+    font-weight: 750;
+    line-height: 1.18;
+  }
+  .podcastAudienceTable th,
+  .podcastAudienceTable td {
+    font-size: 10.5px;
+  }
+  .podcastAudienceTable .podcastArtistInline {
+    color: #334155;
+    font-size: 1em;
+    font-weight: 800;
+  }
+}
+
+@media print {
+  /* Seite 1: Künstler steht aus Platzgründen inline, aber exakt so groß und fast so dunkel wie der Titel. */
+  .podcastMasterTable .podcastArtistInline {
+    color: #26364a !important;
+    font-size: var(--podcast-master-font-size) !important;
+    font-weight: 800 !important;
+  }
+
+  /* Seite 2: Künstler steht unter dem Titel und bekommt echte Leseschrift statt Kleingedrucktem. */
+  .podcastVotesTable th,
+  .podcastVotesTable td {
+    height: 8.5mm !important;
+  }
+  .podcastVoteCell strong {
+    color: #111827 !important;
+    font-size: 8.2pt !important;
+    font-weight: 900 !important;
+    line-height: 1.06 !important;
+  }
+  .podcastVoteCell small {
+    margin-top: .35mm !important;
+    color: #26364a !important;
+    font-size: 7.8pt !important;
+    font-weight: 750 !important;
+    line-height: 1.06 !important;
+  }
+
+  /* Auch in der kompakten Publikumsliste darf der Künstler nicht ausgrauen/verschwinden. */
+  .podcastAudienceTable .podcastArtistInline {
+    color: #26364a !important;
+    font-size: 6.4pt !important;
+    font-weight: 800 !important;
+  }
+}

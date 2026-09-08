@@ -144,7 +144,10 @@ export default function JuryVotingForm({
                 role={canEdit ? 'button' : undefined}
                 tabIndex={canEdit ? 0 : -1}
               >
-                <div className="jury-song-text">{combineSongLine(song)}</div>
+                <div className="jury-song-text">
+                  <strong className="jury-song-title">{song.title}</strong>
+                  <span className="jury-song-artist">{song.artist}</span>
+                </div>
                 <button type="button" className="song-action-btn" onClick={(event) => { event.stopPropagation(); add(song); }} disabled={!canEdit}>Wählen</button>
               </div>
             ))}
@@ -158,7 +161,11 @@ export default function JuryVotingForm({
             {ranking.map((song, index) => (
               <div className="rank-row jury-rank-row" key={index}>
                 <b>{index + 1}</b>
-                {song ? <span>{combineSongLine(song)} <small>· {JURY_PLACES_COUNT - index} P.</small></span> : <em>Noch kein Song gewählt</em>}
+                {song ? <span className="jury-ranked-song">
+                  <strong className="jury-song-title">{song.title}</strong>
+                  <span className="jury-song-artist">{song.artist}</span>
+                  <small className="jury-song-points">{JURY_PLACES_COUNT - index} P.</small>
+                </span> : <em>Noch kein Song gewählt</em>}
                 <div>
                   {song && canEdit && (
                     <>
