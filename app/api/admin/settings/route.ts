@@ -6,12 +6,21 @@ import {
   RELEASE_ARTIST_INSTAGRAM_SEED_LABELS,
   RELEASE_ARTIST_INSTAGRAM_SEED_VERSION,
 } from '@/lib/releaseArtistInstagramSeed';
+import {
+  RELEASE_ARTIST_INSTAGRAM_EXTRA_HANDLES,
+  RELEASE_ARTIST_INSTAGRAM_EXTRA_LABELS,
+  RELEASE_ARTIST_INSTAGRAM_EXTRAS_VERSION,
+} from '@/lib/releaseArtistInstagramExtras';
+
+const MAX_ARTIST_DIRECTORY_ENTRIES = 5000;
+const RELEASE_ARTIST_INSTAGRAM_COMBINED_VERSION =
+  `${RELEASE_ARTIST_INSTAGRAM_SEED_VERSION}+${RELEASE_ARTIST_INSTAGRAM_EXTRAS_VERSION}`;
 
 function cleanLabelDirectory(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, string>;
 
   const out: Record<string, string> = {};
-  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>).slice(0, 500)) {
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>).slice(0, MAX_ARTIST_DIRECTORY_ENTRIES)) {
     const key = String(rawKey || '')
       .trim()
       .replace(/\s+/g, ' ')
@@ -28,7 +37,7 @@ function cleanHandleDirectory(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {} as Record<string, string>;
 
   const out: Record<string, string> = {};
-  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>).slice(0, 500)) {
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>).slice(0, MAX_ARTIST_DIRECTORY_ENTRIES)) {
     const key = String(rawKey || '')
       .trim()
       .replace(/\s+/g, ' ')
@@ -39,6 +48,13 @@ function cleanHandleDirectory(value: unknown) {
     out[key] = handles;
   }
   return out;
+}
+
+function sameDirectory(left: Record<string, string>, right: Record<string, string>) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => left[key] === right[key]);
 }
 
 export async function GET(req: NextRequest) {
@@ -61,21 +77,37 @@ export async function GET(req: NextRequest) {
       getSetting('release_check_instagram_seed_version', ''),
     ]);
 
-    let handles: Record<string, string> = {};
-    let labels: Record<string, string> = {};
-    try { handles = cleanHandleDirectory(JSON.parse(rawHandles || '{}')); } catch { handles = {}; }
-    try { labels = cleanLabelDirectory(JSON.parse(rawLabels || '{}')); } catch { labels = {}; }
+    let storedHandles: Record<string, string> = {};
+    let storedLabels: Record<string, string> = {};
+    try { storedHandles = cleanHandleDirectory(JSON.parse(rawHandles || '{}')); } catch { storedHandles = {}; }
+    try { storedLabels = cleanLabelDirectory(JSON.parse(rawLabels || '{}')); } catch { storedLabels = {}; }
 
-    // Die bestätigten Handles aus der Live-Auftritte-Verwaltung werden genau einmal
-    // als Startbestand übernommen. Bereits im Release-Check gepflegte Werte haben Vorrang.
-    // Nach dem Seed bleiben spätere Änderungen/Löschungen im Release-Check unangetastet.
-    if (storedSeedVersion !== RELEASE_ARTIST_INSTAGRAM_SEED_VERSION) {
-      handles = cleanHandleDirectory({ ...RELEASE_ARTIST_INSTAGRAM_SEED_HANDLES, ...handles });
-      labels = cleanLabelDirectory({ ...RELEASE_ARTIST_INSTAGRAM_SEED_LABELS, ...labels });
+    const seedHandles = cleanHandleDirectory({
+      ...RELEASE_ARTIST_INSTAGRAM_SEED_HANDLES,
+      ...RELEASE_ARTIST_INSTAGRAM_EXTRA_HANDLES,
+    });
+    const seedLabels = cleanLabelDirectory({
+      ...RELEASE_ARTIST_INSTAGRAM_SEED_LABELS,
+      ...RELEASE_ARTIST_INSTAGRAM_EXTRA_LABELS,
+    });
+
+    // Seed/Importdaten ergänzen nur fehlende Einträge.
+    // Bereits im Release-Check manuell gepflegte Werte haben IMMER Vorrang.
+    const handles = cleanHandleDirectory({ ...seedHandles, ...storedHandles });
+    const labels = cleanLabelDirectory({ ...seedLabels, ...storedLabels });
+
+    // Nicht mehr nur "einmalig" importieren:
+    // Wenn später neue Seed-/Importeinträge dazukommen, werden sie automatisch ergänzt.
+    // Manuelle Release-Check-Werte werden dabei niemals überschrieben.
+    if (
+      storedSeedVersion !== RELEASE_ARTIST_INSTAGRAM_COMBINED_VERSION
+      || !sameDirectory(handles, storedHandles)
+      || !sameDirectory(labels, storedLabels)
+    ) {
       await Promise.all([
         setSetting('release_check_instagram_handles', JSON.stringify(handles)),
         setSetting('release_check_instagram_artist_labels', JSON.stringify(labels)),
-        setSetting('release_check_instagram_seed_version', RELEASE_ARTIST_INSTAGRAM_SEED_VERSION),
+        setSetting('release_check_instagram_seed_version', RELEASE_ARTIST_INSTAGRAM_COMBINED_VERSION),
       ]);
     }
 
