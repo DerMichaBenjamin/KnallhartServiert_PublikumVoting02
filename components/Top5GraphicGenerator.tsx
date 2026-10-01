@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { LeaderboardRow, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { buildCombinedResults } from '@/lib/combinedVotingResults';
+import { normalizeArtistKey, splitReleaseArtistNames } from '@/lib/artistNames';
 
 const TOP5_FIXED_TEMPLATE_SRC = '/release-check-top5-template-clean.png';
 const TOP5_VARIABLE_TEMPLATE_SRC = '/release-check-top5-template-variable.png';
@@ -87,13 +88,6 @@ function safeFileName(value: string) {
     .slice(0, 80);
 }
 
-function normalizeArtistKey(value: string) {
-  return value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLocaleLowerCase('de-DE');
-}
-
 function normalizeInstagramToken(token: string) {
   let value = token.trim();
   if (!value) return '';
@@ -124,10 +118,7 @@ function parseInstagramHandles(value: string) {
 }
 
 function splitArtistCandidates(label: string) {
-  const parts = label
-    .split(/\s+(?:&|\+|x|feat\.?|ft\.?|und)\s+|\s*[,/]\s*/i)
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const parts = splitReleaseArtistNames(label);
   return Array.from(new Set([label.trim(), ...parts].filter(Boolean)));
 }
 
@@ -251,15 +242,14 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const templateImageRef = useRef<HTMLImageElement | null>(null);
   const previewObjectUrlRef = useRef('');
-  const savedTemplatesLoadedRef = useRef(false);
+  const savedTemplateLoadedRef = useRef(false);
   const handlesLoadedRef = useRef(false);
   const [shouldRender, setShouldRender] = useState(false);
   const [templateReady, setTemplateReady] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [notice, setNotice] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
-  const [customTop5TemplateSource, setCustomTop5TemplateSource] = useState('');
-  const [customTop12TemplateSource, setCustomTop12TemplateSource] = useState('');
+  const [customTemplateSource, setCustomTemplateSource] = useState('');
   const [pendingTemplateDataUrl, setPendingTemplateDataUrl] = useState('');
   const [uploadBusy, setUploadBusy] = useState(false);
   const [templateChanged, setTemplateChanged] = useState(false);
@@ -393,10 +383,10 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     graphicRows.length !== 5 || graphicRows.some((row, index) => row.rank !== index + 1)
   );
   const templateSource = graphicMode === 'top12'
-    ? customTop12TemplateSource || TOP12_TEMPLATE_SRC
+    ? TOP12_TEMPLATE_SRC
     : requiresDynamicRows
       ? TOP5_VARIABLE_TEMPLATE_SRC
-      : customTop5TemplateSource || TOP5_FIXED_TEMPLATE_SRC;
+      : customTemplateSource || TOP5_FIXED_TEMPLATE_SRC;
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -415,18 +405,13 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   }, [shouldRender]);
 
   useEffect(() => {
-    if (!shouldRender || savedTemplatesLoadedRef.current) return;
-    savedTemplatesLoadedRef.current = true;
-    void Promise.all([
-      fetch('/api/admin/settings?key=top5-template').then((response) => response.json()),
-      fetch('/api/admin/settings?key=top12-template').then((response) => response.json()),
-    ])
-      .then(([top5Data, top12Data]) => {
-        if (top5Data?.ok && typeof top5Data.dataUrl === 'string' && top5Data.dataUrl.startsWith('data:image/')) {
-          setCustomTop5TemplateSource(top5Data.dataUrl);
-        }
-        if (top12Data?.ok && typeof top12Data.dataUrl === 'string' && top12Data.dataUrl.startsWith('data:image/')) {
-          setCustomTop12TemplateSource(top12Data.dataUrl);
+    if (!shouldRender || savedTemplateLoadedRef.current) return;
+    savedTemplateLoadedRef.current = true;
+    void fetch('/api/admin/settings?key=top5-template')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data?.ok && typeof data.dataUrl === 'string' && data.dataUrl.startsWith('data:image/')) {
+          setCustomTemplateSource(data.dataUrl);
         }
       })
       .catch(() => undefined);
@@ -661,14 +646,10 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
     setUploadBusy(true);
     setNotice(null);
     try {
-      const isTop12 = graphicMode === 'top12';
-      const body = isTop12
-        ? { top12GraphicTemplateDataUrl: dataUrl, top12GraphicTemplateVersion: dataUrl ? 'clean-v1' : '' }
-        : { top5GraphicTemplateDataUrl: dataUrl, top5GraphicTemplateVersion: dataUrl ? 'clean-v2' : '' };
       const response = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ top5GraphicTemplateDataUrl: dataUrl, top5GraphicTemplateVersion: dataUrl ? 'clean-v2' : '' }),
       });
       const data = await response.json().catch(() => null);
 
@@ -676,11 +657,9 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         throw new Error(data?.error || 'Die Hintergrundgrafik konnte nicht gespeichert werden.');
       }
 
-      if (isTop12) setCustomTop12TemplateSource(dataUrl);
-      else setCustomTop5TemplateSource(dataUrl);
       setPendingTemplateDataUrl(dataUrl);
       setTemplateChanged(false);
-      setNotice({ type: 'ok', text: `Die neue ${modeLabel}-Hintergrundgrafik wurde gespeichert.` });
+      setNotice({ type: 'ok', text: 'Die neue Top-5-Hintergrundgrafik wurde gespeichert.' });
     } catch (error) {
       setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Unbekannter Fehler.' });
     } finally {
@@ -694,11 +673,10 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
 
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      if (graphicMode === 'top12') setCustomTop12TemplateSource(dataUrl);
-      else setCustomTop5TemplateSource(dataUrl);
+      setCustomTemplateSource(dataUrl);
       setPendingTemplateDataUrl(dataUrl);
       setTemplateChanged(true);
-      setNotice({ type: 'ok', text: `Neue ${modeLabel}-Hintergrundgrafik geladen. Speichere sie, wenn sie künftig dauerhaft verwendet werden soll.` });
+      setNotice({ type: 'ok', text: 'Neue Top-5-Hintergrundgrafik geladen. Speichere sie, wenn sie künftig dauerhaft verwendet werden soll.' });
     } catch (error) {
       setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Die Datei konnte nicht verarbeitet werden.' });
     } finally {
@@ -707,11 +685,10 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
   }
 
   async function resetTemplateToDefault() {
-    const ok = window.confirm(`Die gespeicherte ${modeLabel}-Hintergrundgrafik wirklich zurücksetzen und wieder die Standardvorlage verwenden?`);
+    const ok = window.confirm('Die gespeicherte Top-5-Hintergrundgrafik wirklich zurücksetzen und wieder die Standardvorlage verwenden?');
     if (!ok) return;
 
-    if (graphicMode === 'top12') setCustomTop12TemplateSource('');
-    else setCustomTop5TemplateSource('');
+    setCustomTemplateSource('');
     setPendingTemplateDataUrl('');
     setTemplateChanged(true);
     await saveTemplate('');
@@ -807,8 +784,8 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
       </div>
 
       <div className="top5-mode-switch" role="group" aria-label="Grafik auswählen">
-        <button type="button" className={graphicMode === 'top5' ? 'active' : ''} onClick={() => { setGraphicMode('top5'); setTemplateChanged(false); setPendingTemplateDataUrl(''); }}>Top 5</button>
-        <button type="button" className={graphicMode === 'top12' ? 'active' : ''} onClick={() => { setGraphicMode('top12'); setTemplateChanged(false); setPendingTemplateDataUrl(''); }}>Top 12</button>
+        <button type="button" className={graphicMode === 'top5' ? 'active' : ''} onClick={() => setGraphicMode('top5')}>Top 5</button>
+        <button type="button" className={graphicMode === 'top12' ? 'active' : ''} onClick={() => setGraphicMode('top12')}>Top 12</button>
       </div>
 
       {notice && <div className={`notice ${notice.type === 'ok' ? 'success' : 'error'}`}>{notice.text}</div>}
@@ -818,18 +795,15 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         </div>
       )}
 
-      <div className="top5-graphic-template-card">
+      {variant === 'full' && graphicMode === 'top5' && <div className="top5-graphic-template-card">
         <div>
-          <h3>{modeLabel}-Hintergrundgrafik</h3>
-          <p className="admin-help-text">
-            Lade hier direkt eine neue Hintergrundgrafik für die aktuell ausgewählte {modeLabel} hoch. Nach dem Speichern wird sie auch künftig für diese Grafik verwendet.
-            {graphicMode === 'top5' && requiresDynamicRows ? ' Hinweis: Bei einer Top 5 mit Sonder-/Gleichstandsplätzen nutzt die dynamische Darstellung weiterhin die variable Standardvorlage.' : ''}
-          </p>
+          <h3>Top-5-Hintergrundgrafik</h3>
+          <p className="admin-help-text">Du kannst für die Top 5 weiterhin eine eigene saubere Vorlage mit festen Rahmen und Platzmarkierungen hochladen. Songtitel und Künstler werden in den Balken automatisch horizontal und vertikal zentriert.</p>
         </div>
         <div className="top5-template-actions">
           <label className="top5-template-upload">
             <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleTemplateFileChange} />
-            Neue Hintergrundgrafik hochladen
+            Neue Hintergrundgrafik laden
           </label>
           {templateChanged && (
             <button type="button" disabled={uploadBusy || !pendingTemplateDataUrl} onClick={() => saveTemplate(pendingTemplateDataUrl)}>
@@ -838,7 +812,14 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
           )}
           <button type="button" disabled={uploadBusy} onClick={resetTemplateToDefault}>Auf Standard zurücksetzen</button>
         </div>
-      </div>
+      </div>}
+
+      {variant === 'full' && graphicMode === 'top12' && <div className="top5-graphic-template-card">
+        <div>
+          <h3>Top-12-Hintergrundgrafik</h3>
+          <p className="admin-help-text">Die neue Top-12-Vorlage ist fest hinterlegt und enthält exakt 12 Ergebnisfelder. Platznummern sowie Songtitel und Künstler werden automatisch sauber zentriert eingesetzt.</p>
+        </div>
+      </div>}
 
       <div className="top5-graphic-layout">
         <div className="top5-graphic-preview-wrap">

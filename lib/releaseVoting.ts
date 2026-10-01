@@ -3,6 +3,7 @@ import 'server-only';
 import { unstable_noStore as noStore } from 'next/cache';
 import { getSupabaseAdminClient } from './supabaseAdmin';
 import { databaseError } from './supabaseErrors';
+import { normalizeArtistKey, splitReleaseArtistNames } from './artistNames';
 import { getSetting, setSetting } from './settings';
 import {
   buildLeaderboard,
@@ -154,10 +155,10 @@ export async function listAllReleaseArtists() {
 
     const page = data || [];
     for (const row of page) {
-      const label = String(row.artist || '').trim().replace(/\s+/g, ' ');
-      if (!label) continue;
-      const key = label.toLocaleLowerCase('de-DE');
-      if (!names.has(key)) names.set(key, label);
+      for (const label of splitReleaseArtistNames(String(row.artist || ''))) {
+        const key = normalizeArtistKey(label);
+        if (key && !names.has(key)) names.set(key, label);
+      }
     }
     if (page.length < DATABASE_PAGE_SIZE) break;
   }

@@ -1,16 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { cleanArtistLabel, normalizeArtistKey, splitReleaseArtistNames } from '@/lib/artistNames';
 
 type Props = {
   knownArtists: string[];
 };
 
 type Directory = Record<string, string>;
-
-function normalizeArtistKey(value: string) {
-  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('de-DE');
-}
 
 function normalizeInstagramToken(token: string) {
   const cleaned = token
@@ -58,15 +55,25 @@ export default function ArtistInstagramManager({ knownArtists }: Props) {
   const rows = useMemo(() => {
     const map = new Map<string, string>();
     for (const artist of knownArtists) {
-      const label = artist.trim().replace(/\s+/g, ' ');
-      if (!label) continue;
-      map.set(normalizeArtistKey(label), label);
+      for (const label of splitReleaseArtistNames(artist)) {
+        map.set(normalizeArtistKey(label), label);
+      }
     }
-    for (const [key, label] of Object.entries(labels)) {
-      if (!map.has(key) && label.trim()) map.set(key, label.trim());
+    for (const [key, rawLabel] of Object.entries(labels)) {
+      const split = splitReleaseArtistNames(rawLabel || key);
+      if (split.length === 1) {
+        const label = split[0];
+        const normalizedKey = normalizeArtistKey(label);
+        if (!map.has(normalizedKey)) map.set(normalizedKey, label);
+      }
     }
     for (const key of Object.keys(handles)) {
-      if (!map.has(key)) map.set(key, labels[key] || key);
+      const rawLabel = labels[key] || key;
+      const split = splitReleaseArtistNames(rawLabel);
+      if (split.length !== 1) continue;
+      const label = split[0];
+      const normalizedKey = normalizeArtistKey(label);
+      if (!map.has(normalizedKey)) map.set(normalizedKey, label);
     }
 
     const needle = search.trim().toLocaleLowerCase('de-DE');
@@ -79,7 +86,7 @@ export default function ArtistInstagramManager({ knownArtists }: Props) {
 
   const totalArtists = useMemo(() => {
     const keys = new Set<string>();
-    knownArtists.forEach((artist) => keys.add(normalizeArtistKey(artist)));
+    knownArtists.forEach((artist) => splitReleaseArtistNames(artist).forEach((label) => keys.add(normalizeArtistKey(label))));
     Object.keys(handles).forEach((key) => keys.add(key));
     Object.keys(labels).forEach((key) => keys.add(key));
     return keys.size;
@@ -91,7 +98,7 @@ export default function ArtistInstagramManager({ knownArtists }: Props) {
   }
 
   function addArtist() {
-    const label = newArtist.trim().replace(/\s+/g, ' ');
+    const label = cleanArtistLabel(newArtist);
     if (!label) {
       setNotice({ type: 'error', text: 'Bitte zuerst einen Künstlernamen eingeben.' });
       return;
@@ -112,17 +119,27 @@ export default function ArtistInstagramManager({ knownArtists }: Props) {
     setNotice(null);
     try {
       const cleanedHandles: Directory = {};
-      const cleanedLabels: Directory = { ...labels };
+      const cleanedLabels: Directory = {};
 
-      for (const artist of knownArtists) {
-        const label = artist.trim().replace(/\s+/g, ' ');
-        if (!label) continue;
+      for (const rawLabel of Object.values(labels)) {
+        const split = splitReleaseArtistNames(rawLabel);
+        if (split.length !== 1) continue;
+        const label = split[0];
         cleanedLabels[normalizeArtistKey(label)] = label;
       }
 
+      for (const artist of knownArtists) {
+        for (const label of splitReleaseArtistNames(artist)) {
+          cleanedLabels[normalizeArtistKey(label)] = label;
+        }
+      }
+
       for (const [key, value] of Object.entries(handles)) {
+        const rawLabel = labels[key] || key;
+        const split = splitReleaseArtistNames(rawLabel);
+        if (split.length !== 1) continue;
         const normalized = normalizeHandles(value);
-        if (normalized) cleanedHandles[key] = normalized;
+        if (normalized) cleanedHandles[normalizeArtistKey(split[0])] = normalized;
       }
 
       const response = await fetch('/api/admin/settings', {

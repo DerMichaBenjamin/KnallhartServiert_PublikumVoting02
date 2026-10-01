@@ -1,42 +1,37 @@
-KNALLHART SERVIERT – BACKEND UPDATE
-KÜNSTLER-MENÜ + HINTERGRUNDGRAFIK-UPLOAD ÜBERALL
+KNALLHART SERVIERT – KÜNSTLERVERZEICHNIS: KOLLABORATIONEN AUFTEILEN
 
-Ausgangsbasis:
-- das zuletzt hochgeladene Repository KnallhartServiert_PublikumVoting02-main(4).zip
-
-Geändert wurden nur diese 3 Dateien:
-- components/admin/AdminLayout.tsx
+Geändert:
+- lib/artistNames.ts (neu)
+- lib/releaseVoting.ts
+- components/admin/ArtistInstagramManager.tsx
 - components/Top5GraphicGenerator.tsx
-- app/api/admin/settings/route.ts
 
-ÄNDERUNG 1 – KÜNSTLER & INSTAGRAM IM LINKEN MENÜ
-- Neuer fester Menüpunkt „Künstler & Instagram“
-- Link: /admin/artists
-- Eigene Künstler-Icon-Darstellung
-- Die bereits vorhandene Künstlerverwaltung wird dadurch direkt erreichbar.
+Was wird behoben?
+- Mehrere Künstler in einem Song-Artist-Feld werden nicht mehr als zusätzlicher Sammel-Künstler geführt.
+- Beispiel:
+  "Andi Schiebt Anders, DJ Chris Caramello, DJ Cashi"
+  wird zu:
+  - Andi Schiebt Anders
+  - DJ Chris Caramello
+  - DJ Cashi
+- Ebenso werden Kollaborationen mit feat., ft., featuring, x, +, / und ; getrennt.
+- Doppelte Künstler werden anhand des normalisierten Künstlernamens zusammengeführt.
+- "&" und "und" werden bewusst NICHT automatisch getrennt, damit feste Act-Namen wie
+  "2 Engel & Charlie" nicht versehentlich zerlegt werden.
+- Auch die Instagram-Zuordnung in der Top-5-/Top-12-Grafik verwendet dieselbe Aufteilungslogik.
+- Beim nächsten Speichern des Künstlerverzeichnisses werden alte zusammengesetzte Labels nicht wieder mitgespeichert.
 
-ÄNDERUNG 2 – HINTERGRUNDGRAFIK-UPLOAD ÜBERALL
-Die Option „Neue Hintergrundgrafik hochladen“ wird jetzt im Release-Check-Grafikgenerator
-auch in der kompakten Dashboard-Ansicht angezeigt – also überall dort, wo Top-5/Top-12-
-Grafiken erzeugt bzw. heruntergeladen werden können.
+Stand Handle-Import:
+- Die im Repository vorhandene Importdatei data/live-auftritte-instagram-handles-2026-09-06.csv
+  enthält weiterhin nur 100 Künstler plus Kopfzeile und endet alphabetisch bei Leza.
+- Deshalb ist die zweite Hälfte M–Z weiterhin NICHT automatisch importiert.
+- Ohne vollständige Quelldatei bzw. zugängliche Künstler-/Instagram-Datenquelle werden keine Handles erfunden.
 
-Zusätzlich:
-- Top 5 und Top 12 haben jeweils eine eigene gespeicherte Hintergrundvorlage.
-- Beim Umschalten zwischen Top 5 und Top 12 wird die passende Vorlage verwendet.
-- Eigene Top-12-Hintergrundgrafiken können jetzt ebenfalls hochgeladen, gespeichert
-  und wieder auf Standard zurückgesetzt werden.
-- Bestehende Top-5-Vorlagen bleiben unverändert kompatibel.
-- Bei dynamischen Top-5-Sonderfällen/Gleichständen bleibt weiterhin die variable
-  Standardvorlage aktiv, damit die automatisch erzeugten Zeilen korrekt funktionieren.
-
-INSTALLATION
+Installation:
 1. ZIP entpacken.
-2. Die enthaltenen Dateien in GitHub an exakt denselben Pfaden ersetzen.
-3. Commit speichern.
-4. Vercel neu deployen lassen.
+2. Die enthaltenen Dateien mit gleicher Ordnerstruktur ins Repository hochladen/ersetzen.
+3. Vercel-Deployment abwarten.
+4. Backend > Künstler & Instagram öffnen und einmal "Alle Instagram-Tags speichern" klicken,
+   damit eventuell früher gespeicherte Sammel-Künstler aus dem Verzeichnis bereinigt werden.
 
-Keine Supabase-Migration nötig. Die neuen Top-12-Vorlagen werden wie die vorhandenen
-Top-5-Vorlagen über app_settings gespeichert.
-
-Prüfung:
-- TypeScript/TSX-Syntax aller drei geänderten Dateien geprüft: ohne Syntaxfehler.
+Keine Supabase-Migration nötig.
