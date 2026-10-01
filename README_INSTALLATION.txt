@@ -1,42 +1,42 @@
-KNALLHART SERVIERT – ARTIST INSTAGRAM SYNC FIX
+KNALLHART SERVIERT – BACKEND UPDATE
+KÜNSTLER-MENÜ + HINTERGRUNDGRAFIK-UPLOAD ÜBERALL
 
-Behoben:
-1. Mickie/Micky Krause ergänzt:
-   @mickie_krause_official
+Ausgangsbasis:
+- das zuletzt hochgeladene Repository KnallhartServiert_PublikumVoting02-main(4).zip
 
-2. Micha Schue/Micha Schü ergänzt:
-   @micha_schue
-
-3. Die bisherige 500-Einträge-Grenze in der Settings-API wurde auf 5000 erhöht.
-   Das ist wichtig, weil im Release-Check bereits deutlich mehr als 500 Künstler-
-   Bezeichnungen vorkommen können.
-
-4. Seed-Sync verbessert:
-   Bisher wurde der Live-Auftritte-Seed nur EINMAL übernommen.
-   Danach wurden spätere Seed-Ergänzungen nicht mehr automatisch nachgezogen.
-
-   Neu:
-   - Seed-/Importdaten werden beim Laden ergänzend gemerged.
-   - Bereits manuell im Release-Check gepflegte Handles haben immer Vorrang.
-   - Neue Seed-/Extra-Einträge werden automatisch nachgezogen.
-   - Es wird nichts manuell Gepflegtes überschrieben.
-
-WICHTIG:
-Der ursprünglich im Repository vorhandene Live-Auftritte-Export enthält tatsächlich
-nur 100 Künstler und endet alphabetisch bei "Leza". Die aktuell verbundene
-Live-Auftritte-Codebasis enthält keine aktuelle Artists/Instagram-Tabelle, aus der
-hier automatisch alle weiteren M–Z-Handles ausgelesen werden könnten.
-
-Darum behebt dieses Update:
-- den Speicher-/Importfehler,
-- die beiden konkret fehlenden verifizierten Künstler,
-- und die zukünftige Synchronisationslogik.
-
-Die zwei Handles wurden außerdem bereits direkt im aktuellen Supabase-Bestand des
-Release-Checks ergänzt. Nach Neuladen sollten sie also sofort erscheinen.
-
-Dateien:
+Geändert wurden nur diese 3 Dateien:
+- components/admin/AdminLayout.tsx
+- components/Top5GraphicGenerator.tsx
 - app/api/admin/settings/route.ts
-- lib/releaseArtistInstagramExtras.ts (neu)
 
-Keine Supabase-Migration nötig.
+ÄNDERUNG 1 – KÜNSTLER & INSTAGRAM IM LINKEN MENÜ
+- Neuer fester Menüpunkt „Künstler & Instagram“
+- Link: /admin/artists
+- Eigene Künstler-Icon-Darstellung
+- Die bereits vorhandene Künstlerverwaltung wird dadurch direkt erreichbar.
+
+ÄNDERUNG 2 – HINTERGRUNDGRAFIK-UPLOAD ÜBERALL
+Die Option „Neue Hintergrundgrafik hochladen“ wird jetzt im Release-Check-Grafikgenerator
+auch in der kompakten Dashboard-Ansicht angezeigt – also überall dort, wo Top-5/Top-12-
+Grafiken erzeugt bzw. heruntergeladen werden können.
+
+Zusätzlich:
+- Top 5 und Top 12 haben jeweils eine eigene gespeicherte Hintergrundvorlage.
+- Beim Umschalten zwischen Top 5 und Top 12 wird die passende Vorlage verwendet.
+- Eigene Top-12-Hintergrundgrafiken können jetzt ebenfalls hochgeladen, gespeichert
+  und wieder auf Standard zurückgesetzt werden.
+- Bestehende Top-5-Vorlagen bleiben unverändert kompatibel.
+- Bei dynamischen Top-5-Sonderfällen/Gleichständen bleibt weiterhin die variable
+  Standardvorlage aktiv, damit die automatisch erzeugten Zeilen korrekt funktionieren.
+
+INSTALLATION
+1. ZIP entpacken.
+2. Die enthaltenen Dateien in GitHub an exakt denselben Pfaden ersetzen.
+3. Commit speichern.
+4. Vercel neu deployen lassen.
+
+Keine Supabase-Migration nötig. Die neuen Top-12-Vorlagen werden wie die vorhandenen
+Top-5-Vorlagen über app_settings gespeichert.
+
+Prüfung:
+- TypeScript/TSX-Syntax aller drei geänderten Dateien geprüft: ohne Syntaxfehler.

@@ -70,6 +70,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, dataUrl });
   }
 
+  if (key === 'top12-template') {
+    const version = await getSetting('top12_graphic_template_version', '');
+    if (version !== 'clean-v1') return NextResponse.json({ ok: true, dataUrl: '' });
+    const dataUrl = await getSetting('top12_graphic_template_data_url', '');
+    return NextResponse.json({ ok: true, dataUrl });
+  }
+
   if (key === 'artist-instagram-handles') {
     const [rawHandles, rawLabels, storedSeedVersion] = await Promise.all([
       getSetting('release_check_instagram_handles', '{}'),
@@ -134,6 +141,14 @@ export async function POST(req: NextRequest) {
 
     if (typeof body.top5GraphicTemplateVersion !== 'undefined') {
       await setSetting('top5_graphic_template_version', String(body.top5GraphicTemplateVersion || ''));
+    }
+
+    if (typeof body.top12GraphicTemplateDataUrl !== 'undefined') {
+      await setSetting('top12_graphic_template_data_url', String(body.top12GraphicTemplateDataUrl || ''));
+    }
+
+    if (typeof body.top12GraphicTemplateVersion !== 'undefined') {
+      await setSetting('top12_graphic_template_version', String(body.top12GraphicTemplateVersion || ''));
     }
 
     if (typeof body.artistInstagramHandles !== 'undefined') {

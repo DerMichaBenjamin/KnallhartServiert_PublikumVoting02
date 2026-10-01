@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 
-type IconName = 'dashboard' | 'rounds' | 'dj' | 'stats' | 'imprint' | 'logout';
+type IconName = 'dashboard' | 'rounds' | 'dj' | 'stats' | 'artists' | 'imprint' | 'logout';
 
 function Icon({ name }: { name: IconName }) {
   const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8 };
@@ -11,6 +11,7 @@ function Icon({ name }: { name: IconName }) {
   if (name === 'rounds') return <svg {...common} aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4m8-4v4M4 10h16m-12 4h3m2 0h3" /></svg>;
   if (name === 'dj') return <svg {...common} aria-hidden="true"><path d="M4 13a8 8 0 0 1 16 0" /><path d="M4 13v5a2 2 0 0 0 2 2h2v-8H6a2 2 0 0 0-2 2Zm16 0v5a2 2 0 0 1-2 2h-2v-8h2a2 2 0 0 1 2 2Z" /></svg>;
   if (name === 'stats') return <svg {...common} aria-hidden="true"><path d="M4 20V10m6 10V4m6 16v-7m4 7H2" /></svg>;
+  if (name === 'artists') return <svg {...common} aria-hidden="true"><circle cx="9" cy="8" r="3" /><path d="M3.5 20v-2.5A4.5 4.5 0 0 1 8 13h2a4.5 4.5 0 0 1 4.5 4.5V20" /><circle cx="17.5" cy="9" r="2.5" /><path d="M15.5 14h1.5a4 4 0 0 1 4 4v2" /></svg>;
   if (name === 'imprint') return <svg {...common} aria-hidden="true"><path d="M7 3h8l3 3v15H7V3Z" /><path d="M15 3v4h4M10 12h5m-5 4h5" /></svg>;
   return <svg {...common} aria-hidden="true"><path d="M10 5H5v14h5m4-3 4-4-4-4m4 4H9" /></svg>;
 }
@@ -20,6 +21,7 @@ const navigation = [
   { href: '/admin/rounds', label: 'Umfragen', icon: 'rounds' as const },
   { href: '/admin/dj-voting', label: 'DJ-Bewertungen', icon: 'dj' as const },
   { href: '/admin/statistics', label: 'Statistiken', icon: 'stats' as const },
+  { href: '/admin/artists', label: 'Künstler & Instagram', icon: 'artists' as const },
   { href: '/admin/impressum', label: 'Impressum', icon: 'imprint' as const },
 ];
 
