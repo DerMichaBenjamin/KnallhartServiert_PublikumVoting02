@@ -309,13 +309,13 @@
 .ks-jury-ranking-card header { display: flex; align-items: center; gap: 10px; min-height: 56px; padding-bottom: 12px; border-bottom: 1px solid #e9edf2; }
 .ks-avatar { display: grid; place-items: center; flex: 0 0 39px; width: 39px; height: 39px; border-radius: 50%; background: #eee9ff; color: var(--ks-violet-dark); font-size: 12px; font-weight: 900; }
 .ks-jury-ranking-card header div:last-child { min-width: 0; }
-.ks-jury-ranking-card header strong, .ks-jury-ranking-card header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ks-jury-ranking-card header strong, .ks-jury-ranking-card header small { display: block; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
 .ks-jury-ranking-card header small { margin-top: 4px; color: var(--ks-muted); font-size: 10px; }
 .ks-jury-ranking-card ol { display: grid; gap: 0; margin: 9px 0 0; padding: 0; list-style: none; }
 .ks-jury-ranking-card li { display: grid; grid-template-columns: 24px minmax(0,1fr) 25px; gap: 7px; align-items: center; min-height: 34px; border-bottom: 1px solid #eef1f4; font-size: 12px; }
 .ks-jury-ranking-card .rank { color: var(--ks-violet-dark); font-weight: 900; }
-.ks-jury-ranking-card .song { min-width: 0; }
-.ks-jury-ranking-card .song strong, .ks-jury-ranking-card .song small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ks-jury-ranking-card .song { min-width: 0; height: auto; overflow: visible; }
+.ks-jury-ranking-card .song strong, .ks-jury-ranking-card .song small { display: block; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
 .ks-jury-ranking-card .song small { color: var(--ks-muted); font-size: 10px; }
 .ks-jury-ranking-card li > b { text-align: right; }
 .ks-card-open-state { margin-top: 16px; padding: 14px; border-radius: 9px; background: #fff8ed; color: #9d581d; font-size: 13px; }

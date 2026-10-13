@@ -1,8 +1,15 @@
+import type { CSSProperties } from 'react';
 import type { AdminRoundSummary, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { buildCombinedResults } from '@/lib/combinedVotingResults';
 import { buildJuryZonkResults, buildPublicZonkResults } from '@/lib/zonkResults';
 import { formatAdminDateTime } from '@/lib/adminUi';
+
+// Keep complete labels even when a cached stylesheet still has the old ellipsis rule.
+const fullLabelStyle: CSSProperties = {
+  display: 'block', whiteSpace: 'normal', overflowWrap: 'anywhere',
+  overflow: 'visible', textOverflow: 'clip', height: 'auto',
+};
 
 function songLabel(song: Song | null | undefined) {
   return song ? `${song.title} — ${song.artist}` : 'Keine Auswahl für „Knallhart durchgefallen“';
@@ -47,8 +54,8 @@ export default function ResultsJuryCards({ songs, summary, juryData }: { songs: 
       <div className="ks-section-heading"><div><span className="ks-section-kicker">Jury-Voting</span><h2>Einzelne Wertungen</h2><p>Jede persönliche Jury-Wertung plus das Publikum als gleichwertige 12-bis-1-Punkte-Stimme. Unter jeder Wertung steht zusätzlich die Auswahl für „Knallhart durchgefallen“.</p></div></div>
       <div className="ks-jury-card-scroll">
         {cards.map((card) => <article className="ks-jury-ranking-card" key={card.id}>
-          <header><div className="ks-avatar">{card.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</div><div><strong>{card.name}</strong><small>{card.id === 'audience' ? `${summary.countedVotes} gewertete Stimmen` : card.open ? 'Noch offen' : `Abgegeben · ${formatAdminDateTime(card.submittedAt)}`}</small></div></header>
-          {card.open ? <div className="ks-card-open-state">Noch keine abgeschlossene Wertung.</div> : <ol>{card.rows.map((row) => <li key={row.song.id}><span className="rank">#{row.rank}</span><span className="song"><strong>{row.song.title}</strong><small>{row.song.artist}</small></span><b>{row.points} Pkt.</b></li>)}</ol>}
+          <header><div className="ks-avatar">{card.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</div><div><strong style={fullLabelStyle}>{card.name}</strong><small>{card.id === 'audience' ? `${summary.countedVotes} gewertete Stimmen` : card.open ? 'Noch offen' : `Abgegeben · ${formatAdminDateTime(card.submittedAt)}`}</small></div></header>
+          {card.open ? <div className="ks-card-open-state">Noch keine abgeschlossene Wertung.</div> : <ol>{card.rows.map((row) => <li key={row.song.id}><span className="rank">#{row.rank}</span><span className="song"><strong style={fullLabelStyle}>{row.song.title}</strong><small style={fullLabelStyle}>{row.song.artist}</small></span><b>{row.points} Pkt.</b></li>)}</ol>}
           <div className="notice" style={{ marginTop: 12, marginBottom: 0 }}><strong>{card.zonkLabel}:</strong> {card.zonkText}</div>
         </article>)}
       </div>
