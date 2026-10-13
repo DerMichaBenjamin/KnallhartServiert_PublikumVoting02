@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { LeaderboardRow, Round, Song } from '@/lib/releaseVotingShared';
 import type { AdminJuryRoundData } from '@/lib/juryVoting';
 import { buildCombinedResults } from '@/lib/combinedVotingResults';
+import { wrapCanvasText } from '@/lib/canvasText';
 import { normalizeArtistKey, splitReleaseArtistNames } from '@/lib/artistNames';
 
 const TOP5_FIXED_TEMPLATE_SRC = '/release-check-top5-template-clean.png';
@@ -133,45 +134,6 @@ function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, wi
   ctx.closePath();
 }
 
-function wrapTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (!words.length) return [''];
-
-  const lines: string[] = [];
-  let current = '';
-
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (!current || ctx.measureText(next).width <= maxWidth) {
-      current = next;
-      continue;
-    }
-
-    lines.push(current);
-    current = word;
-
-    if (lines.length === maxLines - 1) break;
-  }
-
-  if (current) {
-    const consumedWords = lines.join(' ').split(/\s+/).filter(Boolean).length;
-    const remainingWords = words.slice(consumedWords);
-    const finalLine = remainingWords.length ? remainingWords.join(' ') : current;
-
-    if (lines.length < maxLines) {
-      if (ctx.measureText(finalLine).width <= maxWidth) lines.push(finalLine);
-      else {
-        let trimmed = finalLine;
-        while (trimmed.length > 2 && ctx.measureText(`${trimmed}…`).width > maxWidth) {
-          trimmed = trimmed.slice(0, -1).trim();
-        }
-        lines.push(`${trimmed}…`);
-      }
-    }
-  }
-
-  return lines.slice(0, maxLines);
-}
 
 function fitWrappedText(
   ctx: CanvasRenderingContext2D,
@@ -185,7 +147,7 @@ function fitWrappedText(
 ): WrappedTextResult {
   for (let size = maxFontSize; size >= minFontSize; size -= 1) {
     ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
-    const lines = wrapTextLines(ctx, text, maxWidth, maxLines);
+    const lines = wrapCanvasText(ctx, text, maxWidth);
     const widest = Math.max(...lines.map((line) => ctx.measureText(line).width));
     if (lines.length <= maxLines && widest <= maxWidth) {
       return {
@@ -196,11 +158,15 @@ function fitWrappedText(
     }
   }
 
-  return {
-    fontSize: minFontSize,
-    lines: [text],
-    lineHeight: minFontSize * 1.02,
-  };
+  let size = minFontSize;
+  while (size > 0.5) {
+    ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
+    const lines = wrapCanvasText(ctx, text, maxWidth);
+    if (lines.length <= maxLines) return { fontSize: size, lines, lineHeight: size * 1.02 };
+    size *= 0.9;
+  }
+  ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
+  return { fontSize: size, lines: wrapCanvasText(ctx, text, maxWidth), lineHeight: size * 1.02 };
 }
 
 function drawTextLine(
@@ -498,13 +464,13 @@ export default function Top5GraphicGenerator({ round, songs, publicLeaderboard, 
         const titleText = row.title.toUpperCase();
         const artistText = row.artist.toUpperCase();
         let titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, 30, 16, 'Arial Black, Arial, sans-serif');
-        let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 1, 21, 13, 'Arial Black, Arial, sans-serif');
+        let artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, 21, 13, 'Arial Black, Arial, sans-serif');
         const textGap = 4;
         let totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
 
         while (totalTextHeight > availableTextHeight && (titleWrap.fontSize > 16 || artistWrap.fontSize > 13)) {
           titleWrap = fitWrappedText(ctx, titleText, textMaxWidth, 2, titleWrap.fontSize - 1, 16, 'Arial Black, Arial, sans-serif');
-          artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 1, artistWrap.fontSize - 1, 13, 'Arial Black, Arial, sans-serif');
+          artistWrap = fitWrappedText(ctx, artistText, textMaxWidth, 2, artistWrap.fontSize - 1, 13, 'Arial Black, Arial, sans-serif');
           totalTextHeight = titleWrap.lines.length * titleWrap.lineHeight + artistWrap.lines.length * artistWrap.lineHeight + textGap;
         }
 

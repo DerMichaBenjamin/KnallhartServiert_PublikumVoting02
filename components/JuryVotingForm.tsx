@@ -188,6 +188,7 @@ export default function JuryVotingForm({
           <option value="">Keine Auswahl</option>
           {displaySongs.map((song) => <option key={song.id} value={song.id}>{combineSongLine(song)}</option>)}
         </select>
+        {displaySongs.find(song => song.id === zonkSongId) && <p className="full-song-selection">{combineSongLine(displaySongs.find(song => song.id === zonkSongId)!)}</p>}
       </section>
 
       {canEdit ? (

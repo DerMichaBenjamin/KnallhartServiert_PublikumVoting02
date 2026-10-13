@@ -317,3 +317,35 @@
     font-size: 4.8pt !important;
   }
 }
+
+/* A long name may require more paper; never crop a report to two pages. */
+@media print {
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] {
+    display: block !important; height: auto !important; min-height: 0 !important;
+    max-height: none !important; overflow: visible !important;
+  }
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] table tbody tr,
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] table tbody tr > td,
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] table tbody td strong,
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] table tbody td small {
+    height: auto !important; min-height: 0 !important; max-height: none !important;
+    overflow: visible !important; white-space: normal !important;
+    overflow-wrap: anywhere !important; text-overflow: clip !important;
+    -webkit-line-clamp: unset !important; line-height: 1.2 !important;
+  }
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] table tbody td strong,
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] table tbody td small { display: block !important; }
+}
+
+@media print {
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] td span,
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] dd,
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] dd small {
+    white-space: normal !important; overflow: visible !important;
+    overflow-wrap: anywhere !important; text-overflow: clip !important;
+  }
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] > div > section,
+  .podcast-print-root.podcast-print-root.podcast-print-root.podcast-print-root section[aria-label^="Sendungsausdruck"] > div > aside {
+    height: auto !important; max-height: none !important; overflow: visible !important;
+  }
+}

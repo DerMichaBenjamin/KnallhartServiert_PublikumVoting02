@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { drawFullCanvasText } from '@/lib/canvasText';
 import type { ReportGraphicData } from '@/lib/releaseStatisticsCore';
 import PopoverMenu from './PopoverMenu';
 
@@ -27,12 +28,6 @@ function roundedRect(context: CanvasRenderingContext2D, x: number, y: number, wi
   context.roundRect(x, y, width, height, radius);
 }
 
-function fitText(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
-  if (context.measureText(text).width <= maxWidth) return text;
-  let result = text;
-  while (result.length > 1 && context.measureText(`${result}…`).width > maxWidth) result = result.slice(0, -1);
-  return `${result}…`;
-}
 
 function drawHeader(context: CanvasRenderingContext2D, data: ReportGraphicData, heading: string, width: number) {
   context.fillStyle = COLORS.navy;
@@ -43,10 +38,10 @@ function drawHeader(context: CanvasRenderingContext2D, data: ReportGraphicData, 
   context.font = '800 30px Arial, sans-serif';
   context.fillText('KNALLHART SERVIERT · RELEASE-CHECK', 90, 74);
   context.font = '800 58px Arial, sans-serif';
-  context.fillText(fitText(context, heading, width - 180), 90, 160);
+  drawFullCanvasText(context, heading, 90, 160, width - 180, 42);
   context.font = '700 34px Arial, sans-serif';
   context.fillStyle = '#d7e2ee';
-  context.fillText(fitText(context, data.title, width - 180), 90, 218);
+  drawFullCanvasText(context, data.title, 90, 218, width - 180, 42);
   context.font = '500 24px Arial, sans-serif';
   context.fillStyle = '#afc0d1';
   context.fillText(data.period, 90, 264);
@@ -117,10 +112,10 @@ function drawResultsGraphic(data: ReportGraphicData) {
     context.fillText(String(row.rank ?? '—'), 110, rowY + 48);
     context.fillStyle = COLORS.text;
     context.font = '800 25px Arial, sans-serif';
-    context.fillText(fitText(context, row.title, 780), 220, rowY + 32);
+    drawFullCanvasText(context, row.title, 220, rowY + 32, 780, 28);
     context.fillStyle = COLORS.muted;
     context.font = '500 19px Arial, sans-serif';
-    context.fillText(fitText(context, row.artist, 780), 220, rowY + 59);
+    drawFullCanvasText(context, row.artist, 220, rowY + 59, 780, 24);
     context.fillStyle = COLORS.text;
     context.font = '800 25px Arial, sans-serif';
     context.fillText(String(row.juryPoints), 1180, rowY + 48);
@@ -178,7 +173,7 @@ function drawStatisticsGraphic(data: ReportGraphicData) {
     context.fillText(label, x + 34, y + 52);
     context.fillStyle = COLORS.text;
     context.font = '900 36px Arial, sans-serif';
-    context.fillText(fitText(context, value, cardWidth - 68), x + 34, y + 112);
+    drawFullCanvasText(context, value, x + 34, y + 112, cardWidth - 68, 42);
   });
 
   context.fillStyle = COLORS.text;
@@ -200,10 +195,10 @@ function drawStatisticsGraphic(data: ReportGraphicData) {
     context.fillText(highlight.title.toUpperCase(), x + 34, y + 43);
     context.fillStyle = COLORS.text;
     context.font = '900 28px Arial, sans-serif';
-    context.fillText(fitText(context, highlight.value, cardW - 68), x + 34, y + 93);
+    drawFullCanvasText(context, highlight.value, x + 34, y + 93, cardW - 68, 42);
     context.fillStyle = COLORS.muted;
     context.font = '500 19px Arial, sans-serif';
-    context.fillText(fitText(context, highlight.detail, cardW - 68), x + 34, y + 143);
+    drawFullCanvasText(context, highlight.detail, x + 34, y + 143, cardW - 68, 42);
   });
   drawFooter(context, width, height);
   return canvas;
@@ -259,10 +254,10 @@ function drawCombinedGraphic(data: ReportGraphicData) {
     context.fillText(String(row.rank ?? '—'), 110, rowY + 45);
     context.fillStyle = COLORS.text;
     context.font = '800 23px Arial, sans-serif';
-    context.fillText(fitText(context, row.title, 780), 220, rowY + 29);
+    drawFullCanvasText(context, row.title, 220, rowY + 29, 780, 28);
     context.fillStyle = COLORS.muted;
     context.font = '500 18px Arial, sans-serif';
-    context.fillText(fitText(context, row.artist, 780), 220, rowY + 54);
+    drawFullCanvasText(context, row.artist, 220, rowY + 54, 780, 24);
     context.fillStyle = COLORS.text;
     context.font = '800 23px Arial, sans-serif';
     context.fillText(String(row.juryPoints), 1180, rowY + 44);
@@ -298,7 +293,7 @@ function drawCombinedGraphic(data: ReportGraphicData) {
     context.fillText(label, x + 32, y + 48);
     context.fillStyle = COLORS.text;
     context.font = '900 31px Arial, sans-serif';
-    context.fillText(fitText(context, value, cardWidth - 64), x + 32, y + 105);
+    drawFullCanvasText(context, value, x + 32, y + 105, cardWidth - 64, 42);
   });
 
   context.fillStyle = COLORS.text;
@@ -320,10 +315,10 @@ function drawCombinedGraphic(data: ReportGraphicData) {
     context.fillText(highlight.title.toUpperCase(), x + 32, y + 40);
     context.fillStyle = COLORS.text;
     context.font = '900 27px Arial, sans-serif';
-    context.fillText(fitText(context, highlight.value, cardWidth - 64), x + 32, y + 88);
+    drawFullCanvasText(context, highlight.value, x + 32, y + 88, cardWidth - 64, 42);
     context.fillStyle = COLORS.muted;
     context.font = '500 18px Arial, sans-serif';
-    context.fillText(fitText(context, highlight.detail, cardWidth - 64), x + 32, y + 137);
+    drawFullCanvasText(context, highlight.detail, x + 32, y + 137, cardWidth - 64, 42);
   });
   drawFooter(context, width, height);
   return canvas;

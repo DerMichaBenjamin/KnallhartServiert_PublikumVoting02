@@ -120,3 +120,17 @@
   .jury-ranked-song .jury-song-title { font-size: 16px; }
   .jury-ranked-song .jury-song-artist { font-size: 14.5px; }
 }
+
+/* Full song and artist labels on every voting screen. */
+.jury-song-title, .jury-song-artist,
+.song-row button, .rank-row > span, .song-row .jury-song-text,
+.result-block td, .voting-main td, .zonk-results li, .top5-graphic-ranking-list li {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-overflow: clip;
+  overflow: visible;
+  min-width: 0;
+}
+.song-row button { text-align: left; height: auto; }
+.full-song-selection { margin: 8px 0 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }

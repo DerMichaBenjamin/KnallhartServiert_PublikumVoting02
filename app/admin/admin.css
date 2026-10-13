@@ -990,3 +990,16 @@
     line-height: 1.12 !important;
   }
 }
+
+/* Song labels must remain complete, including multi-artist releases. */
+.ks-admin-app .ks-table td,
+.ks-admin-app .ks-jury-ranking-card .song strong,
+.ks-admin-app .ks-jury-ranking-card .song small,
+.ks-admin-app .ks-jury-ranking-card header strong,
+.ks-admin-app .ks-import-ranking-grid label > span,
+.ks-admin-app .top5-instagram-grid label > span,
+.ks-admin-app .ks-zonk-list li > span {
+  min-width: 0; white-space: normal; overflow-wrap: anywhere;
+  overflow: visible; text-overflow: clip; height: auto;
+}
+.ks-admin-app .ks-table td { vertical-align: top; }

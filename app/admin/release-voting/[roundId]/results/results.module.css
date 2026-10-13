@@ -722,3 +722,35 @@
     font-weight: 800 !important;
   }
 }
+
+/* Complete labels take priority over compact single-line report cells. */
+.podcastSongCell, .podcastSongCell strong, .podcastSongCell small,
+.podcastSongCell .podcastArtistInline,
+.podcastVoteCell, .podcastVoteCell strong, .podcastVoteCell small,
+.podcastSummaryGrid article strong, .podcastSummaryGrid article span,
+.podcastTalkPanel dd, .podcastTalkPanel dd small,
+.podcastZonkCompact > div > span, .podcastZonkCompact > div > span small {
+  display: block !important; white-space: normal !important;
+  overflow: visible !important; overflow-wrap: anywhere !important;
+  text-overflow: clip !important; -webkit-line-clamp: unset !important;
+}
+.podcastPrintPage { height: auto !important; max-height: none !important; overflow: visible !important; }
+.podcastMasterTable tr, .podcastVotesTable tr, .podcastAudienceTable tr {
+  height: auto !important; max-height: none !important;
+}
+@media print {
+  .podcastPrintPage { display: block !important; min-height: 0 !important; }
+  .podcastMasterTable td, .podcastVotesTable td, .podcastAudienceTable td {
+    height: auto !important; max-height: none !important; white-space: normal !important;
+    overflow-wrap: anywhere !important; overflow: visible !important;
+  }
+  .podcastMasterTable tr, .podcastVotesTable tr, .podcastAudienceTable tr { break-inside: avoid; }
+}
+
+.podcastPaper { height: auto !important; max-height: none !important; overflow: visible !important; }
+.podcastSummaryGrid article span { display: block !important; }
+.podcastZonkCompact > div > span small { display: block !important; }
+@media print {
+  .podcastPaper { display: block !important; min-height: 0 !important; }
+  .podcastMasterTable td small { display: block !important; }
+}
