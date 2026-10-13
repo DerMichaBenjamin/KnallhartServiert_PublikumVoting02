@@ -53,9 +53,9 @@ export default function DetailedOverallResultsTable({ songs, summary, juryData }
     </section>
 
     <section className="ks-card">
-      <div className="ks-section-heading"><div><span className="ks-section-kicker">ZONK gesamt</span><h2>Gesamt-ZONK Jury + Publikum</h2><p>Die einzelnen ZONK-Auswahlen aus Publikum und Jury werden separat ausgewiesen und anschließend zusammengezählt. Diese Negativwahl verändert die normale Gesamtpunktzahl nicht.</p></div></div>
-      <div className="ks-table-scroll"><table className="ks-table results"><thead><tr><th>Platz</th><th>Song</th><th>Künstler</th><th>Publikum</th><th>Jury</th><th>Gesamt</th></tr></thead><tbody>{zonkRows.map((row) => <tr key={row.song.id}><td><span className="ks-rank-pill">#{row.rank}</span></td><td><strong>{row.song.title}</strong></td><td>{row.song.artist}</td><td>{row.audienceCount}</td><td>{row.juryCount}</td><td><strong>{row.total}</strong></td></tr>)}{!zonkRows.length && <tr><td colSpan={6} className="ks-table-empty">Noch keine ZONK-Stimmen aus Jury oder Publikum vorhanden.</td></tr>}</tbody></table></div>
-      <p className="ks-table-footnote">Insgesamt wurden {totalZonkVotes} ZONK-Auswahlen gewertet.</p>
+      <div className="ks-section-heading"><div><span className="ks-section-kicker">Knallhart durchgefallen gesamt</span><h2>Knallhart durchgefallen gesamt Jury + Publikum</h2><p>Die einzelnen Auswahlen für „Knallhart durchgefallen“ aus Publikum und Jury werden separat ausgewiesen und anschließend zusammengezählt. Diese Negativwahl verändert die normale Gesamtpunktzahl nicht.</p></div></div>
+      <div className="ks-table-scroll"><table className="ks-table results"><thead><tr><th>Platz</th><th>Song</th><th>Künstler</th><th>Publikum</th><th>Jury</th><th>Gesamt</th></tr></thead><tbody>{zonkRows.map((row) => <tr key={row.song.id}><td><span className="ks-rank-pill">#{row.rank}</span></td><td><strong>{row.song.title}</strong></td><td>{row.song.artist}</td><td>{row.audienceCount}</td><td>{row.juryCount}</td><td><strong>{row.total}</strong></td></tr>)}{!zonkRows.length && <tr><td colSpan={6} className="ks-table-empty">Noch keine Stimmen für „Knallhart durchgefallen“ aus Jury oder Publikum vorhanden.</td></tr>}</tbody></table></div>
+      <p className="ks-table-footnote">Insgesamt wurden {totalZonkVotes} Auswahlen für „Knallhart durchgefallen“ gewertet.</p>
     </section>
   </>;
 }

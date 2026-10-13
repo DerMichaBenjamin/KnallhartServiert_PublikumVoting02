@@ -182,10 +182,10 @@ export default function JuryVotingForm({
       </div>
 
       <section className="card zonk jury-zonk-card">
-        <h3>ZONK – Song der Woche <small>(optional)</small></h3>
+        <h3>Knallhart durchgefallen <small>(optional)</small></h3>
         <p>Wähle hier zusätzlich den schlechtesten Song der Woche. Diese Auswahl ist unabhängig von deiner Top-12-Punktewertung.</p>
         <select value={zonkSongId} onChange={(event) => setZonkSongId(event.target.value)} disabled={!canEdit}>
-          <option value="">Keinen ZONK wählen</option>
+          <option value="">Keine Auswahl</option>
           {displaySongs.map((song) => <option key={song.id} value={song.id}>{combineSongLine(song)}</option>)}
         </select>
       </section>

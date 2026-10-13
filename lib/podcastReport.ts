@@ -160,7 +160,7 @@ export function buildPodcastReportData(
       audienceWinner: songLabel(audienceWinner?.song),
       audienceWinnerDetail: audienceWinner ? `${audienceWinner.total} Publikumspunkte · Ø ${audienceWinner.avg.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : 'Noch keine Publikumswertung',
       zonkWinner: topZonks.length ? topZonks.map((row) => songLabel(row.song)).join(' / ') : '—',
-      zonkWinnerDetail: topZonks.length ? `${topZonkCount} ZONK-Stimme${topZonkCount === 1 ? '' : 'n'} gesamt` : 'Noch kein ZONK',
+      zonkWinnerDetail: topZonks.length ? `${topZonkCount} ${topZonkCount === 1 ? 'Stimme' : 'Stimmen'} für „Knallhart durchgefallen“ gesamt` : 'Noch keine Auswahl für „Knallhart durchgefallen“',
       strongestSplit: biggestSplit ? songLabel(biggestSplit.song) : '—',
       strongestSplitDetail: biggestSplit?.rankDifference == null
         ? 'Noch kein Jury-/Publikumsvergleich'

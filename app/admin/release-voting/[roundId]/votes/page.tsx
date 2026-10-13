@@ -10,7 +10,7 @@ const filters = new Set(['all', 'counted', 'review', 'excluded', 'unverified']);
 export default async function AdminVotesPage({ params, searchParams }: { params: Promise<{ roundId: string }>; searchParams: Promise<{ filter?: string }> }) {
   if (!(await isAdminLoggedIn())) redirect('/admin/login');
   const [{ roundId }, query] = await Promise.all([params, searchParams]);
-  // Auch deaktivierte Songs laden, damit alte ZONK-Nennungen weiterhin mit
+  // Auch deaktivierte Songs laden, damit alte Knallhart durchgefallen – Nennungen weiterhin mit
   // ihrem Namen angezeigt werden; in die Ergebnisberechnung fließen sie nicht ein.
   const data = await getAdminRoundDetailData(roundId, { includeParticipants: true, includeInactiveSongs: true });
   if (!data) notFound();

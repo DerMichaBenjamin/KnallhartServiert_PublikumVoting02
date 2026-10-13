@@ -354,8 +354,8 @@ export function buildReleaseWeekStatistics(
     detail: `Polarisierungsindex ${mostAgreement.polarizationIndex}/100 · ${mostAgreement.polarizationLabel}`, tone: 'success', songId: mostAgreement.song.id,
   });
   if (topZonk.length) highlights.push({
-    key: 'zonk', title: 'ZONK', value: topZonk.map((entry) => entry.song.title).join(' / '),
-    detail: `${topZonkCount} ZONK-${topZonkCount === 1 ? 'Stimme' : 'Stimmen'} · Gesamtplatz ${comparisonRows.find((row) => row.song.id === topZonk[0].song.id)?.overallRank ?? '—'}`,
+    key: 'zonk', title: 'Knallhart durchgefallen', value: topZonk.map((entry) => entry.song.title).join(' / '),
+    detail: `${topZonkCount} ${topZonkCount === 1 ? 'Stimme' : 'Stimmen'} für „Knallhart durchgefallen“ · Gesamtplatz ${comparisonRows.find((row) => row.song.id === topZonk[0].song.id)?.overallRank ?? '—'}`,
     tone: 'danger', songId: topZonk[0].song.id,
   });
   if (lastPlaced.length) highlights.push({

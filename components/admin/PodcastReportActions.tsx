@@ -137,7 +137,7 @@ function drawPage1(ctx: CanvasRenderingContext2D, top: number, data: PodcastRepo
   drawSummaryCard(ctx, MARGIN, y0, cardW, 'GESAMT', data.quick.overallWinner, data.quick.overallWinnerDetail, COLORS.orange);
   drawSummaryCard(ctx, MARGIN + (cardW + cardGap), y0, cardW, 'JURY', data.quick.juryWinner, data.quick.juryWinnerDetail, COLORS.violet);
   drawSummaryCard(ctx, MARGIN + (cardW + cardGap) * 2, y0, cardW, 'PUBLIKUM', data.quick.audienceWinner, data.quick.audienceWinnerDetail, COLORS.green);
-  drawSummaryCard(ctx, MARGIN + (cardW + cardGap) * 3, y0, cardW, 'ZONK / SPLIT', data.quick.zonkWinner, data.quick.strongestSplitDetail, COLORS.red);
+  drawSummaryCard(ctx, MARGIN + (cardW + cardGap) * 3, y0, cardW, 'Knallhart durchgefallen', data.quick.zonkWinner, data.quick.strongestSplitDetail, COLORS.red);
 
   const tableTop = y0 + 120;
   const jurorCount = Math.max(1, data.jurors.length);
@@ -165,7 +165,7 @@ function drawPage2(ctx: CanvasRenderingContext2D, top: number, data: PodcastRepo
 
   const columns = [...data.jurors.map((j) => ({ id: j.id, name: j.name, rows: j.rows, zonk: j.zonk || '—', submitted: j.submitted })), { id: 'audience', name: 'Publikum', rows: data.audienceCard.rows, zonk: data.audienceCard.zonk || '—', submitted: data.summary.countedAudienceVotes > 0 }];
   const voteTop = top + 126;
-  const firstW = 58;
+  const firstW = 158;
   const colW = (PAGE_W - MARGIN * 2 - firstW) / Math.max(1, columns.length);
   const widths = [firstW, ...columns.map(() => colW)];
   const headers = ['PL.', ...columns.map((c) => c.name)];
@@ -177,7 +177,7 @@ function drawPage2(ctx: CanvasRenderingContext2D, top: number, data: PodcastRepo
       return row ? `${row.title} — ${row.artist}` : '—';
     })];
   });
-  voteRows.push(['ZONK', ...columns.map((c) => c.zonk)]);
+  voteRows.push(['Knallhart durchgefallen', ...columns.map((c) => c.zonk)]);
   const voteBottom = drawTable(ctx, voteTop, MARGIN, headers, widths, voteRows, 43, { headerHeight: 38, fontSize: 11, boldCols: [0], alignCenterFrom: 0 });
 
   const bottomTop = voteBottom + 18;
@@ -206,7 +206,7 @@ function drawPage2(ctx: CanvasRenderingContext2D, top: number, data: PodcastRepo
     ctx.fillStyle = COLORS.muted; ctx.font = '600 9px Arial, sans-serif'; ctx.fillText(fit(ctx, detail, rightW - 20), rightX + 10, y + 50);
     y += 64;
   });
-  ctx.fillStyle = COLORS.red; ctx.font = '900 12px Arial, sans-serif'; ctx.fillText('ZONK GESAMT', rightX, y + 14); y += 24;
+  ctx.fillStyle = COLORS.red; ctx.font = '900 12px Arial, sans-serif'; ctx.fillText('Knallhart durchgefallen GESAMT', rightX, y + 14); y += 24;
   data.zonkRows.slice(0, 5).forEach((row) => {
     ctx.fillStyle = COLORS.text; ctx.font = '800 10px Arial, sans-serif';
     ctx.fillText(fit(ctx, `#${row.rank} ${row.title} — ${row.artist}`, rightW - 80), rightX, y + 12);

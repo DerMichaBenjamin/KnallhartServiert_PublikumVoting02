@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       throw new Error('Die Punkte müssen exakt einmal von 12 bis 1 vergeben werden.');
     }
     if (songIds.some((id) => !validSongIds.has(id))) throw new Error('Mindestens ein Song gehört nicht zu dieser Runde. Bitte Seite neu laden.');
-    if (zonkSongId && !validSongIds.has(zonkSongId)) throw new Error('Der gewählte ZONK-Song gehört nicht zu dieser Runde. Bitte Seite neu laden.');
+    if (zonkSongId && !validSongIds.has(zonkSongId)) throw new Error('Der gewählte Song für „Knallhart durchgefallen“ gehört nicht zu dieser Runde. Bitte Seite neu laden.');
 
     const now = new Date().toISOString();
     const { data: existingVote, error: existingVoteError } = await sb

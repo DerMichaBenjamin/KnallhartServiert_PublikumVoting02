@@ -181,7 +181,7 @@ export async function POST(req: Request) {
     }
 
     if (zonkSongId && !validSongIds.has(zonkSongId)) {
-      throw new Error('Ungültige ZONK-Auswahl: Dieser Song gehört nicht zu dieser Abstimmung. Bitte Seite neu laden.');
+      throw new Error('Ungültige Auswahl für „Knallhart durchgefallen“: Dieser Song gehört nicht zu dieser Abstimmung. Bitte Seite neu laden.');
     }
 
     // Fraud-/Integritätsprüfung läuft serverseitig. Auffällige Stimmen werden gespeichert und

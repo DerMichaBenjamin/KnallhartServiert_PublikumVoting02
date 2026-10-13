@@ -5,7 +5,7 @@ import { buildJuryZonkResults, buildPublicZonkResults } from '@/lib/zonkResults'
 import { formatAdminDateTime } from '@/lib/adminUi';
 
 function songLabel(song: Song | null | undefined) {
-  return song ? `${song.title} — ${song.artist}` : 'Kein ZONK gewählt';
+  return song ? `${song.title} — ${song.artist}` : 'Keine Auswahl für „Knallhart durchgefallen“';
 }
 
 export default function ResultsJuryCards({ songs, summary, juryData }: { songs: Song[]; summary: AdminRoundSummary; juryData: AdminJuryRoundData }) {
@@ -27,7 +27,7 @@ export default function ResultsJuryCards({ songs, summary, juryData }: { songs: 
       zonkText: ranking.juror.submitted_at
         ? songLabel(ranking.juror.zonk_song_id ? songById.get(ranking.juror.zonk_song_id) : null)
         : 'Noch offen',
-      zonkLabel: 'ZONK',
+      zonkLabel: 'Knallhart durchgefallen',
     })),
     {
       id: 'audience',
@@ -37,14 +37,14 @@ export default function ResultsJuryCards({ songs, summary, juryData }: { songs: 
       open: summary.countedVotes <= 0,
       zonkText: audienceTopZonks.length
         ? audienceTopZonks.map((row) => `${row.song.title} — ${row.song.artist} (${row.count})`).join(' / ')
-        : 'Noch kein Publikums-ZONK',
-      zonkLabel: 'Publikums-ZONK',
+        : 'Noch keine Publikumsauswahl für „Knallhart durchgefallen“',
+      zonkLabel: 'Knallhart durchgefallen (Publikum)',
     },
   ];
 
   return <>
     <section className="ks-card">
-      <div className="ks-section-heading"><div><span className="ks-section-kicker">Jury-Voting</span><h2>Einzelne Wertungen</h2><p>Jede persönliche Jury-Wertung plus das Publikum als gleichwertige 12-bis-1-Punkte-Stimme. Unter jeder Wertung steht zusätzlich der gewählte ZONK.</p></div></div>
+      <div className="ks-section-heading"><div><span className="ks-section-kicker">Jury-Voting</span><h2>Einzelne Wertungen</h2><p>Jede persönliche Jury-Wertung plus das Publikum als gleichwertige 12-bis-1-Punkte-Stimme. Unter jeder Wertung steht zusätzlich die Auswahl für „Knallhart durchgefallen“.</p></div></div>
       <div className="ks-jury-card-scroll">
         {cards.map((card) => <article className="ks-jury-ranking-card" key={card.id}>
           <header><div className="ks-avatar">{card.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</div><div><strong>{card.name}</strong><small>{card.id === 'audience' ? `${summary.countedVotes} gewertete Stimmen` : card.open ? 'Noch offen' : `Abgegeben · ${formatAdminDateTime(card.submittedAt)}`}</small></div></header>
@@ -55,8 +55,8 @@ export default function ResultsJuryCards({ songs, summary, juryData }: { songs: 
     </section>
 
     <section className="ks-card">
-      <div className="ks-section-heading"><div><span className="ks-section-kicker">Jury-ZONK</span><h2>ZONK-Auswertung der Jury</h2><p>{juryZonkVotes ? `${juryZonkVotes} Jury-ZONK-Stimmen wurden abgegeben.` : 'Noch keine Jury-ZONK-Stimme vorhanden.'}</p></div></div>
-      <div className="ks-table-scroll"><table className="ks-table results"><thead><tr><th>Platz</th><th>Song</th><th>Künstler</th><th>ZONK-Stimmen Jury</th></tr></thead><tbody>{juryZonkRows.map((row) => <tr key={row.song.id}><td><span className="ks-rank-pill">#{row.rank}</span></td><td><strong>{row.song.title}</strong></td><td>{row.song.artist}</td><td><strong>{row.count}</strong></td></tr>)}{!juryZonkRows.length && <tr><td colSpan={4} className="ks-table-empty">Noch keine Jury-ZONK-Stimmen vorhanden.</td></tr>}</tbody></table></div>
+      <div className="ks-section-heading"><div><span className="ks-section-kicker">Knallhart durchgefallen (Jury)</span><h2>Auswertung „Knallhart durchgefallen“ der Jury</h2><p>{juryZonkVotes ? `${juryZonkVotes} Jurystimmen für „Knallhart durchgefallen“ wurden abgegeben.` : 'Noch keine Jurystimme für „Knallhart durchgefallen“ vorhanden.'}</p></div></div>
+      <div className="ks-table-scroll"><table className="ks-table results"><thead><tr><th>Platz</th><th>Song</th><th>Künstler</th><th>Stimmen für „Knallhart durchgefallen“ Jury</th></tr></thead><tbody>{juryZonkRows.map((row) => <tr key={row.song.id}><td><span className="ks-rank-pill">#{row.rank}</span></td><td><strong>{row.song.title}</strong></td><td>{row.song.artist}</td><td><strong>{row.count}</strong></td></tr>)}{!juryZonkRows.length && <tr><td colSpan={4} className="ks-table-empty">Noch keine Jurystimmen für „Knallhart durchgefallen“ vorhanden.</td></tr>}</tbody></table></div>
     </section>
   </>;
 }

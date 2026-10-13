@@ -124,8 +124,8 @@ function buildVoteSummaryHtml(selections: VerificationEmailSelection[] = [], zon
     : '';
 
   const zonkBlock = zonkSelection
-    ? `<p style="margin:18px 0 0"><strong>ZONK – Song der Woche:</strong><br>${escapeHtml(formatSongLine(zonkSelection))}</p>`
-    : `<p style="margin:18px 0 0;color:#64748b"><strong>ZONK – Song der Woche:</strong><br>Kein ZONK gewählt.</p>`;
+    ? `<p style="margin:18px 0 0"><strong>Knallhart durchgefallen:</strong><br>${escapeHtml(formatSongLine(zonkSelection))}</p>`
+    : `<p style="margin:18px 0 0;color:#64748b"><strong>Knallhart durchgefallen:</strong><br>Keine Auswahl für „Knallhart durchgefallen“.</p>`;
 
   return `${rankingBlock}${zonkBlock}`;
 }
@@ -140,7 +140,7 @@ function buildVoteSummaryText(selections: VerificationEmailSelection[] = [], zon
     }
   }
 
-  lines.push('', `ZONK – Song der Woche: ${zonkSelection ? formatSongLine(zonkSelection) : 'Kein ZONK gewählt.'}`);
+  lines.push('', `Knallhart durchgefallen: ${zonkSelection ? formatSongLine(zonkSelection) : 'Keine Auswahl für „Knallhart durchgefallen“.'}`);
 
   return lines.join('\n');
 }

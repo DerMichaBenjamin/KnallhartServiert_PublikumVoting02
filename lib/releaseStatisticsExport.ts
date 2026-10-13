@@ -8,7 +8,7 @@ const RESULT_HEADERS = [
   'Publikum 12–1 Punkte', 'Publikumspunkte Rohwert', 'Ø Publikum', 'Publikumsnennungen', 'Publikumsplatz',
   'Abweichung Publikum/Jury', 'Polarisierungsindex', 'Polarisierungsbeschreibung',
   'Ø Einzelbewertung', 'Höchste Einzelbewertung', 'Niedrigste Einzelbewertung',
-  '12-Punkte-Wertungen', 'Nullwertungen', 'Streuung Einzelbewertungen', 'Anzahl Einzelbewertungen', 'ZONK-Stimmen',
+  '12-Punkte-Wertungen', 'Nullwertungen', 'Streuung Einzelbewertungen', 'Anzahl Einzelbewertungen', 'Stimmen für „Knallhart durchgefallen“',
   'Publikumsstimmen gesamt', 'Publikumsstimmen gewertet', 'Juroren abgegeben', 'Juroren aktiv',
 ];
 

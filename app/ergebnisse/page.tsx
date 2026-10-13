@@ -115,7 +115,7 @@ export default async function Ergebnisse() {
             </div>
 
             <div className="zonk-results">
-              <h3>ZONK – Song der Woche</h3>
+              <h3>Knallhart durchgefallen</h3>
               {zonk.length ? (
                 <ol>
                   {zonk.map((entry) => (
@@ -125,7 +125,7 @@ export default async function Ergebnisse() {
                   ))}
                 </ol>
               ) : (
-                <p>Noch keine bestätigten ZONK-Stimmen vorhanden.</p>
+                <p>Noch keine bestätigten Stimmen für „Knallhart durchgefallen“ vorhanden.</p>
               )}
             </div>
           </section>

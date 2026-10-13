@@ -81,7 +81,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
           <span>{data.quick.audienceWinnerDetail} · {data.summary.countedAudienceVotes} gewertet</span>
         </article>
         <article className={styles.podcastSummaryZonk}>
-          <small>ZONK / ABWEICHUNG</small>
+          <small>Knallhart durchgefallen</small>
           <strong>{data.quick.zonkWinner}</strong>
           <span>{data.quick.zonkWinnerDetail} · Größte Abweichung: {data.quick.strongestSplit}</span>
         </article>
@@ -157,7 +157,7 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
               <td className={`${styles.podcastVoteCell} ${styles.podcastVoteAudience}`}>{data.audienceCard.rows[place - 1] ? <><strong>{data.audienceCard.rows[place - 1].title}</strong><small>{data.audienceCard.rows[place - 1].artist}</small></> : <span>—</span>}</td>
             </tr>)}
             <tr className={styles.podcastZonkRow}>
-              <td><b>ZONK</b></td>
+              <td><b>Knallhart<br />durchgefallen</b></td>
               {data.jurors.map((juror) => <td key={juror.id}>{juror.zonk || '—'}</td>)}
               <td>{data.audienceCard.zonk || '—'}</td>
             </tr>
@@ -185,9 +185,9 @@ export default function PodcastReport({ data }: { data: PodcastReportData }) {
             <div><dt>Größte Abweichung</dt><dd>{data.quick.strongestSplit}<small>{data.quick.strongestSplitDetail}</small></dd></div>
           </dl>
           <div className={styles.podcastZonkCompact}>
-            <strong>ZONK gesamt</strong>
+            <strong>Knallhart durchgefallen gesamt</strong>
             {data.zonkRows.slice(0, 5).map((row) => <div key={`z-${row.rank}-${row.title}`}><b>#{row.rank}</b><span>{row.title}<small>{row.artist}</small></span><em>P {row.audience} · J {row.jury} · Σ {row.total}</em></div>)}
-            {!data.zonkRows.length && <p>Noch keine ZONK-Stimmen.</p>}
+            {!data.zonkRows.length && <p>Noch keine Stimmen für „Knallhart durchgefallen“.</p>}
           </div>
         </aside>
       </div>
