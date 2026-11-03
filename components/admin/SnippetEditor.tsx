@@ -46,6 +46,28 @@ function save(blob: Blob, name: string) {
   a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
   window.setTimeout(()=>URL.revokeObjectURL(url),120000);
 }
+function zipFiles(files: {name: string; blob: Blob}[]): Promise<Blob> {
+  const crcTable = Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
+  const crc32 = (bytes:Uint8Array) => {let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
+  return (async()=>{
+    const encoder=new TextEncoder(),local:Uint8Array[]=[],central:Uint8Array[]=[];
+    let offset=0;
+    for(const file of files){
+      const name=encoder.encode(file.name),bytes=new Uint8Array(await file.blob.arrayBuffer()),crc=crc32(bytes);
+      const lh=new Uint8Array(30+name.length),lv=new DataView(lh.buffer);
+      lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0x800,true);
+      lv.setUint32(14,crc,true);lv.setUint32(18,bytes.length,true);lv.setUint32(22,bytes.length,true);lv.setUint16(26,name.length,true);lh.set(name,30);
+      local.push(lh,bytes);
+      const ch=new Uint8Array(46+name.length),cv=new DataView(ch.buffer);
+      cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x800,true);
+      cv.setUint32(16,crc,true);cv.setUint32(20,bytes.length,true);cv.setUint32(24,bytes.length,true);cv.setUint16(28,name.length,true);cv.setUint32(42,offset,true);ch.set(name,46);
+      central.push(ch);offset+=lh.length+bytes.length;
+    }
+    const directorySize=central.reduce((n,b)=>n+b.length,0),end=new Uint8Array(22),v=new DataView(end.buffer);
+    v.setUint32(0,0x06054b50,true);v.setUint16(8,files.length,true);v.setUint16(10,files.length,true);v.setUint32(12,directorySize,true);v.setUint32(16,offset,true);
+    return new Blob([...local,...central,end] as BlobPart[],{type:'application/zip'});
+  })();
+}
 function Waveform({ track, slot, onPosition }: { track: Track; slot: Slot; onPosition: (n:number)=>void }) {
   const svg = useRef<SVGSVGElement>(null);
   const end = slot.start + slot.length;
@@ -113,10 +135,8 @@ export default function SnippetEditor() {
   async function exportAll(){
     setExporting(true);setError('');
     try{
-      const JSZip=(await import('jszip')).default;
-      const zip=new JSZip();
-      for(const s of ready){const t=tracks.find(t=>t.id===s.fileId)!;zip.file(filename(s.label)+'_'+filename(t.file.name.replace(/\.[^.]+$/,''))+'.wav',wavBlob(t.buffer,s.start,s.length));}
-      save(await zip.generateAsync({type:'blob'}),'KHS_Release_Check_Snippets.zip');
+      const files=ready.map(s=>{const t=tracks.find(t=>t.id===s.fileId)!;return {name:filename(s.label)+'_'+filename(t.file.name.replace(/\\.[^.]+$/,''))+'.wav',blob:wavBlob(t.buffer,s.start,s.length)};});
+      save(await zipFiles(files),'KHS_Release_Check_Snippets.zip');
     }catch{setError('ZIP konnte nicht erstellt werden. Einzel-Downloads sind weiterhin möglich.');}
     finally{setExporting(false);}
   }
