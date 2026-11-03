@@ -135,7 +135,7 @@ export default function SnippetEditor() {
   async function exportAll(){
     setExporting(true);setError('');
     try{
-      const files=ready.map(s=>{const t=tracks.find(t=>t.id===s.fileId)!;return {name:filename(s.label)+'_'+filename(t.file.name.replace(/\\.[^.]+$/,''))+'.wav',blob:wavBlob(t.buffer,s.start,s.length)};});
+      const files=ready.map(s=>{const t=tracks.find(t=>t.id===s.fileId)!;return {name:filename(s.label)+'_'+filename(t.file.name.replace(/\.[^.]+$/,''))+'.wav',blob:wavBlob(t.buffer,s.start,s.length)};});
       save(await zipFiles(files),'KHS_Release_Check_Snippets.zip');
     }catch{setError('ZIP konnte nicht erstellt werden. Einzel-Downloads sind weiterhin möglich.');}
     finally{setExporting(false);}
