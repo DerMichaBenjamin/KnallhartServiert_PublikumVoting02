@@ -46,13 +46,14 @@ function save(blob: Blob, name: string) {
   a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
   window.setTimeout(()=>URL.revokeObjectURL(url),120000);
 }
-function zipFiles(files: {name: string; blob: Blob}[]): Promise<Blob> {
+function zipFiles(files: {name: string; blob: Blob}[], onProgress?: (done:number,total:number)=>void): Promise<Blob> {
   const crcTable = Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
   const crc32 = (bytes:Uint8Array) => {let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
   return (async()=>{
     const encoder=new TextEncoder(),local:Uint8Array[]=[],central:Uint8Array[]=[];
     let offset=0;
-    for(const file of files){
+    for(const [index,file] of files.entries()){
+      await new Promise<void>(resolve=>setTimeout(resolve,0));
       const name=encoder.encode(file.name),bytes=new Uint8Array(await file.blob.arrayBuffer()),crc=crc32(bytes);
       const lh=new Uint8Array(30+name.length),lv=new DataView(lh.buffer);
       lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0x800,true);
@@ -62,6 +63,7 @@ function zipFiles(files: {name: string; blob: Blob}[]): Promise<Blob> {
       cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x800,true);
       cv.setUint32(16,crc,true);cv.setUint32(20,bytes.length,true);cv.setUint32(24,bytes.length,true);cv.setUint16(28,name.length,true);cv.setUint32(42,offset,true);ch.set(name,46);
       central.push(ch);offset+=lh.length+bytes.length;
+      onProgress?.(index+1,files.length);
     }
     const directorySize=central.reduce((n,b)=>n+b.length,0),end=new Uint8Array(22),v=new DataView(end.buffer);
     v.setUint32(0,0x06054b50,true);v.setUint16(8,files.length,true);v.setUint16(10,files.length,true);v.setUint32(12,directorySize,true);v.setUint32(16,offset,true);
@@ -91,10 +93,14 @@ export default function SnippetEditor() {
   const [error,setError]=useState('');
   const [playing,setPlaying]=useState<string|null>(null);
   const [exporting,setExporting]=useState(false);
+  const [exportProgress,setExportProgress]=useState(0);
+  const [exportStatus,setExportStatus]=useState('');
+  const [finishedZip,setFinishedZip]=useState<{url:string;name:string}|null>(null);
+  const lastZipUrl=useRef<string|null>(null);
   const audioContext=useRef<AudioContext|null>(null);
   const active=useRef<{source:AudioBufferSourceNode; timer:ReturnType<typeof setTimeout>}|null>(null);
   const fileInput=useRef<HTMLInputElement>(null);
-  useEffect(()=>()=>{if(active.current){clearTimeout(active.current.timer);try{active.current.source.stop();}catch{}};void audioContext.current?.close();},[]);
+  useEffect(()=>()=>{if(active.current){clearTimeout(active.current.timer);try{active.current.source.stop();}catch{}};if(lastZipUrl.current)URL.revokeObjectURL(lastZipUrl.current);void audioContext.current?.close();},[]);
   function change(id:string,values:Partial<Slot>){setSlots(old=>old.map(s=>s.id===id?{...s,...values}:s));}
   function stop(){if(active.current){clearTimeout(active.current.timer);try{active.current.source.stop();}catch{}active.current=null;}setPlaying(null);}
   async function upload(files:FileList|null){
@@ -133,12 +139,39 @@ export default function SnippetEditor() {
     save(wavBlob(t.buffer,s.start,s.length),filename(s.label)+'_'+filename(t.file.name.replace(/\.[^.]+$/,''))+'.wav');
   }
   async function exportAll(){
-    setExporting(true);setError('');
+    if(exporting || !ready.length)return;
+    setExporting(true);setError('');setExportProgress(0);setExportStatus('Audiodateien werden vorbereitet …');
+    setFinishedZip(null);
+    if(lastZipUrl.current){URL.revokeObjectURL(lastZipUrl.current);lastZipUrl.current=null;}
     try{
-      const files=ready.map(s=>{const t=tracks.find(t=>t.id===s.fileId)!;return {name:filename(s.label)+'_'+filename(t.file.name.replace(/\.[^.]+$/,''))+'.wav',blob:wavBlob(t.buffer,s.start,s.length)};});
-      save(await zipFiles(files),'KHS_Release_Check_Snippets.zip');
-    }catch{setError('ZIP konnte nicht erstellt werden. Einzel-Downloads sind weiterhin möglich.');}
-    finally{setExporting(false);}
+      // Give React an opportunity to paint the progress indicator before CPU work.
+      await new Promise<void>(resolve=>setTimeout(resolve,30));
+      const files: {name:string;blob:Blob}[]=[];
+      for(const [index,s] of ready.entries()){
+        const t=tracks.find(t=>t.id===s.fileId);
+        if(!t || !valid(s,t))throw new Error('Ungültige Song-Zuordnung');
+        files.push({name:filename(s.label)+'_'+filename(t.file.name.replace(/\.[^.]+$/,''))+'.wav',blob:wavBlob(t.buffer,s.start,s.length)});
+        setExportProgress(Math.round((index+1)/ready.length*65));
+        setExportStatus(`Audioausschnitte erstellen: ${index+1} von ${ready.length}`);
+        await new Promise<void>(resolve=>setTimeout(resolve,0));
+      }
+      setExportStatus('ZIP-Datei zusammenstellen …');
+      const zip=await zipFiles(files,(done,total)=>{
+        setExportProgress(65+Math.round(done/total*34));
+        setExportStatus(`ZIP-Datei packen: ${done} von ${total} Dateien`);
+      });
+      const url=URL.createObjectURL(zip);
+      lastZipUrl.current=url;
+      const name='KHS_Release_Check_Snippets.zip';
+      setFinishedZip({url,name});
+      setExportProgress(100);
+      setExportStatus('Fertig! Die ZIP-Datei kann jetzt heruntergeladen werden.');
+      // Automatic download first; the persistent download link is the fallback.
+      const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    }catch(e){
+      setError('ZIP-Export fehlgeschlagen: '+(e instanceof Error?e.message:'Unbekannter Fehler')+'. Einzelne WAV-Dateien kannst du weiterhin herunterladen.');
+      setExportStatus('Export fehlgeschlagen.');
+    }finally{setExporting(false);}
   }
   const field:React.CSSProperties={padding:'9px 12px',border:'1px solid #cbd5e1',borderRadius:10,background:'#fff',maxWidth:'100%'};
   const action:React.CSSProperties={...field,cursor:'pointer',fontWeight:800};
@@ -191,6 +224,14 @@ export default function SnippetEditor() {
       <button style={action} onClick={()=>setSlots(old=>[...old,createSlot('extra-'+crypto.randomUUID(),'Platz '+(old.filter(x=>x.id.startsWith('platz-')||x.id.startsWith('extra-')).length+1))])}>＋ Weiteren Platz hinzufügen</button>
       <button style={{...action,background:'#f05a16',color:'#fff',border:'none',padding:'13px 18px'}} disabled={!ready.length||exporting} onClick={()=>void exportAll()}>{exporting?'ZIP wird erstellt …':`↓ Alle fertigen Snippets als ZIP (${ready.length})`}</button>
     </div>
+    {(exporting || exportStatus)&&<div role="status" aria-live="polite" style={{marginTop:16,padding:16,borderRadius:14,background:'#fff',border:'1px solid #cbd5e1'}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:12,fontWeight:800}}><span>{exportStatus}</span><span>{exportProgress}%</span></div>
+      <progress value={exportProgress} max={100} aria-label="ZIP-Export Fortschritt" style={{width:'100%',height:18,marginTop:10,accentColor:'#f05a16'}} />
+      {finishedZip&&<div style={{marginTop:12}}>
+        <a href={finishedZip.url} download={finishedZip.name} style={{display:'inline-block',background:'#15803d',color:'white',padding:'12px 16px',borderRadius:10,fontWeight:900}}>↓ Fertige ZIP-Datei herunterladen</a>
+        <p style={{margin:'8px 0 0',fontSize:13,color:'#64748b'}}>Falls der automatische Download nicht gestartet ist, hier klicken. Die Datei bleibt bis zum Verlassen oder Neuladen dieser Seite verfügbar.</p>
+      </div>}
+    </div>}
     <p style={{fontSize:13,color:'#64748b',marginTop:18}}>Export als unkomprimierte WAV-Datei in Original-Samplerate (16 Bit). Damit vermeidest du einen Qualitätsverlust durch erneutes MP3-Encoding. Die meisten Schnittprogramme und Riverside-Workflows akzeptieren WAV.</p>
   </div>;
 }
