@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-type Slot = { id: string; label: string; fileId: string | null; start: number; length: number };
+type Slot = { id: string; label: string; rank: number | null; fileId: string | null; start: number; length: number };
 type Track = { id: string; file: File; duration: number; buffer: AudioBuffer; waveform: number[] };
-const createSlot = (id: string, label: string): Slot => ({ id, label, fileId: null, start: 0, length: 10 });
+const createSlot = (id: string, label: string, rank: number | null = null): Slot => ({ id, label, rank, fileId: null, start: 0, length: 10 });
+const slotTitle = (slot: Slot) => slot.rank !== null ? 'Platz ' + slot.rank : slot.label;
+const snippetName = (slot: Slot, track: Track) => filename(slotTitle(slot)) + '_' + filename(track.file.name.replace(/\.[^.]+$/,'')) + '.wav';
 const initialSlots = (): Slot[] => [
-  ...Array.from({ length: 5 }, (_, i) => createSlot('platz-' + (i + 1), 'Platz ' + (i + 1))),
+  ...Array.from({ length: 5 }, (_, i) => createSlot('platz-' + (i + 1), 'Top-Song ' + (i + 1), i + 1)),
   ...Array.from({ length: 3 }, (_, i) => createSlot('zonk-' + (i + 1), 'Zonk ' + (i + 1))),
 ];
 const fmt = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toFixed(1).padStart(4, '0')}`;
@@ -75,7 +77,7 @@ function Waveform({ track, slot, onPosition }: { track: Track; slot: Slot; onPos
   const end = slot.start + slot.length;
   return <div>
     <svg ref={svg} viewBox="0 0 800 96" preserveAspectRatio="none" role="slider" tabIndex={0}
-      aria-label={'Startpunkt für ' + slot.label} aria-valuemin={0} aria-valuemax={Math.max(0,track.duration-slot.length)}
+      aria-label={'Startpunkt für ' + slotTitle(slot)} aria-valuemin={0} aria-valuemax={Math.max(0,track.duration-slot.length)}
       aria-valuenow={slot.start} style={{width:'100%',height:100,cursor:'crosshair',background:'#17202c',borderRadius:10,touchAction:'none'}}
       onPointerDown={e=>{const bounds=e.currentTarget.getBoundingClientRect(); onPosition(clamp((e.clientX-bounds.left)/bounds.width*track.duration-slot.length/2,0,Math.max(0,track.duration-slot.length))); e.currentTarget.setPointerCapture(e.pointerId);}}
       onPointerMove={e=>{if(e.buttons===1){const bounds=e.currentTarget.getBoundingClientRect(); onPosition(clamp((e.clientX-bounds.left)/bounds.width*track.duration-slot.length/2,0,Math.max(0,track.duration-slot.length)));}}}
@@ -136,7 +138,7 @@ export default function SnippetEditor() {
   const ready=slots.filter(s=>valid(s,tracks.find(t=>t.id===s.fileId)));
   async function exportOne(s:Slot){
     const t=tracks.find(t=>t.id===s.fileId);if(!valid(s,t)||!t)return;
-    save(wavBlob(t.buffer,s.start,s.length),filename(s.label)+'_'+filename(t.file.name.replace(/\.[^.]+$/,''))+'.wav');
+    save(wavBlob(t.buffer,s.start,s.length),snippetName(s,t));
   }
   async function exportAll(){
     if(exporting || !ready.length)return;
@@ -147,10 +149,15 @@ export default function SnippetEditor() {
       // Give React an opportunity to paint the progress indicator before CPU work.
       await new Promise<void>(resolve=>setTimeout(resolve,30));
       const files: {name:string;blob:Blob}[]=[];
+      const usedNames=new Map<string,number>();
       for(const [index,s] of ready.entries()){
         const t=tracks.find(t=>t.id===s.fileId);
         if(!t || !valid(s,t))throw new Error('Ungültige Song-Zuordnung');
-        files.push({name:filename(s.label)+'_'+filename(t.file.name.replace(/\.[^.]+$/,''))+'.wav',blob:wavBlob(t.buffer,s.start,s.length)});
+        const baseName=snippetName(s,t);
+        const number=(usedNames.get(baseName)||0)+1;
+        usedNames.set(baseName,number);
+        const name=number===1?baseName:baseName.replace(/\.wav$/i,'_'+number+'.wav');
+        files.push({name,blob:wavBlob(t.buffer,s.start,s.length)});
         setExportProgress(Math.round((index+1)/ready.length*65));
         setExportStatus(`Audioausschnitte erstellen: ${index+1} von ${ready.length}`);
         await new Promise<void>(resolve=>setTimeout(resolve,0));
@@ -179,7 +186,7 @@ export default function SnippetEditor() {
     <header style={{marginBottom:24}}>
       <p style={{color:'#ea580c',fontWeight:900,letterSpacing:2,fontSize:12}}>KNALLHART SERVIERT · RELEASE-CHECK</p>
       <h1 style={{fontSize:36,margin:'8px 0'}}>Song-Snippets</h1>
-      <p style={{color:'#64748b'}}>Mehrere Songs hochladen, den Top-Plätzen und Zonks zuordnen und 8–12 Sekunden lange Ausschnitte erstellen. Die Dateien bleiben auf deinem Gerät.</p>
+      <p style={{color:'#64748b'}}>Mehrere Songs hochladen, die Platzierung für jeden Top-Song frei festlegen (auch mehrfach dieselbe Platzierung) und 8–12 Sekunden lange Ausschnitte erstellen. Die Dateien bleiben auf deinem Gerät.</p>
     </header>
     <section style={{padding:20,background:'#fff',borderRadius:18,boxShadow:'0 8px 30px #0000000a',marginBottom:20}}>
       <input ref={fileInput} type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg" multiple
@@ -188,7 +195,7 @@ export default function SnippetEditor() {
         {busy?'Songs werden geladen …':'＋ Songs auswählen (Mehrfach-Upload)'}
       </button>
       <span style={{marginLeft:12,color:'#64748b',fontSize:13}}>{tracks.length} Songs geladen</span>
-      {tracks.length>0&&<p style={{fontSize:13,color:'#64748b',marginBottom:0}}>Neue Songs werden automatisch freien Feldern zugeordnet. Die Zuordnung lässt sich jederzeit ändern; ein Song kann auch mehrfach verwendet werden.</p>}
+      {tracks.length>0&&<p style={{fontSize:13,color:'#64748b',marginBottom:0}}>Neue Songs werden automatisch freien Feldern zugeordnet. Song und Platzierung lassen sich unabhängig ändern; bei Gleichstand können mehrere Songs denselben Platz erhalten.</p>}
       {error&&<p role="alert" style={{color:'#b91c1c',fontWeight:700}}>{error}</p>}
     </section>
     <div style={{display:'grid',gap:16}}>
@@ -197,7 +204,15 @@ export default function SnippetEditor() {
         const ok=valid(slot,t);
         return <section key={slot.id} style={{border:'1px solid #e2e8f0',borderRadius:18,padding:18,background:'#fff',boxShadow:'0 5px 20px #00000008'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}}>
-            <h2 style={{fontSize:20,margin:0}}>{slot.label}</h2>
+            <div style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:10}}>
+              <h2 style={{fontSize:20,margin:0}}>{slot.rank!==null?'Top-Song':slot.label}</h2>
+              {slot.rank!==null&&<label style={{display:'flex',alignItems:'center',gap:6,fontSize:14,fontWeight:800}}>
+                Platzierung
+                <select value={slot.rank} aria-label={'Platzierung für '+slot.label} style={{...field,minWidth:100}} onChange={e=>change(slot.id,{rank:Number(e.target.value)})}>
+                  {Array.from({length:10},(_,i)=><option key={i+1} value={i+1}>Platz {i+1}</option>)}
+                </select>
+              </label>}
+            </div>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
               {t&&<span style={{fontSize:13,color:ok?'#15803d':'#b91c1c',fontWeight:800}}>{ok?slot.length.toFixed(1)+' Sek. ✓':'⚠ 8–12 Sekunden erforderlich'}</span>}
               {slot.id.startsWith('extra-')&&<button style={action} onClick={()=>{stop();setSlots(old=>old.filter(s=>s.id!==slot.id));}}>Entfernen</button>}
@@ -221,7 +236,7 @@ export default function SnippetEditor() {
       })}
     </div>
     <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginTop:22}}>
-      <button style={action} onClick={()=>setSlots(old=>[...old,createSlot('extra-'+crypto.randomUUID(),'Platz '+(old.filter(x=>x.id.startsWith('platz-')||x.id.startsWith('extra-')).length+1))])}>＋ Weiteren Platz hinzufügen</button>
+      <button style={action} onClick={()=>setSlots(old=>[...old,createSlot('extra-'+crypto.randomUUID(),'Zusätzlicher Top-Song',5)])}>＋ Weiteren Song / geteilten Platz hinzufügen</button>
       <button style={{...action,background:'#f05a16',color:'#fff',border:'none',padding:'13px 18px'}} disabled={!ready.length||exporting} onClick={()=>void exportAll()}>{exporting?'ZIP wird erstellt …':`↓ Alle fertigen Snippets als ZIP (${ready.length})`}</button>
     </div>
     {(exporting || exportStatus)&&<div role="status" aria-live="polite" style={{marginTop:16,padding:16,borderRadius:14,background:'#fff',border:'1px solid #cbd5e1'}}>
