@@ -134,7 +134,8 @@ export default function SnippetEditor() {
     const timer=setTimeout(()=>{active.current=null;setPlaying(null);},s.length*1000+80);
     active.current={source,timer};setPlaying(s.id);
   }
-  const valid=(s:Slot,t?:Track)=>Boolean(t && s.length>=8 && s.length<=12 && s.start>=0 && s.start+s.length<=t.duration+.0001);
+  const valid=(s:Slot,t?:Track)=>Boolean(t && Number.isFinite(s.length) && Number.isFinite(s.start) && s.length>0 && s.start>=0 && s.start+s.length<=t.duration+.0001);
+  const recommended=(s:Slot)=>s.length>=8 && s.length<=12;
   const ready=slots.filter(s=>valid(s,tracks.find(t=>t.id===s.fileId)));
   async function exportOne(s:Slot){
     const t=tracks.find(t=>t.id===s.fileId);if(!valid(s,t)||!t)return;
@@ -186,7 +187,7 @@ export default function SnippetEditor() {
     <header style={{marginBottom:24}}>
       <p style={{color:'#ea580c',fontWeight:900,letterSpacing:2,fontSize:12}}>KNALLHART SERVIERT · RELEASE-CHECK</p>
       <h1 style={{fontSize:36,margin:'8px 0'}}>Song-Snippets</h1>
-      <p style={{color:'#64748b'}}>Mehrere Songs hochladen, die Platzierung für jeden Top-Song frei festlegen (auch mehrfach dieselbe Platzierung) und 8–12 Sekunden lange Ausschnitte erstellen. Die Dateien bleiben auf deinem Gerät.</p>
+      <p style={{color:'#64748b'}}>Mehrere Songs hochladen, die Platzierung für jeden Top-Song frei festlegen (auch mehrfach dieselbe Platzierung) und Ausschnitte schneiden. 8–12 Sekunden sind empfohlen; längere Ausschnitte sind mit Warnhinweis ebenfalls möglich. Die Dateien bleiben auf deinem Gerät.</p>
     </header>
     <section style={{padding:20,background:'#fff',borderRadius:18,boxShadow:'0 8px 30px #0000000a',marginBottom:20}}>
       <input ref={fileInput} type="file" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg" multiple
@@ -202,6 +203,7 @@ export default function SnippetEditor() {
       {slots.map(slot=>{
         const t=tracks.find(t=>t.id===slot.fileId);
         const ok=valid(slot,t);
+        const inRecommendedRange=recommended(slot);
         return <section key={slot.id} style={{border:'1px solid #e2e8f0',borderRadius:18,padding:18,background:'#fff',boxShadow:'0 5px 20px #00000008'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}}>
             <div style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:10}}>
@@ -214,7 +216,7 @@ export default function SnippetEditor() {
               </label>}
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              {t&&<span style={{fontSize:13,color:ok?'#15803d':'#b91c1c',fontWeight:800}}>{ok?slot.length.toFixed(1)+' Sek. ✓':'⚠ 8–12 Sekunden erforderlich'}</span>}
+              {t&&<span style={{fontSize:13,color:!ok?'#b91c1c':inRecommendedRange?'#15803d':'#b45309',fontWeight:800}}>{!ok?'⚠ Ungültiger Ausschnitt':inRecommendedRange?slot.length.toFixed(1)+' Sek. ✓':`⚠ ${slot.length.toFixed(1)} Sek. – außerhalb der Empfehlung`}</span>}
               {slot.id.startsWith('extra-')&&<button style={action} onClick={()=>{stop();setSlots(old=>old.filter(s=>s.id!==slot.id));}}>Entfernen</button>}
             </div>
           </div>
@@ -230,7 +232,8 @@ export default function SnippetEditor() {
               <button style={action} disabled={!ok} onClick={()=>void preview(slot,t)}>{playing===slot.id?'■ Stop':'▶ Ausschnitt anhören'}</button>
               <button style={{...action,background:ok?'#17202c':'#e2e8f0',color:ok?'#fff':'#64748b'}} disabled={!ok} onClick={()=>void exportOne(slot)}>↓ WAV herunterladen</button>
             </div>
-            {!ok&&<p role="alert" style={{fontSize:13,color:'#b91c1c',marginBottom:0}}>Der Ausschnitt muss 8 bis 12 Sekunden lang sein und vollständig innerhalb des Songs liegen.</p>}
+            {t&&!ok&&<p role="alert" style={{fontSize:13,color:'#b91c1c',marginBottom:0}}>Der Ausschnitt muss länger als 0 Sekunden sein und vollständig innerhalb des Songs liegen. Bitte Start oder Länge anpassen.</p>}
+            {t&&ok&&!inRecommendedRange&&<p role="status" style={{fontSize:13,color:'#b45309',marginBottom:0}}>Hinweis: Empfohlen sind 8–12 Sekunden. Dieser Ausschnitt kann trotzdem vorgehört und exportiert werden.</p>}
           </>}
         </section>;
       })}
